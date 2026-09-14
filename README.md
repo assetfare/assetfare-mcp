@@ -1,6 +1,6 @@
-# AssetFare MCP
+# AssetFare MCP — Solana to Base bridge API for AI agents
 
-An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH workflow.
+An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH workflow. Use it when an AI agent needs a verifiable Solana-to-Base quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
 
 ## Safety model
 
@@ -42,3 +42,9 @@ is intentionally deferred until a separate package-release review.
 - OpenAPI: `https://api.assetfare.dev/openapi.json`
 
 The wrapper deliberately contains no AssetFare route engine, wallets, RPC credentials, or internal operations data.
+
+## Agent use case
+
+For a Solana-to-Base $300 request, an agent reads the signed manifest and status, calls `assetfare_quote`, compares disclosed executable receive and ETA, and only then asks the wallet owner to approve the non-transactional login message. The agent independently signs and submits every on-chain action; this MCP server never does.
+
+See the first-call evaluation script and the public mainnet evidence at https://assetfare.dev/evidence/.
