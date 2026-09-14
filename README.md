@@ -68,6 +68,7 @@ is intentionally deferred until a separate package-release review.
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
 - Agent guide: `https://assetfare.dev/llms-full.txt`
 - Mainnet evidence: `https://assetfare.dev/evidence/`
+- Live same-input comparison: `https://assetfare.dev/compare/solana-to-base/`
 
 ## Discovery
 
