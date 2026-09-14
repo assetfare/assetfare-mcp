@@ -132,6 +132,10 @@ async function serveHttp() {
   app.use(express.json({ limit: "32kb", type: ["application/json", "application/*+json"] }));
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp", version: VERSION }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
+  app.head("/mcp", (req, res) => {
+    if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
+    return res.set("allow", "GET, HEAD, POST, OPTIONS").set("cache-control", "no-store").status(200).end();
+  });
   app.all("/mcp", async (req, res) => {
     if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
     try {
