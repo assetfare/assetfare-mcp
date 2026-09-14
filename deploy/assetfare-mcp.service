@@ -1,0 +1,35 @@
+[Unit]
+Description=AssetFare public MCP wrapper
+After=network-online.target routeagent-quote.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/claude-work/assetfare-mcp
+Environment=ASSETFARE_API_BASE_URL=http://127.0.0.1:8788
+Environment=ASSETFARE_MCP_HOST=127.0.0.1
+Environment=ASSETFARE_MCP_PORT=8790
+Environment=NODE_ENV=production
+Environment=PATH=/home/ec2-user/.nvm/versions/node/v24.19.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/bin/node /home/ec2-user/claude-work/assetfare-mcp/src/server.js
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+TasksMax=64
+MemoryMax=256M
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

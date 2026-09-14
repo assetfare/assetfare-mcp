@@ -1,0 +1,35 @@
+{
+  "name": "assetfare-mcp",
+  "version": "0.1.0",
+  "description": "Non-custodial AssetFare MCP client for capped Solana-to-Base agent execution.",
+  "type": "module",
+  "main": "src/server.js",
+  "bin": {
+    "assetfare-mcp": "src/server.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "server.json"
+  ],
+  "mcpName": "io.github.odaiin/assetfare",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odaiin/assetfare-mcp.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "express": "5.1.0",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js",
+    "test": "node src/selftest.js"
+  }
+}
