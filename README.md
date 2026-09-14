@@ -15,6 +15,11 @@ An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†
 
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
+## Agent skill
+
+The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfare-route/SKILL.md).
+Skills.lc-compatible clients can install it directly from this public GitHub repository.
+
 ## First-call evaluation
 
 Run `npm run first-call-eval` to verify a fresh MCP client can discover the
