@@ -40,6 +40,9 @@ is intentionally deferred until a separate package-release review.
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
 - Status: `https://api.assetfare.dev/v1/status`
 - OpenAPI: `https://api.assetfare.dev/openapi.json`
+- Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
+- Agent guide: `https://assetfare.dev/llms-full.txt`
+- Mainnet evidence: `https://assetfare.dev/evidence/`
 
 The wrapper deliberately contains no AssetFare route engine, wallets, RPC credentials, or internal operations data.
 
