@@ -17,11 +17,9 @@ Use Streamable HTTP. The endpoint has no server-side API key; wallet authenticat
 
 ## Local stdio
 
-```bash
-npx assetfare-mcp
-```
-
-Set `ASSETFARE_MCP_TRANSPORT=stdio` to force stdio. By default the package runs a localhost Streamable HTTP server on port 8790.
+The repository also contains a stdio-compatible wrapper for self-hosting. The
+public Registry entry uses the remote Streamable HTTP endpoint; npm publication
+is intentionally deferred until a separate package-release review.
 
 ## Trust material
 
