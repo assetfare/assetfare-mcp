@@ -50,6 +50,23 @@ function apiClient(provenance = {}) {
 function readonly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }; }
 function stateful(idempotent = false) { return { readOnlyHint: false, destructiveHint: false, idempotentHint: idempotent, openWorldHint: true }; }
 
+// This is deliberately a small, unauthenticated discovery card. MCP clients
+// obtain the complete, current tool list from the normal initialize/listTools
+// exchange; wallet-bound workflow tools require an agent-held access token.
+function serverCard() {
+  return {
+    serverInfo: { name: "AssetFare", version: VERSION },
+    authentication: { required: false, schemes: [] },
+    tools: [
+      { name: "assetfare_status", description: "Read current route capabilities, caps, and safety gates.", inputSchema: { type: "object", additionalProperties: false, properties: {} } },
+      { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: { type: "object", additionalProperties: false, properties: {} } },
+      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base ETH quote without creating a transaction.", inputSchema: { type: "object", additionalProperties: false, required: ["amount_usd"], properties: { amount_usd: { type: "integer", minimum: 250, maximum: 1000 } } } },
+    ],
+    resources: [],
+    prompts: [],
+  };
+}
+
 function addTool(server, name, description, inputSchema, annotations, action) {
   server.registerTool(name, { description, inputSchema, annotations }, async (args) => {
     try { return asText(await action(args)); }
@@ -93,6 +110,7 @@ async function serveHttp() {
   app.disable("x-powered-by");
   app.use(express.json({ limit: "32kb", type: ["application/json", "application/*+json"] }));
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp", version: VERSION }));
+  app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
   app.all("/mcp", async (req, res) => {
     if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
     try {
