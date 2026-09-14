@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer } from "./server.js";
+import { createServer, provenanceFromHeaders } from "./server.js";
 
 const server = createServer();
 const client = new Client({ name: "assetfare-mcp-selftest", version: "0.1.0" });
@@ -12,6 +12,9 @@ const names = result.tools.map((tool) => tool.name).sort();
 const required = ["assetfare_manifest", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session", "assetfare_observe_destination"];
 if (!required.every((name) => names.includes(name))) throw new Error("required MCP tools missing");
 if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP must not expose transaction submission");
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, has_submission_tool: false }));
+const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
+const spoofedProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10, 198.51.100.2", "user-agent": "agent-test/1" });
+if (validProvenance.requestIdentity !== "203.0.113.10" || spoofedProvenance.requestIdentity) throw new Error("MCP provenance validation failed");
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, has_submission_tool: false, provenance_validation: true }));
 await client.close();
 await server.close();

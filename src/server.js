@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import express from "express";
+import { isIP } from "node:net";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -22,10 +23,20 @@ function asText(value, isError = false) {
   return { isError, content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
 }
 
-async function api(path, { method = "GET", body, token } = {}) {
+function provenanceFromHeaders(headers) {
+  const forwarded = typeof headers["x-forwarded-for"] === "string" ? headers["x-forwarded-for"].trim() : "";
+  const userAgent = typeof headers["user-agent"] === "string" ? headers["user-agent"].trim().slice(0, 512) : "";
+  return { requestIdentity: forwarded && !forwarded.includes(",") && isIP(forwarded) ? forwarded : "", userAgent };
+}
+
+function apiClient(provenance = {}) {
+  return async function api(path, { method = "GET", body, token } = {}) {
   const headers = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
+  if (provenance.requestIdentity) headers["x-forwarded-for"] = provenance.requestIdentity;
+  if (provenance.userAgent) headers["user-agent"] = provenance.userAgent;
+  headers["x-assetfare-channel"] = "mcp";
   const response = await fetch(API_BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(30_000) });
   const payload = await response.json().catch(() => ({ error: "assetfare_non_json_response" }));
   if (!response.ok) {
@@ -33,6 +44,7 @@ async function api(path, { method = "GET", body, token } = {}) {
     throw Object.assign(new Error(error), { status: response.status, payload });
   }
   return payload;
+  };
 }
 
 function readonly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }; }
@@ -47,7 +59,8 @@ function addTool(server, name, description, inputSchema, annotations, action) {
   });
 }
 
-function createServer() {
+function createServer(provenance = {}) {
+  const api = apiClient(provenance);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
     { instructions: "AssetFare is non-custodial. Never request, transmit, or fabricate a private key. Tools never sign or submit transactions. Verify every returned unsigned action before the caller's own wallet signs it." },
@@ -83,7 +96,7 @@ async function serveHttp() {
   app.all("/mcp", async (req, res) => {
     if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
     try {
-      const server = createServer();
+      const server = createServer(provenanceFromHeaders(req.headers));
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on("close", () => transport.close().catch(() => {}));
       await server.connect(transport);
@@ -106,4 +119,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { createServer };
+export { createServer, provenanceFromHeaders };
