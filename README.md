@@ -13,6 +13,8 @@ An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†
 
 `https://api.assetfare.dev/mcp`
 
+Official MCP Registry server: `io.github.odaiin/assetfare`.
+
 Use Streamable HTTP. The endpoint has no server-side API key; wallet authentication happens through the AssetFare tools.
 
 ## Local stdio
