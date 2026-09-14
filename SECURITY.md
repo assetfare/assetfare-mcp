@@ -11,7 +11,8 @@ current version and immutable release commit through the signed manifest.
 
 ## Report a vulnerability privately
 
-Use GitHub's private vulnerability reporting form:
+Email `security@assetfare.dev` or use GitHub's private vulnerability reporting
+form:
 
 https://github.com/odaiin/assetfare-mcp/security/advisories/new
 

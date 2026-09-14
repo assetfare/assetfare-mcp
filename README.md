@@ -136,6 +136,7 @@ is intentionally deferred until a separate package-release review.
 
 ## Trust material
 
+- Security contact: `security@assetfare.dev`
 - Security policy and private reporting: `https://github.com/odaiin/assetfare-mcp/security/policy`
 - Signed manifest: `https://api.assetfare.dev/.well-known/assetfare-manifest.json`
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
