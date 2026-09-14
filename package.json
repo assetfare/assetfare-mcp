@@ -9,6 +9,8 @@
   },
   "files": [
     "src",
+    "scripts",
+    "skills",
     "README.md",
     "LICENSE",
     "server.json"
@@ -30,6 +32,7 @@
   "scripts": {
     "start": "node src/server.js",
     "check": "node --check src/server.js",
-    "test": "node src/selftest.js"
+    "test": "node src/selftest.js",
+    "first-call-eval": "node scripts/first-call-eval.mjs"
   }
 }

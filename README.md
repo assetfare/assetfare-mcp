@@ -15,6 +15,12 @@ An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†
 
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
+## First-call evaluation
+
+Run `npm run first-call-eval` to verify a fresh MCP client can discover the
+tools, validate the signed manifest and status, and obtain a $300 quote without
+creating a wallet login, session, signature, or transaction.
+
 Use Streamable HTTP. The endpoint has no server-side API key; wallet authentication happens through the AssetFare tools.
 
 ## Local stdio
