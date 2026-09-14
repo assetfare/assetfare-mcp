@@ -12,6 +12,8 @@ const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.d
 const HOST = process.env.ASSETFARE_MCP_HOST || "127.0.0.1";
 const PORT = Number(process.env.ASSETFARE_MCP_PORT || "8790");
 const ORIGINS = new Set((process.env.ASSETFARE_MCP_ALLOWED_ORIGINS || "https://chatgpt.com,https://chat.openai.com,https://claude.ai,https://claude.com").split(",").map((value) => value.trim()).filter(Boolean));
+const PUBLIC_HOST = process.env.ASSETFARE_MCP_PUBLIC_HOST || "api.assetfare.dev";
+const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
 
 const accessToken = z.string().min(20).max(512);
 const sessionId = z.string().uuid();
@@ -121,10 +123,12 @@ function createServer(provenance = {}) {
 }
 
 function allowedOrigin(origin) { return !origin || ORIGINS.has(origin); }
+function allowedHost(host) { return host === PUBLIC_HOST || LOCAL_HOSTS.has(host); }
 
 async function serveHttp() {
   const app = express();
   app.disable("x-powered-by");
+  app.use((req, res, next) => allowedHost(req.get("host") || "") ? next() : res.status(421).json({ error: "mcp_host_not_allowed" }));
   app.use(express.json({ limit: "32kb", type: ["application/json", "application/*+json"] }));
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp", version: VERSION }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
@@ -154,4 +158,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { createServer, provenanceFromHeaders };
+export { allowedHost, createServer, provenanceFromHeaders };

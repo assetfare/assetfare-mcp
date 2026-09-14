@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer, provenanceFromHeaders } from "./server.js";
+import { allowedHost, createServer, provenanceFromHeaders } from "./server.js";
 
 const server = createServer();
 const client = new Client({ name: "assetfare-mcp-selftest", version: "0.1.0" });
@@ -15,6 +15,7 @@ if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP m
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
 const spoofedProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10, 198.51.100.2", "user-agent": "agent-test/1" });
 if (validProvenance.requestIdentity !== "203.0.113.10" || spoofedProvenance.requestIdentity) throw new Error("MCP provenance validation failed");
+if (!allowedHost("api.assetfare.dev") || !allowedHost("127.0.0.1:8790") || allowedHost("evil.example")) throw new Error("MCP host allowlist failed");
 console.log(JSON.stringify({ status: "pass", tool_count: names.length, has_submission_tool: false, provenance_validation: true }));
 await client.close();
 await server.close();
