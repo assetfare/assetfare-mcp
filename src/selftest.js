@@ -11,6 +11,8 @@ const result = await client.listTools();
 const names = result.tools.map((tool) => tool.name).sort();
 const required = ["assetfare_manifest", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session", "assetfare_observe_destination"];
 if (!required.every((name) => names.includes(name))) throw new Error("required MCP tools missing");
+const quoteTool = result.tools.find((tool) => tool.name === "assetfare_quote");
+if (JSON.stringify(quoteTool?.inputSchema?.properties?.destination_chain?.enum) !== JSON.stringify(["base", "arbitrum"])) throw new Error("quote destination schema mismatch");
 if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP must not expose transaction submission");
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
 const spoofedProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10, 198.51.100.2", "user-agent": "agent-test/1" });

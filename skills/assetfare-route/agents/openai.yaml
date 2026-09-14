@@ -1,4 +1,4 @@
 interface:
   display_name: "AssetFare Route"
   short_description: "Verify and use capped non-custodial AssetFare routes."
-  default_prompt: "Use $assetfare-route to compare a Solana-to-Base route and produce a safe unsigned execution plan."
+  default_prompt: "Use $assetfare-route to compare a Solana-to-Base or Solana-to-Arbitrum route and produce a safe unsigned execution plan."

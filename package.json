@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.1.0",
-  "description": "Non-custodial AssetFare MCP client for capped Solana-to-Base agent execution.",
+  "version": "0.2.0",
+  "description": "Non-custodial AssetFare MCP client for capped Solana-to-Base/Arbitrum agent execution.",
   "type": "module",
   "main": "src/server.js",
   "bin": {

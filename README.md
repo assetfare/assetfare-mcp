@@ -1,8 +1,8 @@
-# AssetFare MCP — Solana to Base bridge API for AI agents
+# AssetFare MCP — Solana to Base or Arbitrum bridge API
 
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 
-An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH workflow. Use it when an AI agent needs a verifiable Solana-to-Base quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
+An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH or Arbitrum ETH workflows. Use it when an AI agent needs a verifiable quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
 
 MCP is optional. AssetFare's primary machine interface is the public REST API
 described by OpenAPI. Agents can obtain and compare a quote without installing
@@ -160,6 +160,6 @@ The wrapper deliberately contains no AssetFare route engine, wallets, RPC creden
 
 ## Agent use case
 
-For a Solana-to-Base $300 request, an agent reads the signed manifest and status, calls `assetfare_quote`, compares disclosed executable receive and ETA, and only then asks the wallet owner to approve the non-transactional login message. The agent independently signs and submits every on-chain action; this MCP server never does.
+For a Solana-to-Base or Solana-to-Arbitrum $300 request, an agent reads the signed manifest and status, calls `assetfare_quote` with `destination_chain`, compares disclosed executable receive and ETA, and only then asks the wallet owner to approve the non-transactional login message. The agent independently signs and submits every on-chain action; this MCP server never does.
 
 See the first-call evaluation script, the public mainnet evidence at https://assetfare.dev/evidence/, and the end-to-end case study at https://assetfare.dev/case-studies/solana-to-base-mainnet-canary/.
