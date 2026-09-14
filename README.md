@@ -21,6 +21,23 @@ curl -sS https://api.assetfare.dev/v1/quote \
   -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"ETH","amount_usd":300}'
 ```
 
+Connect a remote MCP client directly—no package installation or AssetFare API
+key is required:
+
+```bash
+claude mcp add --transport http assetfare https://api.assetfare.dev/mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "assetfare": {
+      "url": "https://api.assetfare.dev/mcp"
+    }
+  }
+}
+```
+
 ## Agent skill
 
 The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfare-route/SKILL.md).
@@ -49,6 +66,12 @@ is intentionally deferred until a separate package-release review.
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
 - Agent guide: `https://assetfare.dev/llms-full.txt`
 - Mainnet evidence: `https://assetfare.dev/evidence/`
+
+## Discovery
+
+- Official MCP Registry: `io.github.odaiin/assetfare`
+- Smithery: `https://smithery.ai/servers/twotw55/assetfare`
+- Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
 
 The wrapper deliberately contains no AssetFare route engine, wallets, RPC credentials, or internal operations data.
 
