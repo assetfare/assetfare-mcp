@@ -40,6 +40,62 @@ claude mcp add --transport http assetfare https://api.assetfare.dev/mcp
 }
 ```
 
+### Codex CLI and app
+
+Add the remote server from the CLI:
+
+```bash
+codex mcp add assetfare --url https://api.assetfare.dev/mcp
+```
+
+Or add it to `~/.codex/config.toml` or a project `.codex/config.toml`. The
+`writes` approval mode prompts for tools that are not annotated read-only:
+
+```toml
+[mcp_servers.assetfare]
+url = "https://api.assetfare.dev/mcp"
+default_tools_approval_mode = "writes"
+```
+
+### Gemini CLI
+
+```bash
+gemini mcp add --transport http assetfare https://api.assetfare.dev/mcp
+```
+
+Equivalent `~/.gemini/settings.json` entry:
+
+```json
+{
+  "mcpServers": {
+    "assetfare": {
+      "url": "https://api.assetfare.dev/mcp",
+      "type": "http",
+      "trust": false
+    }
+  }
+}
+```
+
+### Cursor
+
+Add the following server to a project `.cursor/mcp.json` or the global
+`~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "assetfare": {
+      "url": "https://api.assetfare.dev/mcp"
+    }
+  }
+}
+```
+
+Connecting is unauthenticated. Execution tools subsequently require the
+wallet-bound token produced by AssetFare's non-transactional signMessage flow.
+Do not place that token in any MCP configuration file.
+
 ## Agent skill
 
 The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfare-route/SKILL.md).
