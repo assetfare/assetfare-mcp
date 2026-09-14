@@ -15,6 +15,12 @@ An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†
 
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
+```bash
+curl -sS https://api.assetfare.dev/v1/quote \
+  -H 'content-type: application/json' \
+  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"ETH","amount_usd":300}'
+```
+
 ## Agent skill
 
 The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfare-route/SKILL.md).
@@ -50,4 +56,4 @@ The wrapper deliberately contains no AssetFare route engine, wallets, RPC creden
 
 For a Solana-to-Base $300 request, an agent reads the signed manifest and status, calls `assetfare_quote`, compares disclosed executable receive and ETA, and only then asks the wallet owner to approve the non-transactional login message. The agent independently signs and submits every on-chain action; this MCP server never does.
 
-See the first-call evaluation script and the public mainnet evidence at https://assetfare.dev/evidence/.
+See the first-call evaluation script, the public mainnet evidence at https://assetfare.dev/evidence/, and the end-to-end case study at https://assetfare.dev/case-studies/solana-to-base-mainnet-canary/.
