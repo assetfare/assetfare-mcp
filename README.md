@@ -1,5 +1,7 @@
 # AssetFare MCP — Solana to Base bridge API for AI agents
 
+[![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
+
 An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH workflow. Use it when an AI agent needs a verifiable Solana-to-Base quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
 
 ## Safety model
@@ -71,6 +73,7 @@ is intentionally deferred until a separate package-release review.
 
 - Official MCP Registry: `io.github.odaiin/assetfare`
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
+- Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
 
 The wrapper deliberately contains no AssetFare route engine, wallets, RPC credentials, or internal operations data.
