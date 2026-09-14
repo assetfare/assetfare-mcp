@@ -11,6 +11,7 @@
     "src",
     "scripts",
     "skills",
+    "examples",
     "README.md",
     "LICENSE",
     "server.json"

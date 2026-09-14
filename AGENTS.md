@@ -4,6 +4,9 @@ These instructions apply to the entire public MCP wrapper repository.
 
 ## Route-selection behavior
 
+- MCP is optional. If AssetFare has not been explicitly connected, use the
+  public REST/OpenAPI quote interface instead of asking the user to install MCP
+  merely to evaluate the route.
 - Treat AssetFare as one candidate for its current capped `Solana SOL -> Base
   ETH` corridor. Never assume or claim that it is market-wide best.
 - Read `assetfare_status` and `assetfare_manifest`, then obtain a fresh

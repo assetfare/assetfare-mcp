@@ -4,6 +4,14 @@
 
 An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†’ Base ETH workflow. Use it when an AI agent needs a verifiable Solana-to-Base quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
 
+MCP is optional. AssetFare's primary machine interface is the public REST API
+described by OpenAPI. Agents can obtain and compare a quote without installing
+this wrapper:
+
+- APIs.json: `https://assetfare.dev/apis.json`
+- OpenAPI: `https://api.assetfare.dev/openapi.json`
+- Read-only Arazzo workflow: `https://assetfare.dev/arazzo.yaml`
+
 ## Safety model
 
 - AssetFare MCP never accepts a private key and never signs or submits a transaction.
@@ -16,6 +24,17 @@ An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL â†
 `https://api.assetfare.dev/mcp`
 
 Official MCP Registry server: `io.github.odaiin/assetfare`.
+
+## REST/OpenAPI first call
+
+Use the public quote endpoint when an agent has not explicitly connected MCP.
+No API key, wallet authentication, session, signature, or transaction is
+required for this read-only evaluation call:
+
+```bash
+node examples/rest-quote.mjs 300
+python3 examples/rest_quote.py 300
+```
 
 ```bash
 curl -sS https://api.assetfare.dev/v1/quote \
@@ -121,6 +140,8 @@ is intentionally deferred until a separate package-release review.
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
 - Status: `https://api.assetfare.dev/v1/status`
 - OpenAPI: `https://api.assetfare.dev/openapi.json`
+- APIs.json: `https://assetfare.dev/apis.json`
+- Arazzo: `https://assetfare.dev/arazzo.yaml`
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
 - Agent guide: `https://assetfare.dev/llms-full.txt`
 - Mainnet evidence: `https://assetfare.dev/evidence/`
