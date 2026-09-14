@@ -50,17 +50,34 @@ function apiClient(provenance = {}) {
 function readonly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }; }
 function stateful(idempotent = false) { return { readOnlyHint: false, destructiveHint: false, idempotentHint: idempotent, openWorldHint: true }; }
 
-// This is deliberately a small, unauthenticated discovery card. MCP clients
-// obtain the complete, current tool list from the normal initialize/listTools
-// exchange; wallet-bound workflow tools require an agent-held access token.
+// Wallet-bound workflow tools use an access token produced by the preceding
+// non-transactional signMessage flow. They never require a server-side API key
+// or give the server signing/submission authority.
 function serverCard() {
+  const token = { type: "string", minLength: 20, maxLength: 512 };
+  const uuid = { type: "string", format: "uuid" };
+  const wallet = { type: "string", minLength: 32, maxLength: 64 };
+  const evmWallet = { type: "string", pattern: "^0x[0-9a-fA-F]{40}$" };
+  const idempotency = { type: "string", minLength: 8, maxLength: 128 };
+  const signature = { type: "string", minLength: 64, maxLength: 128 };
+  const object = (properties, required = Object.keys(properties)) => ({ type: "object", additionalProperties: false, properties, required });
   return {
     serverInfo: { name: "AssetFare", version: VERSION },
     authentication: { required: false, schemes: [] },
     tools: [
-      { name: "assetfare_status", description: "Read current route capabilities, caps, and safety gates.", inputSchema: { type: "object", additionalProperties: false, properties: {} } },
-      { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: { type: "object", additionalProperties: false, properties: {} } },
-      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base ETH quote without creating a transaction.", inputSchema: { type: "object", additionalProperties: false, required: ["amount_usd"], properties: { amount_usd: { type: "integer", minimum: 250, maximum: 1000 } } } },
+      { name: "assetfare_status", description: "Read current route capabilities, caps, and safety gates.", inputSchema: object({}) },
+      { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
+      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base ETH quote without creating a transaction.", inputSchema: object({ amount_usd: { type: "integer", minimum: 250, maximum: 1000 } }) },
+      { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
+      { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
+      { name: "assetfare_create_session", description: "Lock a fresh quote into one wallet-bound execution session. Creates no blockchain transaction.", inputSchema: object({ access_token: token, quote_id: uuid, idempotency_key: idempotency, source_wallet: wallet, destination_wallet: evmWallet }) },
+      { name: "assetfare_read_session", description: "Read a session, workflow, receipt, or current unsigned action without submitting anything.", inputSchema: object({ access_token: token, session_id: uuid, view: { type: "string", enum: ["session", "workflow", "receipt", "next_action"] } }, ["access_token", "session_id"]) },
+      { name: "assetfare_prepare_source_action", description: "Prepare a bounded unsigned Solana source action. Verify it before the caller's own wallet signs/submits.", inputSchema: object({ access_token: token, session_id: uuid }) },
+      { name: "assetfare_verify_source_receipt", description: "Verify a caller-submitted finalized Solana signature; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, signature, idempotency_key: idempotency }) },
+      { name: "assetfare_prepare_cctp_action", description: "Prepare an unsigned CCTP burn action. The caller owns signing and submission.", inputSchema: object({ access_token: token, session_id: uuid, event_signer_public: wallet, idempotency_key: idempotency }) },
+      { name: "assetfare_observe_cctp", description: "Observe an already-submitted CCTP burn and forwarded mint; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, burn_signature: signature, idempotency_key: idempotency }) },
+      { name: "assetfare_prepare_destination_action", description: "Prepare an unsigned ERC-4337 settlement plan with bounded permit and deadline.", inputSchema: object({ access_token: token, session_id: uuid, idempotency_key: idempotency }) },
+      { name: "assetfare_observe_destination", description: "Verify an already-submitted destination UserOperation receipt; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, transaction_hash: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$" }, idempotency_key: idempotency }) },
     ],
     resources: [],
     prompts: [],
