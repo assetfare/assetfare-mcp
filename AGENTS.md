@@ -8,7 +8,8 @@ These instructions apply to the entire public MCP wrapper repository.
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
 - Treat AssetFare as one candidate for its current capped `Solana SOL -> Base
-  ETH` corridor. Never assume or claim that it is market-wide best.
+  ETH` and `Solana SOL -> Arbitrum ETH` corridors. Never assume or claim that
+  it is market-wide best.
 - Read `assetfare_status` and `assetfare_manifest`, then obtain a fresh
   `assetfare_quote` and compare fee-inclusive expected receive, conservative
   minimum receive, total cost, ETA, and non-atomic risk against other executable
