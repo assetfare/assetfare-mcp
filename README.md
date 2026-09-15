@@ -1,22 +1,30 @@
-# AssetFare MCP — Solana to Base or Arbitrum bridge API
+# AssetFare — agent-first multichain routes with an optional MCP adapter
 
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
-An MCP client/server wrapper for AssetFare's capped, non-custodial Solana SOL → Base ETH or Arbitrum ETH workflows. Use it when an AI agent needs a verifiable quote, bridge workflow, or unsigned execution plan without handing custody to a routing service.
+AssetFare's primary product is a capped, non-custodial REST/OpenAPI v2 route
+service for AI agents across Solana, Base, Arbitrum, and Robinhood Chain. It
+exposes nine asset endpoints and 72 directed non-identity conversions, returns
+bounded unsigned actions, and never receives private keys, signs, or submits.
 
-MCP is optional. AssetFare's primary machine interface is the public REST API
-described by OpenAPI. Agents can obtain and compare a quote without installing
-this wrapper:
+This repository contains the optional MCP compatibility adapter for the two
+original Solana SOL → Base ETH and Solana SOL → Arbitrum ETH workflows. The MCP
+tool set does **not** expose the full four-chain matrix. Agents can evaluate any
+current v2 route without installing or connecting MCP:
 
 - APIs.json: `https://assetfare.dev/apis.json`
-- OpenAPI: `https://api.assetfare.dev/openapi.json`
+- Capabilities: `https://api.assetfare.dev/v2/capabilities`
+- OpenAPI v2: `https://api.assetfare.dev/v2/openapi.json`
+- Provider status: `https://api.assetfare.dev/v2/status`
 - Read-only Arazzo workflow: `https://assetfare.dev/arazzo.yaml`
 
 ## Safety model
 
 - AssetFare MCP never accepts a private key and never signs or submits a transaction.
-- Read-only tools expose current status, signed manifest, and quotes.
-- State-changing tools only create authentication/session records or prepare/verify unsigned workflow actions. MCP clients should require user approval for those calls.
+- The v2 REST API and this compatibility MCP adapter expose different route scopes; read capabilities before selecting an interface.
+- MCP read-only tools expose status, the signed manifest, and original-corridor quotes.
+- MCP state-changing tools only create authentication/session records or prepare/verify unsigned original-corridor workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
 
 ## Remote endpoint
@@ -25,21 +33,24 @@ this wrapper:
 
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
+MCP adapter scope: `solana:SOL → base:ETH` and `solana:SOL → arbitrum:ETH`,
+from $250 through $1,000. Use REST/OpenAPI v2 for the four-chain matrix.
+
 ## REST/OpenAPI first call
 
-Use the public quote endpoint when an agent has not explicitly connected MCP.
+Use the public v2 quote endpoint when an agent has not explicitly connected MCP.
 No API key, wallet authentication, session, signature, or transaction is
 required for this read-only evaluation call:
 
 ```bash
-node examples/rest-quote.mjs 300
-python3 examples/rest_quote.py 300
+node examples/rest-quote.mjs 300 solana SOL base USDC
+python3 examples/rest_quote.py 300 solana SOL base USDC
 ```
 
 ```bash
-curl -sS https://api.assetfare.dev/v1/quote \
+curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
-  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"ETH","amount_usd":300}'
+  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":300}'
 ```
 
 Connect a remote MCP client directly—no package installation or AssetFare API
@@ -111,7 +122,7 @@ Add the following server to a project `.cursor/mcp.json` or the global
 }
 ```
 
-Connecting is unauthenticated. Execution tools subsequently require the
+Connecting is unauthenticated. The legacy MCP execution tools subsequently require the
 wallet-bound token produced by AssetFare's non-transactional signMessage flow.
 Do not place that token in any MCP configuration file.
 
@@ -123,7 +134,7 @@ Skills.lc-compatible clients can install it directly from this public GitHub rep
 ## First-call evaluation
 
 Run `npm run first-call-eval` to verify a fresh MCP client can discover the
-tools, validate the signed manifest and status, and obtain a $300 quote without
+legacy compatibility tools, validate the signed manifest and status, and obtain a $300 original-corridor quote without
 creating a wallet login, session, signature, or transaction.
 
 Use Streamable HTTP. The endpoint has no server-side API key; wallet authentication happens through the AssetFare tools.
@@ -140,8 +151,10 @@ is intentionally deferred until a separate package-release review.
 - Security policy and private reporting: `https://github.com/odaiin/assetfare-mcp/security/policy`
 - Signed manifest: `https://api.assetfare.dev/.well-known/assetfare-manifest.json`
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
-- Status: `https://api.assetfare.dev/v1/status`
-- OpenAPI: `https://api.assetfare.dev/openapi.json`
+- Four-chain status: `https://api.assetfare.dev/v2/status`
+- Four-chain capabilities: `https://api.assetfare.dev/v2/capabilities`
+- Primary OpenAPI v2: `https://api.assetfare.dev/v2/openapi.json`
+- Legacy MCP-backed v1 OpenAPI: `https://api.assetfare.dev/openapi.json`
 - APIs.json: `https://assetfare.dev/apis.json`
 - Arazzo: `https://assetfare.dev/arazzo.yaml`
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
@@ -152,6 +165,7 @@ is intentionally deferred until a separate package-release review.
 ## Discovery
 
 - Official MCP Registry: `io.github.odaiin/assetfare`
+- MCP Servers: `https://mcpservers.org/servers/odaiin/assetfare-mcp`
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
@@ -160,6 +174,12 @@ The wrapper deliberately contains no AssetFare route engine, wallets, RPC creden
 
 ## Agent use case
 
-For a Solana-to-Base or Solana-to-Arbitrum $300 request, an agent reads the signed manifest and status, calls `assetfare_quote` with `destination_chain`, compares disclosed executable receive and ETA, and only then asks the wallet owner to approve the non-transactional login message. The agent independently signs and submits every on-chain action; this MCP server never does.
+For any supported four-chain request, an agent first reads the v2 capabilities
+and OpenAPI contract and requests a fresh REST quote. For one of the two
+original MCP corridors, an explicitly connected client may instead call
+`assetfare_quote`, compare disclosed executable receive and ETA, and only then
+ask the wallet owner to approve the non-transactional login message. The caller
+independently signs and submits every on-chain action; this MCP server never
+does.
 
 See the first-call evaluation script, the public mainnet evidence at https://assetfare.dev/evidence/, and the end-to-end case study at https://assetfare.dev/case-studies/solana-to-base-mainnet-canary/.

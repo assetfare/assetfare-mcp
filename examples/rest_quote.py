@@ -8,22 +8,26 @@ import sys
 import urllib.request
 
 
-amount_usd = int(sys.argv[1]) if len(sys.argv) > 1 else 300
+amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 300
+from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
+from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "SOL"
+to_chain = sys.argv[4].lower() if len(sys.argv) > 4 else "base"
+to_token = sys.argv[5].upper() if len(sys.argv) > 5 else "USDC"
 if not 250 <= amount_usd <= 1000:
-    raise SystemExit("amount must be a whole USD value from 250 through 1000")
+    raise SystemExit("amount must be a USD number from 250 through 1000")
 
 payload = json.dumps(
     {
-        "from_chain": "solana",
-        "from_token": "SOL",
-        "to_chain": "base",
-        "to_token": "ETH",
+        "from_chain": from_chain,
+        "from_token": from_token,
+        "to_chain": to_chain,
+        "to_token": to_token,
         "amount_usd": amount_usd,
     },
     separators=(",", ":"),
 ).encode()
 request = urllib.request.Request(
-    "https://api.assetfare.dev/v1/quote",
+    "https://api.assetfare.dev/v2/quote",
     data=payload,
     headers={
         "content-type": "application/json",

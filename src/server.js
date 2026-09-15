@@ -99,7 +99,7 @@ function createServer(provenance = {}) {
   const api = apiClient(provenance);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
-    { instructions: "AssetFare is non-custodial. Never request, transmit, or fabricate a private key. Tools never sign or submit transactions. Verify every returned unsigned action before the caller's own wallet signs it." },
+    { instructions: "This optional MCP adapter covers only the original Solana SOL to Base or Arbitrum ETH routes. Use AssetFare REST/OpenAPI v2 for the four-chain matrix. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
   );
 
   addTool(server, "assetfare_status", "Read current capabilities, caps, pause state, and independent RPC quorum.", {}, readonly(), () => api("/v1/status"));

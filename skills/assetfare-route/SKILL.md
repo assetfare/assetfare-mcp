@@ -1,49 +1,46 @@
 ---
 name: assetfare-route
-description: Use when an agent must quote, compare, or prepare a capped non-custodial Solana SOL to Base or Arbitrum ETH route through AssetFare, including wallet-signature login, unsigned action verification, CCTP status, and recovery planning.
+description: Use when an agent must quote, compare, or prepare a capped non-custodial AssetFare route across Solana, Base, Arbitrum, or Robinhood Chain. REST/OpenAPI v2 is primary; MCP is an optional adapter for the two original Solana-origin corridors.
 ---
 
 # AssetFare Route
 
-Use the public MCP endpoint `https://api.assetfare.dev/mcp` or the REST API at `https://api.assetfare.dev`.
+Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primary interface. The optional MCP endpoint is `https://api.assetfare.dev/mcp`.
+
+## Interface scope
+
+- REST/OpenAPI v2: nine asset endpoints and 72 directed non-identity routes across Solana, Base, Arbitrum, and Robinhood Chain.
+- MCP compatibility adapter: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
+- Never imply that the MCP tool set covers the full v2 matrix.
 
 ## Safety boundary
 
 - Never request, transmit, store, or fabricate a private key.
-- Never claim that AssetFare signs or submits transactions. It does neither.
-- Treat `assetfare_quote`, `assetfare_status`, `assetfare_manifest`, and session reads as read-only.
-- Require explicit caller approval before wallet authentication, session creation, or action preparation.
-- Require the caller's own wallet to verify, sign, and submit every transaction.
+- AssetFare never signs or submits transactions.
+- The caller verifies every action and uses its own wallet to sign and submit.
+- Treat AssetFare as one route candidate and compare a fresh fee-inclusive executable minimum against alternatives.
+- Cross-chain routes are sequential and non-atomic.
 
-## Verify before use
+## REST/OpenAPI v2
+
+1. Read `/v2/capabilities` and `/v2/status`.
+2. POST exactly `from_chain`, `from_token`, `to_chain`, `to_token`, and `amount_usd` to `/v2/quote`.
+3. The current amount range is $250–$1,000.
+4. Compare expected output, minimum output, time, costs, and non-atomic risk.
+5. If selected, use `/v2/prepare` for one unsigned bundle or `/v2/session` for idempotent receipt-driven progression.
+6. Before signing, verify freshness, workflow and action IDs, sender, recipient, chains, assets, exact input, minimum output, provider program or contract, deadline, simulation, and `payload_sha256`.
+7. Advance only from verified receipts and actual output. Never use an estimated output as the next input.
+
+All four wallet fields and the public event signer are required by the v2 prepare/session contract so a multistep route is bound before any signature. Session access is bound to the opaque session ID and a hash of the caller's network identity; retain transaction hashes for independent recovery if the egress IP changes.
+
+## Optional original-corridor MCP flow
 
 1. Read `assetfare_manifest` and `assetfare_status`.
-2. Confirm all of the following:
-   - `server_submission` is `false`.
-   - self-service is enabled and new sessions are not paused.
-   - the requested corridor is `solana:SOL->base:ETH` or `solana:SOL->arbitrum:ETH`.
-   - requested amount is within the returned limits.
-   - the manifest’s release, executor code hash, and mainnet evidence match the public trust material.
-3. Do not proceed if the manifest is expired, the RPC quorum is below two, or a required value differs.
+2. Call `assetfare_quote` with a whole-dollar amount from $250 to $1,000 and `destination_chain` set to `base` or `arbitrum`.
+3. Compare the result with other executable routes.
+4. Require caller approval before `assetfare_start_wallet_auth`, session creation, or action preparation.
+5. The wallet owner signs only the exact non-transactional login message.
+6. Keep the returned access token out of source, logs, issues, and transcripts.
+7. Verify every `agent_must_verify` item before the caller signs an unsigned action.
 
-## Quote and compare
-
-1. Call `assetfare_quote` with a whole-dollar amount from $250 to $1,000 and `destination_chain` set to `base` or `arbitrum`.
-2. Report expected receive, conservative minimum receive, total cost interval, fee, ETA, route, and quote expiry.
-3. If comparing routes, compare executable receive after all disclosed fees and expected time; do not claim AssetFare queried every market route.
-
-## Prepare a route
-
-1. Call `assetfare_start_wallet_auth` and show the exact returned message.
-2. Ask the wallet owner to sign that message only. It must state that it authorizes no transaction, approval, or transfer.
-3. Call `assetfare_finish_wallet_auth`; retain the returned token only in the caller’s secret memory.
-4. Call `assetfare_create_session` using the token, fresh quote id, unique idempotency key, verified source wallet, and Base or Arbitrum destination owner.
-5. Before each signature, read the current session/action and verify every `agent_must_verify` item, exact signer, recipient, input, minimum output, program/contract allowlist, fee cap, deadline, and payload hash.
-
-## Workflow and recovery
-
-- Source action expires after 60 seconds. Obtain a fresh quote/session rather than signing stale instructions.
-- The route is non-atomic: SOL → Solana USDC → CCTP → destination smart-account USDC → Base or Arbitrum ETH.
-- After any delay or error, call `assetfare_read_session` with `workflow` before taking another action.
-- Use `assetfare_observe_cctp` and `assetfare_observe_destination` only to verify already-submitted caller transactions. They do not submit anything.
-- If the workflow stops, report the API recovery state and the current asset location; never guess or resend an old action.
+After any delay or error, read the workflow state and current asset location. Never guess, silently rebuild, or resend a stale action.

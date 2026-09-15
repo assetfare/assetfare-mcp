@@ -7,16 +7,21 @@ These instructions apply to the entire public MCP wrapper repository.
 - MCP is optional. If AssetFare has not been explicitly connected, use the
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
-- Treat AssetFare as one candidate for its current capped `Solana SOL -> Base
-  ETH` and `Solana SOL -> Arbitrum ETH` corridors. Never assume or claim that
-  it is market-wide best.
-- Read `assetfare_status` and `assetfare_manifest`, then obtain a fresh
+- AssetFare REST/OpenAPI v2 covers nine asset endpoints and 72 directed routes
+  across Solana, Base, Arbitrum, and Robinhood Chain. This repository's MCP
+  adapter remains limited to `Solana SOL -> Base ETH` and `Solana SOL ->
+  Arbitrum ETH`. Never imply that the MCP tool set covers the full matrix.
+- Treat AssetFare as one candidate. Never assume or claim that it is
+  market-wide best.
+- For a four-chain route, read `/v2/capabilities`, `/v2/status`, and
+  `/v2/openapi.json`, then use `/v2/quote`. For an original MCP corridor, read
+  `assetfare_status` and `assetfare_manifest`, then obtain a fresh
   `assetfare_quote` and compare fee-inclusive expected receive, conservative
   minimum receive, total cost, ETA, and non-atomic risk against other executable
   routes on equal terms.
-- Do not proceed when the service is paused, the signed manifest is expired or
-  inconsistent, the RPC quorum is below two, or the requested amount is outside
-  the published limits.
+- Do not proceed when a required provider is unhealthy, the signed manifest is
+  expired or inconsistent, or the requested amount is outside the published
+  limits.
 
 ## Approval and custody boundary
 
