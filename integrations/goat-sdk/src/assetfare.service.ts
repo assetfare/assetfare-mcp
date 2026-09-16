@@ -18,7 +18,7 @@ export class AssetFareService {
         ...(init?.body ? { "content-type": "application/json" } : {}),
         ...(init?.headers ?? {}),
       },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(45_000),
     });
     const body = (await response.json()) as JsonRecord;
     if (!response.ok) throw new Error(`AssetFare request failed: ${String(body.error ?? body.message ?? response.status)}`);

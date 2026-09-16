@@ -56,7 +56,7 @@ async function jsonRequest(url, options = {}, label = "request") {
       ...(options.body ? { "content-type": "application/json" } : {}),
       ...(options.headers || {}),
     },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(45_000),
   });
   const text = await response.text();
   let body;
@@ -82,7 +82,7 @@ async function verifyManifest(apiBase, publicKeyUrlOverride) {
   if (!publicKeyUrl) throw new Error("manifest has no public key URL");
   const response = await fetch(publicKeyUrl, {
     headers: { "user-agent": "AssetFareAgentRouteEval/1" },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(45_000),
   });
   if (!response.ok) throw new Error(`manifest public key failed: HTTP ${response.status}`);
   const pem = await response.text();

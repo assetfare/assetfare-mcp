@@ -73,7 +73,7 @@ function createRequester(config: AssetFarePluginConfig) {
           ...(init?.body ? { "content-type": "application/json" } : {}),
           ...(init?.headers ?? {}),
         },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(45_000),
       });
     } catch (error) {
       throw new Error(`AssetFare request failed before response: ${error instanceof Error ? error.message : "network error"}`, { cause: error });
