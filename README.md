@@ -1,5 +1,6 @@
 # AssetFare — agent-first multichain routes with an optional MCP adapter
 
+[![Public safety checks](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
