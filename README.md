@@ -69,8 +69,9 @@ Read-only framework integrations are available for
 [Coinbase AgentKit](./integrations/coinbase-agentkit/) and
 [GOAT](./integrations/goat-sdk/), plus an independently reviewed
 [SendAI Solana Agent Kit plugin](./integrations/solana-agent-kit/) and
-[elizaOS plugin](./integrations/elizaos/). None of these integrations exposes
-preparation, signing, submission, funding, swap, or bridge execution.
+[elizaOS plugin](./integrations/elizaos/), plus quote tools for
+[Agenti](./integrations/agenti/). None of these integrations exposes preparation,
+signing, submission, funding, swap, or bridge execution.
 
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \

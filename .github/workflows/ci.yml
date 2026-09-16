@@ -35,6 +35,7 @@ jobs:
           - integrations/goat-sdk
           - integrations/solana-agent-kit
           - integrations/elizaos
+          - integrations/agenti
     defaults:
       run:
         working-directory: ${{ matrix.integration }}

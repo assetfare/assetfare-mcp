@@ -1,0 +1,151 @@
+import { tool } from "ai";
+import { z } from "zod";
+
+type Fetch = typeof fetch;
+type JsonRecord = Record<string, unknown>;
+const MAX_RESPONSE_BYTES = 1_048_576;
+
+const TOKENS_BY_CHAIN = {
+  solana: ["SOL", "USDC", "USDG"],
+  base: ["ETH", "USDC"],
+  arbitrum: ["ETH", "USDC"],
+  robinhood: ["ETH", "USDG"],
+} as const;
+
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood"]);
+const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
+
+export const AssetFareQuoteSchema = z.object({
+  fromChain: ChainSchema,
+  fromToken: TokenSchema,
+  toChain: ChainSchema,
+  toToken: TokenSchema,
+  amountUsd: z.number().finite().min(1).max(1000),
+}).strict().superRefine((value, context) => {
+  if (!(TOKENS_BY_CHAIN[value.fromChain] as readonly string[]).includes(value.fromToken)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["fromToken"], message: "token is not supported on source chain" });
+  }
+  if (!(TOKENS_BY_CHAIN[value.toChain] as readonly string[]).includes(value.toToken)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "token is not supported on destination chain" });
+  }
+  if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
+  }
+});
+
+const CapabilitiesSchema = z.object({
+  public_api_enabled: z.literal(true),
+  server_signing: z.literal(false),
+  server_submission: z.literal(false),
+}).passthrough();
+const StatusSchema = z.object({
+  status: z.literal("capped_public_agent_release"),
+  server_signing: z.literal(false),
+  server_submission: z.literal(false),
+}).passthrough();
+const QuoteSchema = z.object({
+  status: z.literal("capped_public_agent_release"),
+  execution: z.object({ supported: z.literal(true) }).passthrough(),
+  risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
+  offer: z.record(z.unknown()),
+}).passthrough();
+
+export interface AssetFareToolsConfig {
+  apiBaseUrl?: string;
+  fetch?: Fetch;
+}
+
+function requester(config: AssetFareToolsConfig) {
+  const apiBaseUrl = (config.apiBaseUrl ?? "https://api.assetfare.dev").replace(/\/$/, "");
+  const fetchFn = config.fetch ?? fetch;
+  return async (path: string, init?: RequestInit): Promise<JsonRecord> => {
+    let response: Response;
+    try {
+      response = await fetchFn(`${apiBaseUrl}${path}`, {
+        ...init,
+        headers: {
+          accept: "application/json",
+          ...(init?.body ? { "content-type": "application/json" } : {}),
+          ...(init?.headers ?? {}),
+        },
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch (error) {
+      throw new Error(`AssetFare request failed before response: ${error instanceof Error ? error.message : "network error"}`, { cause: error });
+    }
+    const declared = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) throw new Error("AssetFare response exceeded the one-megabyte safety limit");
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES) throw new Error("AssetFare response exceeded the one-megabyte safety limit");
+    let body: JsonRecord;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("response is not an object");
+      body = parsed as JsonRecord;
+    } catch (error) {
+      throw new Error(`AssetFare returned invalid JSON for HTTP ${response.status}`, { cause: error });
+    }
+    if (!response.ok) throw new Error(`AssetFare request failed: ${String(body.error ?? body.message ?? `HTTP ${response.status}`)}`);
+    return body;
+  };
+}
+
+export function createAssetFareClient(config: AssetFareToolsConfig = {}) {
+  const request = requester(config);
+  return {
+    async capabilities() {
+      const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
+      try {
+        return { capabilities: CapabilitiesSchema.parse(capabilitiesRaw), status: StatusSchema.parse(statusRaw) };
+      } catch (error) {
+        throw new Error("AssetFare public safety boundary is not ready", { cause: error });
+      }
+    },
+    async quote(rawInput: z.input<typeof AssetFareQuoteSchema>) {
+      const input = AssetFareQuoteSchema.parse(rawInput);
+      const quoteRaw = await request("/v2/quote", {
+        method: "POST",
+        body: JSON.stringify({
+          from_chain: input.fromChain,
+          from_token: input.fromToken,
+          to_chain: input.toChain,
+          to_token: input.toToken,
+          amount_usd: input.amountUsd,
+        }),
+      });
+      try {
+        return QuoteSchema.parse(quoteRaw);
+      } catch (error) {
+        throw new Error("AssetFare quote is outside the capped public safety boundary", { cause: error });
+      }
+    },
+  };
+}
+
+export function assetFareTools(config: AssetFareToolsConfig = {}) {
+  const client = createAssetFareClient(config);
+  return {
+    assetfareGetCapabilities: tool({
+      description: "Read AssetFare's public route scope and verify that the server still cannot sign or submit. Read-only and independent of the Agenti wallet.",
+      parameters: z.object({}).strict(),
+      execute: async () => ({ success: true, ...(await client.capabilities()) }),
+    }),
+    assetfareQuoteRoute: tool({
+      description: "Request one fresh fee-inclusive AssetFare quote and stop. Compare it with other executable routes; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      parameters: AssetFareQuoteSchema,
+      execute: async (input) => ({
+        success: true,
+        quote: await client.quote(input),
+        guidance: {
+          compareWithOtherRoutes: true,
+          requoteBeforeSelection: true,
+          walletAccessed: false,
+          sessionCreated: false,
+          actionPrepared: false,
+          transactionSigned: false,
+          transactionSubmitted: false,
+        },
+      }),
+    }),
+  };
+}
