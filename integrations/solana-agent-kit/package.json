@@ -1,0 +1,26 @@
+{
+  "name": "@assetfare/solana-agent-kit-plugin",
+  "version": "0.1.0",
+  "description": "Read-only AssetFare route quotes for Solana Agent Kit",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/index.test.js"
+  },
+  "peerDependencies": {
+    "solana-agent-kit": ">=2.0.7 <3",
+    "zod": ">=3.24.1 <4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "solana-agent-kit": "2.0.7",
+    "typescript": "^5.7.0",
+    "zod": "3.24.1"
+  },
+  "engines": {"node": ">=20"},
+  "license": "MIT"
+}
