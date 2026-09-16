@@ -1,0 +1,26 @@
+{
+  "name": "@assetfare/elizaos-route-plugin",
+  "version": "0.1.0",
+  "description": "Read-only AssetFare route quotes for elizaOS",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/index.test.js"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=1.7.2 <2",
+    "zod": ">=4.3.5 <5"
+  },
+  "devDependencies": {
+    "@elizaos/core": "1.7.2",
+    "@types/node": "^22.0.0",
+    "typescript": "5.9.3",
+    "zod": "4.3.5"
+  },
+  "engines": {"node": ">=20"},
+  "license": "MIT"
+}
