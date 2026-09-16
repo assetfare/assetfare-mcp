@@ -64,6 +64,11 @@ not executable orders; every provider must be requoted with the caller's real
 addresses before selection or signing. Other routes return the AssetFare quote
 without pretending that a generic competitor comparison is available.
 
+Read-only framework integrations are available for
+[Coinbase AgentKit](./integrations/coinbase-agentkit/) and
+[GOAT](./integrations/goat-sdk/). Neither integration exposes preparation,
+signing, submission, funding, swap, or bridge execution.
+
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
