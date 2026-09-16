@@ -192,6 +192,7 @@ is intentionally deferred until a separate package-release review.
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
 - Agent guide: `https://assetfare.dev/llms-full.txt`
 - Mainnet evidence: `https://assetfare.dev/evidence/`
+- Paired route evidence: [`evidence/solana-base-paired-quotes-20260916.md`](./evidence/solana-base-paired-quotes-20260916.md)
 - Live same-input comparison: `https://assetfare.dev/compare/solana-to-base/`
 
 ## Discovery
