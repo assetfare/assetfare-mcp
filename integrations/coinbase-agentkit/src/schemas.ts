@@ -9,7 +9,7 @@ export const AssetFareQuoteSchema = z
     fromToken: AssetFareTokenSchema.describe("Source asset symbol"),
     toChain: AssetFareChainSchema.describe("Destination blockchain"),
     toToken: AssetFareTokenSchema.describe("Destination asset symbol"),
-    amountUsd: z.number().min(250).max(1000).describe("USD notional from 250 through 1000"),
+    amountUsd: z.number().min(1).max(1000).describe("USD notional from 1 through 1000"),
   })
   .strict()
   .refine(value => value.fromChain !== value.toChain || value.fromToken !== value.toToken, {

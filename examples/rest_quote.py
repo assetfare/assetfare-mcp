@@ -13,8 +13,8 @@ from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
 from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "SOL"
 to_chain = sys.argv[4].lower() if len(sys.argv) > 4 else "base"
 to_token = sys.argv[5].upper() if len(sys.argv) > 5 else "USDC"
-if not 250 <= amount_usd <= 1000:
-    raise SystemExit("amount must be a USD number from 250 through 1000")
+if not 1 <= amount_usd <= 1000:
+    raise SystemExit("amount must be a USD number from 1 through 1000")
 
 payload = json.dumps(
     {

@@ -17,7 +17,7 @@ Usage:
   node scripts/route-eval.mjs [options]
 
 Options:
-  --amount <USD>          Whole or decimal USD amount from 250 through 1000
+  --amount <USD>          Whole or decimal USD amount from 1 through 1000
   --from-chain <chain>    solana | base | arbitrum | robinhood
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
@@ -182,8 +182,8 @@ async function main() {
   const fromToken = String(option(argv, "--from-token", DEFAULTS.fromToken)).toUpperCase();
   const toChain = String(option(argv, "--to-chain", DEFAULTS.toChain)).toLowerCase();
   const toToken = String(option(argv, "--to-token", DEFAULTS.toToken)).toUpperCase();
-  if (!Number.isFinite(amountUsd) || amountUsd < 250 || amountUsd > 1000) {
-    throw new Error("amount must be a USD number from 250 through 1000");
+  if (!Number.isFinite(amountUsd) || amountUsd < 1 || amountUsd > 1000) {
+    throw new Error("amount must be a USD number from 1 through 1000");
   }
   if (fromChain === toChain && fromToken === toToken) throw new Error("identity route does not require a quote");
 
@@ -284,4 +284,3 @@ main().catch((error) => {
   console.error(JSON.stringify({ status: "error", error: error instanceof Error ? error.message : "unknown error" }));
   process.exitCode = 1;
 });
-

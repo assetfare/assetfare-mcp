@@ -35,7 +35,7 @@ current v2 route without installing or connecting MCP:
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
 MCP adapter scope: `solana:SOL → base:ETH` and `solana:SOL → arbitrum:ETH`,
-from $250 through $1,000. Use REST/OpenAPI v2 for the four-chain matrix.
+from $1 through $1,000. Use REST/OpenAPI v2 for the four-chain matrix.
 
 ## REST/OpenAPI first call
 

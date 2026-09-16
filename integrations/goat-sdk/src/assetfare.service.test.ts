@@ -8,6 +8,8 @@ const response = (body: unknown, status = 200) =>
 
 test("quote parameter model enforces capped non-identity intents", () => {
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, true);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 0.99 }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, false);
 });
 

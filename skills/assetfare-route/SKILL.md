@@ -25,7 +25,7 @@ Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primar
 
 1. Read `/v2/capabilities` and `/v2/status`.
 2. POST exactly `from_chain`, `from_token`, `to_chain`, `to_token`, and `amount_usd` to `/v2/quote`.
-3. The current amount range is $250–$1,000.
+3. The current amount range is $1–$1,000.
 4. Compare expected output, minimum output, time, costs, and non-atomic risk.
 5. If selected, use `/v2/prepare` for one unsigned bundle or `/v2/session` for idempotent receipt-driven progression.
 6. Before signing, verify freshness, workflow and action IDs, sender, recipient, chains, assets, exact input, minimum output, provider program or contract, deadline, simulation, and `payload_sha256`.
@@ -36,7 +36,7 @@ All four wallet fields and the public event signer are required by the v2 prepar
 ## Optional original-corridor MCP flow
 
 1. Read `assetfare_manifest` and `assetfare_status`.
-2. Call `assetfare_quote` with a whole-dollar amount from $250 to $1,000 and `destination_chain` set to `base` or `arbitrum`.
+2. Call `assetfare_quote` with a whole-dollar amount from $1 to $1,000 and `destination_chain` set to `base` or `arbitrum`.
 3. Compare the result with other executable routes.
 4. Require caller approval before `assetfare_start_wallet_auth`, session creation, or action preparation.
 5. The wallet owner signs only the exact non-transactional login message.

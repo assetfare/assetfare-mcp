@@ -10,7 +10,7 @@ export class AssetFareQuoteParameters extends createToolParameters(
       fromToken: z.enum(["SOL", "ETH", "USDC", "USDG"]).describe("Source asset symbol"),
       toChain: z.enum(["solana", "base", "arbitrum", "robinhood"]).describe("Destination blockchain"),
       toToken: z.enum(["SOL", "ETH", "USDC", "USDG"]).describe("Destination asset symbol"),
-      amountUsd: z.number().min(250).max(1000).describe("USD notional from 250 through 1000"),
+      amountUsd: z.number().min(1).max(1000).describe("USD notional from 1 through 1000"),
     })
     .strict()
     .refine(value => value.fromChain !== value.toChain || value.fromToken !== value.toToken, {

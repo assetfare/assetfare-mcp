@@ -3,7 +3,7 @@
   "name": "io.github.odaiin/assetfare",
   "title": "AssetFare",
   "description": "Optional compatibility tools for capped Solana SOL to Base or Arbitrum ETH routes. AssetFare REST/OpenAPI v2 is primary; the server never signs or submits.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
     "source": "github"

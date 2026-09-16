@@ -7,7 +7,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 const HOST = process.env.ASSETFARE_MCP_HOST || "127.0.0.1";
 const PORT = Number(process.env.ASSETFARE_MCP_PORT || "8790");
@@ -69,7 +69,7 @@ function serverCard() {
     tools: [
       { name: "assetfare_status", description: "Read current route capabilities, caps, and safety gates.", inputSchema: object({}) },
       { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
-      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base or Arbitrum ETH quote without creating a transaction.", inputSchema: object({ amount_usd: { type: "integer", minimum: 250, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
+      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base or Arbitrum ETH quote without creating a transaction.", inputSchema: object({ amount_usd: { type: "integer", minimum: 1, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
       { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
       { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
       { name: "assetfare_create_session", description: "Lock a fresh quote into one wallet-bound execution session. Creates no blockchain transaction.", inputSchema: object({ access_token: token, quote_id: uuid, idempotency_key: idempotency, source_wallet: wallet, destination_wallet: evmWallet }) },
@@ -104,7 +104,7 @@ function createServer(provenance = {}) {
 
   addTool(server, "assetfare_status", "Read current capabilities, caps, pause state, and independent RPC quorum.", {}, readonly(), () => api("/v1/status"));
   addTool(server, "assetfare_manifest", "Read the Ed25519-signed capability, contract, release, and mainnet-evidence manifest.", {}, readonly(), () => api("/.well-known/assetfare-manifest.json"));
-  addTool(server, "assetfare_quote", "Get a fee-inclusive Solana SOL to Base or Arbitrum ETH quote. This does not create a session or transaction.", { amount_usd: z.number().int().min(250).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
+  addTool(server, "assetfare_quote", "Get a fee-inclusive Solana SOL to Base or Arbitrum ETH quote. This does not create a session or transaction.", { amount_usd: z.number().int().min(1).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
   addTool(server, "assetfare_start_wallet_auth", "Create a non-transactional Solana signMessage challenge. Requires caller approval because it creates a short-lived login challenge; it cannot move funds.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
   addTool(server, "assetfare_finish_wallet_auth", "Verify a wallet signature over the exact challenge message and return a wallet-bound access token. Requires caller approval; the returned token is sensitive.", { challenge_id: z.string().uuid(), source_wallet: sourceWallet, signature: z.string().min(64).max(128), terms_version: z.string().min(1).max(160) }, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));

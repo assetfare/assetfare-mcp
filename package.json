@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Optional non-custodial AssetFare MCP adapter for the original Solana-to-Base/Arbitrum agent routes; REST/OpenAPI v2 is primary.",
   "type": "module",
   "main": "src/server.js",
