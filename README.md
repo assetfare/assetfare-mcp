@@ -73,6 +73,26 @@ Read-only framework integrations are available for
 [Agenti](./integrations/agenti/). None of these integrations exposes preparation,
 signing, submission, funding, swap, or bridge execution.
 
+## A2A v1 quote adapter
+
+AssetFare also exposes a read-only A2A v1 interface for agents that discover
+and invoke Agent Cards without MCP:
+
+- canonical Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
+- legacy discovery alias returning the identical card: `https://api.assetfare.dev/.well-known/agent.json`
+- JSON-RPC v1 endpoint: `https://api.assetfare.dev/a2a`
+- protocol: official `@a2a-js/sdk` v1, `A2A-Version: 1.0`,
+  `Content-Type: application/json`
+
+The only advertised A2A skill accepts one structured DataPart containing
+`fromChain`, `fromToken`, `toChain`, `toToken`, and `amountUsd`. It calls the
+public v2 capabilities, status, and quote endpoints and returns one quote. It
+rejects free-text-only requests and has no wallet, authentication, session,
+prepare, signing, approval, funding, swap, bridge, or submission capability.
+
+A card fetch, registry health check, TCK request, or registry-generated
+`SendMessage` probe is discovery/conformance traffic, not customer demand.
+
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
@@ -191,6 +211,8 @@ is intentionally deferred until a separate package-release review.
 - APIs.json: `https://assetfare.dev/apis.json`
 - Arazzo: `https://assetfare.dev/arazzo.yaml`
 - Server card: `https://api.assetfare.dev/.well-known/mcp/server-card.json`
+- A2A Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
+- A2A endpoint: `https://api.assetfare.dev/a2a`
 - Agent guide: `https://assetfare.dev/llms-full.txt`
 - Mainnet evidence: `https://assetfare.dev/evidence/`
 - Paired route evidence: [`evidence/solana-base-paired-quotes-20260916.md`](./evidence/solana-base-paired-quotes-20260916.md)

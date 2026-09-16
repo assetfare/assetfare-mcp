@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.2.1",
-  "description": "Optional non-custodial AssetFare MCP adapter for the original Solana-to-Base/Arbitrum agent routes; REST/OpenAPI v2 is primary.",
+  "version": "0.3.0",
+  "description": "Optional MCP and quote-only A2A v1 discovery adapters for AssetFare's non-custodial four-chain REST/OpenAPI v2 route service.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -28,6 +28,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@a2a-js/sdk": "1.1.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "express": "5.1.0",
     "zod": "3.25.76"
@@ -35,7 +36,8 @@
   "scripts": {
     "start": "node src/server.js",
     "check": "node --check src/server.js",
-    "test": "node src/selftest.js",
+    "test": "node src/selftest.js && node src/a2a-selftest.js",
+    "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",
     "route-eval": "node scripts/route-eval.mjs",
     "route-eval-selftest": "node scripts/route-eval-selftest.mjs"

@@ -5,14 +5,18 @@ import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { z } from "zod";
+import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.2.1";
+const VERSION = "0.3.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 const HOST = process.env.ASSETFARE_MCP_HOST || "127.0.0.1";
 const PORT = Number(process.env.ASSETFARE_MCP_PORT || "8790");
 const ORIGINS = new Set((process.env.ASSETFARE_MCP_ALLOWED_ORIGINS || "https://chatgpt.com,https://chat.openai.com,https://claude.ai,https://claude.com").split(",").map((value) => value.trim()).filter(Boolean));
 const PUBLIC_HOST = process.env.ASSETFARE_MCP_PUBLIC_HOST || "api.assetfare.dev";
+const A2A_API_BASE = (process.env.ASSETFARE_A2A_API_BASE_URL || "http://127.0.0.1:8791").replace(/\/$/, "");
+const A2A_SERVICE_URL = process.env.ASSETFARE_A2A_SERVICE_URL || "https://api.assetfare.dev/a2a";
 const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
 
 const accessToken = z.string().min(20).max(512);
@@ -128,9 +132,20 @@ function allowedHost(host) { return host === PUBLIC_HOST || LOCAL_HOSTS.has(host
 async function serveHttp() {
   const app = express();
   app.disable("x-powered-by");
-  app.use((req, res, next) => allowedHost(req.get("host") || "") ? next() : res.status(421).json({ error: "mcp_host_not_allowed" }));
+  app.use((req, res, next) => allowedHost(req.get("host") || "") ? next() : res.status(421).json({ error: "assetfare_host_not_allowed" }));
   app.use(express.json({ limit: "32kb", type: ["application/json", "application/*+json"] }));
-  app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp", version: VERSION }));
+  const a2a=createAssetFareA2A({ apiBaseUrl:A2A_API_BASE, serviceUrl:A2A_SERVICE_URL });
+  const card=agentCardHandler({ agentCardProvider:async()=>a2a.card, cache:{ maxAge:300 } });
+  const rpc=jsonRpcHandler({ requestHandler:a2a.requestHandler, userBuilder:UserBuilder.noAuthentication });
+  app.use(`/${AGENT_CARD_PATH}`,card);
+  app.use("/.well-known/agent.json",card);
+  app.use("/a2a",(req,res,next)=>{
+    if(req.method==="HEAD")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(405).end();
+    if(req.method==="OPTIONS")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(204).end();
+    if(req.method!=="POST")return res.set("allow","POST, OPTIONS").status(405).json({error:"a2a_method_not_allowed"});
+    return req.is("application/json")?rpc(req,res,next):res.status(415).json({error:"a2a_json_content_type_required"});
+  });
+  app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
   app.head("/mcp", (req, res) => {
     if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
@@ -147,6 +162,11 @@ async function serveHttp() {
     } catch (_error) {
       if (!res.headersSent) res.status(500).json({ error: "assetfare_mcp_internal_error" });
     }
+  });
+  app.use((error,_req,res,_next)=>{
+    if(error?.type==="entity.too.large")return res.status(413).json({error:"request_body_too_large"});
+    if(error instanceof SyntaxError)return res.status(400).json({error:"invalid_json"});
+    return res.status(500).json({error:"assetfare_adapter_internal_error"});
   });
   app.listen(PORT, HOST, () => process.stdout.write(`assetfare-mcp listening on ${HOST}:${PORT}\n`));
 }

@@ -1,13 +1,15 @@
 [Unit]
-Description=AssetFare public MCP wrapper
-After=network-online.target routeagent-quote.service
-Wants=network-online.target
+Description=AssetFare public MCP and quote-only A2A adapters
+After=network-online.target routeagent-quote.service assetfare-multichain-staging.service
+Wants=network-online.target assetfare-multichain-staging.service
 
 [Service]
 Type=simple
 User=ec2-user
 WorkingDirectory=/home/ec2-user/claude-work/assetfare-mcp
 Environment=ASSETFARE_API_BASE_URL=http://127.0.0.1:8788
+Environment=ASSETFARE_A2A_API_BASE_URL=http://127.0.0.1:8791
+Environment=ASSETFARE_A2A_SERVICE_URL=https://api.assetfare.dev/a2a
 Environment=ASSETFARE_MCP_HOST=127.0.0.1
 Environment=ASSETFARE_MCP_PORT=8790
 Environment=NODE_ENV=production

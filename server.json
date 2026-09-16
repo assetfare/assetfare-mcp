@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.odaiin/assetfare",
   "title": "AssetFare",
-  "description": "Optional compatibility tools for capped Solana SOL to Base or Arbitrum ETH routes. AssetFare REST/OpenAPI v2 is primary; the server never signs or submits.",
-  "version": "0.2.1",
+  "description": "Discovery adapters for AssetFare's four-chain REST/OpenAPI v2 routes: optional MCP compatibility tools plus a quote-only A2A v1 interface. The server never signs or submits.",
+    "version": "0.3.0",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
     "source": "github"
