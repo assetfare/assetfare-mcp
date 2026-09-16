@@ -1,6 +1,8 @@
 # Solana SOL → Base ETH paired quote evidence
 
-Observed from 2026-09-16 13:40:02 through 14:26:33 UTC.
+Two independent observation windows were collected on 2026-09-16. The second
+window followed the reviewed quote-latency P1 release; the original window is
+retained below rather than overwritten.
 
 ## Method
 
@@ -11,35 +13,46 @@ Observed from 2026-09-16 13:40:02 through 14:26:33 UTC.
 - No action was prepared, signed, or submitted.
 - These operator measurements are evidence, not external customer demand.
 
-## Results
+## Post-P1 results
+
+Observed from 2026-09-16 15:56:37 through 16:08:31 UTC.
 
 | Amount | Samples | Mean expected-receive advantage | Mean minimum-receive advantage | AssetFare median latency | Relay median latency |
 |---:|---:|---:|---:|---:|---:|
-| $250 | 10 | +52.40 bp | +155.26 bp | 8.72s | 0.55s |
-| $500 | 10 | +49.27 bp | +152.01 bp | 13.64s | 0.51s |
-| $1,000 | 10 | +54.45 bp | +157.19 bp | 13.65s | 0.52s |
-| Overall | 30 | **+52.04 bp** | **+154.82 bp** | **10.62s** | **0.52s** |
+| $250 | 10 | +52.93 bp | +155.78 bp | 3.69s | 0.51s |
+| $500 | 10 | +52.61 bp | +155.60 bp | 3.70s | 0.51s |
+| $1,000 | 10 | +54.39 bp | +157.76 bp | 3.68s | 0.54s |
+| Overall | 30 | **+53.31 bp** | **+156.38 bp** | **3.69s** | **0.51s** |
 
 - AssetFare expected-receive advantage was positive in 30/30 observations,
-  ranging from +30.42 to +65.26 bp.
+  ranging from +38.90 to +62.06 bp.
 - Minimum-receive advantage was positive in 30/30 observations, ranging from
-  +133.22 to +173.46 bp.
-- AssetFare latency ranged from 4.85 to 21.07 seconds; 4/30 observations took
-  more than 20 seconds.
-- One additional AssetFare attempt returned a fail-closed RPC-quorum 502 and is
-  disclosed rather than included as a successful pair.
+  +141.54 to +164.97 bp.
+- AssetFare latency ranged from 3.18 to 5.08 seconds; 0/30 observations exceeded
+  10 seconds. All 30 requested pairs completed without a discarded error.
+
+Normalized post-P1 data:
+[paired-sol-base-quotes-p1-20260916.jsonl](./data/paired-sol-base-quotes-p1-20260916.jsonl)
+
+## Pre-P1 baseline retained for comparison
+
+Observed from 2026-09-16 13:40:02 through 14:26:33 UTC.
+
+- Expected-receive advantage: 30/30 positive, mean +52.04 bp.
+- Minimum-receive advantage: 30/30 positive, mean +154.82 bp.
+- AssetFare median latency: 10.62 seconds versus Relay 0.52 seconds.
+- AssetFare latency range: 4.85–21.07 seconds; 4/30 exceeded 20 seconds.
+- One additional AssetFare attempt returned a fail-closed RPC-quorum 502 and
+  was disclosed rather than included as a successful pair.
+
+Normalized pre-P1 data:
+[paired-sol-base-quotes-20260916.jsonl](./data/paired-sol-base-quotes-20260916.jsonl)
 
 ## Interpretation
 
-This is a historical observation, not a price guarantee. It supports a
-fee-inclusive AssetFare advantage over Relay for this corridor and time window,
-but also shows a substantial latency disadvantage. Every caller must request
-fresh executable quotes using its actual addresses and compare expected receive,
-minimum receive, time, costs, step count, and non-atomic risk before choosing a
-route.
-
-The read-only agent evaluator and framework adapters now allow 45 seconds for a
-quote because four valid observations exceeded the earlier 20-second client
-timeout. AssetFare still never signs or submits.
-
-Normalized source data: [paired-sol-base-quotes-20260916.jsonl](./data/paired-sol-base-quotes-20260916.jsonl)
+These are historical observations, not price or latency guarantees. The second
+window shows that the fee-inclusive advantage persisted after the latency
+change while median AssetFare latency fell by about 65%. Every caller must still
+request fresh executable quotes using its actual addresses and compare expected
+receive, minimum receive, time, costs, step count, and non-atomic risk before
+choosing a route. AssetFare never signs or submits.
