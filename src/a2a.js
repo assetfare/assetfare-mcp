@@ -106,9 +106,9 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for nine supported asset endpoints and 72 directed routes from USD 1 through 1,000; stop before authentication, preparation, signing, or submission.",
+      description: "Return one fresh quote for nine supported asset endpoints and 72 directed routes from USD 1 through 1,000. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd; stop before authentication, preparation, signing, or submission.",
       tags: ["cross-chain", "quote", "solana", "base", "arbitrum", "robinhood", "non-custodial"],
-      examples: ["Quote a $1 route from solana:SOL to base:USDC", "Quote a $250 route from solana:SOL to arbitrum:ETH"],
+      examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"solana","fromToken":"SOL","toChain":"arbitrum","toToken":"ETH","amountUsd":250}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],

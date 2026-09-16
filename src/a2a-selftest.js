@@ -18,6 +18,8 @@ canonicalizeAgentCard(card);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
+assert.match(card.skills[0].description,/fromChain.*fromToken.*toChain.*toToken.*amountUsd/);
+assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1);
 assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-]?key|api[_-]?key|bearer [A-Za-z0-9]/i), null);
 
 let observedBody;let observedHeaders;
