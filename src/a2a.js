@@ -127,10 +127,23 @@ function dataValue(parts) {
 
 class QuoteExecutor {
   constructor(config) { this.config = config; }
+  publish(context,bus,value) {
+    bus.publish(AgentEvent.message({
+      messageId: `assetfare-${Date.now()}`,
+      contextId: context.contextId,
+      taskId: "",
+      role: Role.ROLE_AGENT,
+      parts: [{ content: { $case: "data", value }, metadata: undefined, filename: "", mediaType: "application/json" }],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
+    }));
+    bus.finished();
+  }
   async execute(context, bus) {
     let intent;
     try { intent = QuoteIntent.parse(dataValue(context.userMessage.parts)); }
-    catch { throw new Error("quote_intent_invalid"); }
+    catch { this.publish(context,bus,{error:{code:"quote_intent_invalid"}});return; }
     const headers = context.context.state.get("headers") || {};
     const request = requester(this.config, headers);
     const known = new Set(["assetfare_upstream_unavailable", "assetfare_response_too_large", "assetfare_response_invalid", "assetfare_upstream_status_error"]);
@@ -140,19 +153,9 @@ class QuoteExecutor {
       Capabilities.parse(capabilitiesRaw);Status.parse(statusRaw);
       quote = Quote.parse(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }));
     } catch (error) {
-      throw new Error(error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed");
+      this.publish(context,bus,{error:{code:error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed"}});return;
     }
-    bus.publish(AgentEvent.message({
-      messageId: `assetfare-${Date.now()}`,
-      contextId: context.contextId,
-      taskId: "",
-      role: Role.ROLE_AGENT,
-      parts: [{ content: { $case: "data", value: { quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } } }, metadata: undefined, filename: "", mediaType: "application/json" }],
-      metadata: undefined,
-      extensions: [],
-      referenceTaskIds: [],
-    }));
-    bus.finished();
+    this.publish(context,bus,{ quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } });
   }
   async cancelTask(_taskId, bus) { bus.finished(); }
 }

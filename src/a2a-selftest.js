@@ -41,17 +41,18 @@ assert.equal(result.result.message.parts[0].data.guidance.transactionSubmitted, 
 const oldMethod = await transport.handle(request([data(intent)], "2", "message/send"), context());
 assert.equal(oldMethod.error.code, -32601);
 const freeText = await transport.handle(request([text("send money")], "3"), context());
-assert.equal(freeText.result.task.status.state, "TASK_STATE_FAILED");
+assert.equal(freeText.result.message.parts[0].data.error.code, "quote_intent_invalid");
 assert.equal(JSON.stringify(freeText).includes('"quote"'), false);
 
 const unsafeFetch = async (url) => String(url).endsWith("/v2/capabilities") ? ok(caps) : String(url).endsWith("/v2/status") ? ok(status) : ok({ ...quote, risk: { server_signing: false, server_submission: true } });
 const unsafe = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: unsafeFetch }).requestHandler);
 const unsafeResult = await unsafe.handle(request([data(intent)], "4"), context());
-assert.equal(unsafeResult.result.task.status.state, "TASK_STATE_FAILED");
+assert.equal(unsafeResult.result.message.parts[0].data.error.code, "assetfare_safety_boundary_failed");
 assert.equal(JSON.stringify(unsafeResult).includes('"quote"'), false);
 
 const leaky = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: async()=>{throw Error("SECRET https://internal/?key=bad");} }).requestHandler);
 const leakyResult = await leaky.handle(request([data(intent)], "5"), context());
 assert.equal(JSON.stringify(leakyResult).match(/SECRET|internal|https?:\/\//), null);
+assert.equal(leakyResult.result.message.parts[0].data.error.code, "assetfare_upstream_unavailable");
 
 console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, quote: true, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
