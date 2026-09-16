@@ -44,8 +44,8 @@ No API key, wallet authentication, session, signature, or transaction is
 required for this read-only evaluation call:
 
 ```bash
-node examples/rest-quote.mjs 300 solana SOL base USDC
-python3 examples/rest_quote.py 300 solana SOL base USDC
+node examples/rest-quote.mjs 1 solana SOL base USDC
+python3 examples/rest_quote.py 1 solana SOL base USDC
 ```
 
 For a one-command, agent-readable evaluation that verifies the signed release
@@ -53,7 +53,7 @@ manifest and remains strictly quote-only:
 
 ```bash
 npx --yes --package=github:odaiin/assetfare-mcp assetfare-route-eval \
-  --amount 300 --from-chain solana --from-token SOL --to-chain base --to-token ETH
+  --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token ETH
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
@@ -72,7 +72,7 @@ signing, submission, funding, swap, or bridge execution.
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
-  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":300}'
+  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":1}'
 ```
 
 Connect a remote MCP client directly—no package installation or AssetFare API
@@ -153,10 +153,17 @@ Do not place that token in any MCP configuration file.
 The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfare-route/SKILL.md).
 Skills.lc-compatible clients can install it directly from this public GitHub repository.
 
+```bash
+npx --yes skills add odaiin/assetfare-mcp --skill assetfare-route -g -y
+```
+
+Circle Agent Stack and other shell-capable agents can use the same skill and
+public REST/OpenAPI flow; see [`integrations/circle-agent-stack`](./integrations/circle-agent-stack/README.md).
+
 ## First-call evaluation
 
 Run `npm run first-call-eval` to verify a fresh MCP client can discover the
-legacy compatibility tools, validate the signed manifest and status, and obtain a $300 original-corridor quote without
+legacy compatibility tools, validate the signed manifest and status, and obtain a $1 original-corridor quote without
 creating a wallet login, session, signature, or transaction.
 
 Use Streamable HTTP. The endpoint has no server-side API key; wallet authentication happens through the AssetFare tools.

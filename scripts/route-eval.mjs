@@ -2,7 +2,7 @@
 import { createPublicKey, verify } from "node:crypto";
 
 const DEFAULTS = {
-  amount: 300,
+  amount: 1,
   fromChain: "solana",
   fromToken: "SOL",
   toChain: "base",
@@ -26,7 +26,7 @@ Options:
   --compact               Emit compact JSON
   --help                  Show this message
 
-Defaults: $300 solana:SOL -> base:ETH. The evaluator never authenticates a
+Defaults: $1 solana:SOL -> base:ETH. The evaluator never authenticates a
 wallet, creates a session, prepares an action, signs, or submits a transaction.`;
 }
 

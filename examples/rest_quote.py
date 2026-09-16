@@ -8,7 +8,7 @@ import sys
 import urllib.request
 
 
-amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 300
+amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 1
 from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
 from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "SOL"
 to_chain = sys.argv[4].lower() if len(sys.argv) > 4 else "base"

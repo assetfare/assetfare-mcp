@@ -57,14 +57,14 @@ const server = createServer(async (request, response) => {
     status: "capped_public_agent_release",
     as_of: new Date().toISOString(),
     ttl_seconds: 20,
-    intent: { from: "solana:SOL", to: "base:ETH", amount_usd: 300, estimated_input_base: 100000000 },
-    offer: { expected_receive_amount: 0.051, estimated_min_receive_amount: 0.05, output_symbol: "ETH", expected_receive_usd: 299, estimated_min_receive_usd: 294, estimated_time_seconds: 21, assetfare_fee_bps: 1 },
+    intent: { from: "solana:SOL", to: "base:ETH", amount_usd: 1, estimated_input_base: 10000000 },
+    offer: { expected_receive_amount: 0.00034, estimated_min_receive_amount: 0.00033, output_symbol: "ETH", expected_receive_usd: 0.99, estimated_min_receive_usd: 0.96, estimated_time_seconds: 21, assetfare_fee_bps: 1 },
     route: { steps: [{ provider: "selftest" }] },
     risk: { non_atomic: true, server_signing: false, server_submission: false },
     execution: { supported: true },
   });
-  if (url.pathname === "/relay") return send(200, { details: { currencyOut: { amountFormatted: "0.0505", minimumAmount: "49500000000000000", currency: { decimals: 18, symbol: "ETH" } }, timeEstimate: 2 } });
-  if (url.pathname === "/mayan") return send(200, { quotes: [{ expectedAmountOut: "0.0502", minAmountOut: "0.049", etaSeconds: 3, type: "MCTP" }] });
+  if (url.pathname === "/relay") return send(200, { details: { currencyOut: { amountFormatted: "0.000335", minimumAmount: "325000000000000", currency: { decimals: 18, symbol: "ETH" } }, timeEstimate: 2 } });
+  if (url.pathname === "/mayan") return send(200, { quotes: [{ expectedAmountOut: "0.000332", minAmountOut: "0.00032", etaSeconds: 3, type: "MCTP" }] });
   return send(404, { error: "not_found" });
 });
 
@@ -97,11 +97,10 @@ const checks = {
   status_pass: result.status === "pass",
   manifest_verified: result.manifest?.valid === true,
   quote_read_only: result.safety?.wallet_authentication_performed === false && result.safety?.session_created === false && result.safety?.action_prepared === false && result.safety?.transaction_signed === false && result.safety?.transaction_submitted === false,
-  assetfare_quote_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).amount_usd === 300,
-  relay_same_input: JSON.parse(relayRequest?.body || "{}").amount === "100000000",
-  mayan_same_input: mayanRequest?.query?.amountIn === "0.1",
+  assetfare_quote_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).amount_usd === 1,
+  relay_same_input: JSON.parse(relayRequest?.body || "{}").amount === "10000000",
+  mayan_same_input: mayanRequest?.query?.amountIn === "0.01",
   winner_computed: result.alternatives?.highest_expected_receive_snapshot === "assetfare",
 };
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));
 console.log(JSON.stringify({ status: "pass", checks }));
-

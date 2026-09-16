@@ -1,5 +1,5 @@
 const endpoint = "https://api.assetfare.dev/v2/quote";
-const amountUsd = Number(process.argv[2] || 300);
+const amountUsd = Number(process.argv[2] || 1);
 const fromChain = String(process.argv[3] || "solana").toLowerCase();
 const fromToken = String(process.argv[4] || "SOL").toUpperCase();
 const toChain = String(process.argv[5] || "base").toLowerCase();
