@@ -18,6 +18,7 @@ current v2 route without installing or connecting MCP:
 - OpenAPI v2: `https://api.assetfare.dev/v2/openapi.json`
 - Provider status: `https://api.assetfare.dev/v2/status`
 - Read-only Arazzo workflow: `https://assetfare.dev/arazzo.yaml`
+- Independent agent pilot: `https://assetfare.dev/pilot/`
 
 ## Safety model
 
