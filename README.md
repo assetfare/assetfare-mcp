@@ -47,6 +47,19 @@ node examples/rest-quote.mjs 300 solana SOL base USDC
 python3 examples/rest_quote.py 300 solana SOL base USDC
 ```
 
+For a one-command, agent-readable evaluation that verifies the signed release
+manifest and remains strictly quote-only:
+
+```bash
+npm run route-eval -- --amount 300 --from-chain solana --from-token SOL --to-chain base --to-token ETH
+```
+
+For `solana:SOL -> base:ETH`, the evaluator also requests same-input Relay and
+Mayan snapshots with placeholder public addresses. Those comparison rows are
+not executable orders; every provider must be requoted with the caller's real
+addresses before selection or signing. Other routes return the AssetFare quote
+without pretending that a generic competitor comparison is available.
+
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \

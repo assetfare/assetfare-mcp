@@ -35,6 +35,8 @@
     "start": "node src/server.js",
     "check": "node --check src/server.js",
     "test": "node src/selftest.js",
-    "first-call-eval": "node scripts/first-call-eval.mjs"
+    "first-call-eval": "node scripts/first-call-eval.mjs",
+    "route-eval": "node scripts/route-eval.mjs",
+    "route-eval-selftest": "node scripts/route-eval-selftest.mjs"
   }
 }
