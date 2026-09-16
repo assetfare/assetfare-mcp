@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "bin": {
-    "assetfare-mcp": "src/server.js"
+    "assetfare-mcp": "src/server.js",
+    "assetfare-route-eval": "scripts/route-eval.mjs"
   },
   "files": [
     "src",

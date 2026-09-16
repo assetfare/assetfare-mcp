@@ -52,8 +52,11 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npm run route-eval -- --amount 300 --from-chain solana --from-token SOL --to-chain base --to-token ETH
+npx --yes --package=github:odaiin/assetfare-mcp assetfare-route-eval \
+  --amount 300 --from-chain solana --from-token SOL --to-chain base --to-token ETH
 ```
+
+From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 
 For `solana:SOL -> base:ETH`, the evaluator also requests same-input Relay and
 Mayan snapshots with placeholder public addresses. Those comparison rows are
