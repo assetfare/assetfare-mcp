@@ -1,6 +1,7 @@
 # AssetFare — agent-first multichain routes with an optional MCP adapter
 
 [![Public safety checks](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
@@ -61,7 +62,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=github:odaiin/assetfare-mcp#v0.3.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.3.0 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token ETH
 ```
 
