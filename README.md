@@ -95,6 +95,14 @@ It exposes two native REST tools—live capabilities and one route quote—with 
 credentials, wallet, authentication, session, preparation, signing, submission,
 swap, or bridge execution tool.
 
+Hugging Face smolagents users can load the reviewed
+[quote tool](https://huggingface.co/spaces/odaiin/assetfare-quote) or
+[capabilities tool](https://huggingface.co/spaces/odaiin/assetfare-capabilities)
+from free Static Spaces. Hub tools execute remote code locally: inspect
+`tool.py`, set `trust_remote_code=True`, and pin the documented immutable
+revision. The complete source and tests are in
+[`odaiin/smolagents-assetfare`](https://github.com/odaiin/smolagents-assetfare).
+
 ## A2A v1 quote adapter
 
 AssetFare also exposes a read-only A2A v1 interface for agents that discover
@@ -270,6 +278,8 @@ Registry releases remain separately reviewed from remote deployment.
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
+- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (reviewed revision `b4c8b5924e8e53d06e43a6295002c0badcdda4a5`)
+- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (reviewed revision `2770263d157006d5e4dfd90a42fa0713c3de5ec6`)
 - A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
 - ARD: `https://assetfare.dev/.well-known/ard.json`
 
