@@ -143,7 +143,7 @@ async function serveHttp() {
     if(req.method==="HEAD")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(405).end();
     if(req.method==="OPTIONS")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(204).end();
     if(req.method!=="POST")return res.set("allow","POST, OPTIONS").status(405).json({error:"a2a_method_not_allowed"});
-    return req.is("application/json")?rpc(req,res,next):res.status(415).json({error:"a2a_json_content_type_required"});
+    return rpc(req,res,next);
   });
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
