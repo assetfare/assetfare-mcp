@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "assetfare",
+  "version": "0.4.0",
+  "description": "Multichain route evaluation for AI agents; AssetFare never signs or submits transactions.",
+  "author": {
+    "name": "AssetFare",
+    "email": "support@assetfare.dev",
+    "url": "https://assetfare.dev"
+  },
+  "homepage": "https://assetfare.dev",
+  "repository": "https://github.com/odaiin/assetfare-mcp",
+  "license": "MIT",
+  "keywords": [
+    "ai-agents",
+    "route-quotes",
+    "cross-chain",
+    "bridge",
+    "swap",
+    "solana",
+    "base",
+    "arbitrum",
+    "robinhood-chain",
+    "non-custodial"
+  ]
+}

@@ -198,6 +198,23 @@ Skills.lc-compatible clients can install it directly from this public GitHub rep
 npx --yes skills add odaiin/assetfare-mcp --skill assetfare-route -g -y
 ```
 
+## Portable Agent Plugin
+
+Clients that support the published vendor-neutral Agent Plugins 1.0 format can
+install this repository from its Git URL. The current `plugins` CLI can install
+the same MCP connection and AssetFare route-evaluation skill through the
+included compatibility metadata:
+
+```bash
+npx plugins add odaiin/assetfare-mcp
+```
+
+The MCP endpoint's two primary v2 tools are read-only capabilities and quote
+tools. Its separately labeled legacy workflow tools can create wallet-auth or
+session state and prepare unsigned actions only after explicit selection and
+approval. AssetFare never receives private keys, signs, or submits, and the
+skill keeps REST/OpenAPI v2 as the primary evaluation path.
+
 Circle Agent Stack and other shell-capable agents can use the same skill and
 public REST/OpenAPI flow; see [`integrations/circle-agent-stack`](./integrations/circle-agent-stack/README.md).
 

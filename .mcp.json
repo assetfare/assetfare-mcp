@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "assetfare": {
+      "type": "http",
+      "url": "https://api.assetfare.dev/mcp"
+    }
+  }
+}
