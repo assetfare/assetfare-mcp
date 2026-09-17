@@ -88,8 +88,8 @@ try {
   const port = listener.address().port;
   const health = await getJson(port, "/healthz");
   const card = await getJson(port, "/.well-known/mcp/server-card.json");
-  if (health.status !== 200 || health.body?.version !== "0.4.0" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.0" || card.body?.tools?.length !== 15) throw new Error("server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.1" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.1" || card.body?.tools?.length !== 15) throw new Error("server card contract mismatch");
   const legacy = await postJson(port, "0.3", "legacy");
   const missing = await postJson(port, undefined, "missing");
   const current = await postJson(port, "1.0", "current");
@@ -110,6 +110,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.0", server_card_tools: 15, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.1", server_card_tools: 15, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

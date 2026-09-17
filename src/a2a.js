@@ -96,7 +96,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     description: "Read-only cross-chain crypto bridge and same-chain swap route quotes for AI agents across Solana, Base, Arbitrum, and Robinhood Chain. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.0",
+    version: "0.1.1",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},

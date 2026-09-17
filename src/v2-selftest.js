@@ -16,10 +16,10 @@ const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "bridge",
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
-assert.equal(packageMetadata.version, "0.4.0");
-assert.equal(lockMetadata.version, "0.4.0");
-assert.equal(lockMetadata.packages[""].version, "0.4.0");
-assert.equal(registryMetadata.version, "0.4.0");
+assert.equal(packageMetadata.version, "0.4.1");
+assert.equal(lockMetadata.version, "0.4.1");
+assert.equal(lockMetadata.packages[""].version, "0.4.1");
+assert.equal(registryMetadata.version, "0.4.1");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.ok(registryMetadata.description.length <= 100);
 assert.match(registryMetadata.description, /Solana.*Base.*Arbitrum.*Robinhood/);
@@ -128,7 +128,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 15);
-  assert.equal(card.serverInfo.version, "0.4.0");
+  assert.equal(card.serverInfo.version, "0.4.1");
   assert.equal(card.tools.length, 15);
   assert.equal(dynamicCapabilities.description, staticCapabilities.description);
   assert.equal(dynamicQuote.description, staticQuote.description);

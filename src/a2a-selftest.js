@@ -15,6 +15,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
+assert.equal(card.version, "0.1.1");
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
