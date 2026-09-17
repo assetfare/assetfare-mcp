@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.3.0",
-  "description": "Optional MCP and quote-only A2A v1 discovery adapters for AssetFare's non-custodial four-chain REST/OpenAPI v2 route service.",
+  "version": "0.4.0",
+  "description": "Read-only MCP and A2A quote adapters for AssetFare's non-custodial four-chain REST/OpenAPI v2 route service.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -23,6 +23,21 @@
     "type": "git",
     "url": "https://github.com/odaiin/assetfare-mcp.git"
   },
+  "keywords": [
+    "ai-agents",
+    "route-quotes",
+    "cross-chain",
+    "bridge",
+    "swap",
+    "solana",
+    "base",
+    "arbitrum",
+    "robinhood-chain",
+    "mcp",
+    "a2a",
+    "openapi",
+    "non-custodial"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -35,8 +50,8 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js",
-    "test": "node src/selftest.js && node src/a2a-selftest.js",
+    "check": "node --check src/server.js && node --check src/v2-selftest.js && node --check scripts/first-call-eval.mjs",
+    "test": "node src/selftest.js && node src/v2-selftest.js && node src/a2a-selftest.js",
     "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",
     "route-eval": "node scripts/route-eval.mjs",

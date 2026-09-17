@@ -9,7 +9,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 const HOST = process.env.ASSETFARE_MCP_HOST || "127.0.0.1";
 const PORT = Number(process.env.ASSETFARE_MCP_PORT || "8790");
@@ -18,12 +18,66 @@ const PUBLIC_HOST = process.env.ASSETFARE_MCP_PUBLIC_HOST || "api.assetfare.dev"
 const A2A_API_BASE = (process.env.ASSETFARE_A2A_API_BASE_URL || "http://127.0.0.1:8791").replace(/\/$/, "");
 const A2A_SERVICE_URL = process.env.ASSETFARE_A2A_SERVICE_URL || "https://api.assetfare.dev/a2a";
 const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
+const V2_TIMEOUT_MS = 45_000;
+const V2_MAX_RESPONSE_BYTES = 1_048_576;
+const V2_CHAINS = ["solana", "base", "arbitrum", "robinhood"];
+const V2_TOKENS = ["SOL", "ETH", "USDC", "USDG"];
+const V2_ENDPOINTS = new Set([
+  "solana:SOL", "solana:USDC", "solana:USDG",
+  "base:ETH", "base:USDC",
+  "arbitrum:ETH", "arbitrum:USDC",
+  "robinhood:ETH", "robinhood:USDG",
+]);
+const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary four-chain quote surface.";
+const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote for Solana SOL to Base or Arbitrum ETH. Use only with the legacy wallet-auth/session workflow; prefer assetfare_v2_quote for new evaluations.";
+const V2_CAPABILITIES_DESCRIPTION = "Primary current four-chain discovery tool. Read the live nine asset endpoints, 72 directed routes, release status, and no-sign/no-submit boundary before a v2 quote.";
+const V2_QUOTE_DESCRIPTION = "Primary current four-chain quote-only tool. Return one fresh non-binding quote across Solana, Base, Arbitrum, or Robinhood Chain and stop before authentication, session creation, action preparation, signing, or submission.";
 
 const accessToken = z.string().min(20).max(512);
 const sessionId = z.string().uuid();
 const idempotencyKey = z.string().min(8).max(128);
 const sourceWallet = z.string().min(32).max(64);
 const destinationWallet = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+const v2QuoteFields = {
+  from_chain: z.enum(V2_CHAINS),
+  from_token: z.enum(V2_TOKENS),
+  to_chain: z.enum(V2_CHAINS),
+  to_token: z.enum(V2_TOKENS),
+  amount_usd: z.number().finite().min(1).max(1000),
+};
+const emptyStrictInput = z.object({}).strict();
+const v2QuoteIntent = z.object(v2QuoteFields).strict();
+const v2CapabilitiesResponse = z.object({
+  status: z.literal("capped_public_agent_release"),
+  public_api_enabled: z.literal(true),
+  asset_endpoints: z.array(z.object({ chain: z.enum(V2_CHAINS), token: z.enum(V2_TOKENS) }).strict()).length(9),
+  directed_conversion_routes: z.literal(72),
+  unsigned_route_plans_ready: z.literal(72),
+  server_signing: z.literal(false),
+  server_submission: z.literal(false),
+}).passthrough();
+const v2QuoteResponse = z.object({
+  quote_id: z.string().uuid(),
+  status: z.literal("capped_public_agent_release"),
+  as_of: z.string().min(1).max(64),
+  ttl_seconds: z.number().int().positive().max(300),
+  intent: z.object({ from: z.string(), to: z.string(), amount_usd: z.number().finite(), estimated_input_base: z.number().int().positive() }).passthrough(),
+  offer: z.object({
+    expected_receive_amount: z.number().finite().positive(),
+    estimated_min_receive_amount: z.number().finite().positive(),
+    output_symbol: z.enum(V2_TOKENS),
+    estimated_time_seconds: z.number().int().nonnegative().nullable(),
+    assetfare_fee_bps: z.number().int().min(0).max(1),
+    fee_collection_steps: z.array(z.number().int().nonnegative()).max(8),
+  }).passthrough(),
+  route: z.object({
+    steps: z.array(z.record(z.unknown())).min(1).max(8),
+    server_signing: z.literal(false),
+    server_submission: z.literal(false),
+  }).passthrough(),
+  risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
+  execution: z.object({ supported: z.literal(true) }).passthrough(),
+}).passthrough();
 
 function asText(value, isError = false) {
   return { isError, content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -35,17 +89,65 @@ function provenanceFromHeaders(headers) {
   return { requestIdentity: forwarded && !forwarded.includes(",") && isIP(forwarded) ? forwarded : "", userAgent };
 }
 
+async function responseText(response, maximumBytes) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error("assetfare_v2_response_too_large");
+  if (!response.body?.getReader) {
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > maximumBytes) throw new Error("assetfare_v2_response_too_large");
+    return text;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maximumBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error("assetfare_v2_response_too_large");
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total).toString("utf8");
+}
+
+function safeV2ErrorPayload(payload, status) {
+  const error = status === 429 ? "assetfare_v2_rate_limited" : status >= 500 ? "assetfare_v2_upstream_unavailable" : "assetfare_v2_request_rejected";
+  const value = { error };
+  if (Number.isInteger(payload?.retry_after_seconds) && payload.retry_after_seconds >= 0 && payload.retry_after_seconds <= 3600) value.retry_after_seconds = payload.retry_after_seconds;
+  return Object.assign(new Error(error), { status, payload: value });
+}
+
 function apiClient(provenance = {}) {
-  return async function api(path, { method = "GET", body, token } = {}) {
+  return async function api(path, { method = "GET", body, token, timeoutMs = 30_000, maximumBytes = 0, rejectRedirects = false, sanitizeErrors = false } = {}) {
   const headers = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
   if (provenance.requestIdentity) headers["x-forwarded-for"] = provenance.requestIdentity;
   if (provenance.userAgent) headers["user-agent"] = provenance.userAgent;
   headers["x-assetfare-channel"] = "mcp";
-  const response = await fetch(API_BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(30_000) });
-  const payload = await response.json().catch(() => ({ error: "assetfare_non_json_response" }));
+  let response;
+  try {
+    response = await fetch(API_BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: rejectRedirects ? "error" : "follow", signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (sanitizeErrors) throw new Error("assetfare_v2_upstream_unavailable");
+    throw error;
+  }
+  let payload;
+  if (maximumBytes > 0) {
+    const mediaType = String(response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+    if (mediaType !== "application/json" && !mediaType.endsWith("+json")) throw new Error("assetfare_v2_response_invalid");
+    const text = await responseText(response, maximumBytes);
+    try { payload = JSON.parse(text); }
+    catch { throw new Error("assetfare_v2_response_invalid"); }
+    if (!payload || Array.isArray(payload) || typeof payload !== "object") throw new Error("assetfare_v2_response_invalid");
+  } else {
+    payload = await response.json().catch(() => ({ error: "assetfare_non_json_response" }));
+  }
   if (!response.ok) {
+    if (sanitizeErrors) throw safeV2ErrorPayload(payload, response.status);
     const error = typeof payload.error === "string" ? payload.error : "assetfare_request_failed";
     throw Object.assign(new Error(error), { status: response.status, payload });
   }
@@ -54,7 +156,38 @@ function apiClient(provenance = {}) {
 }
 
 function readonly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }; }
+function quoteOnly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true }; }
 function stateful(idempotent = false) { return { readOnlyHint: false, destructiveHint: false, idempotentHint: idempotent, openWorldHint: true }; }
+
+function parseV2Intent(args) {
+  let intent;
+  try { intent = v2QuoteIntent.parse(args); }
+  catch { throw new Error("assetfare_v2_quote_intent_invalid"); }
+  const source = `${intent.from_chain}:${intent.from_token}`;
+  const destination = `${intent.to_chain}:${intent.to_token}`;
+  if (!V2_ENDPOINTS.has(source)) throw new Error("assetfare_v2_source_endpoint_unsupported");
+  if (!V2_ENDPOINTS.has(destination)) throw new Error("assetfare_v2_destination_endpoint_unsupported");
+  if (source === destination) throw new Error("assetfare_v2_identity_route_not_required");
+  return intent;
+}
+
+function parseV2Capabilities(payload) {
+  let value;
+  try { value = v2CapabilitiesResponse.parse(payload); }
+  catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
+  const endpoints = new Set(value.asset_endpoints.map((item) => `${item.chain}:${item.token}`));
+  if (endpoints.size !== V2_ENDPOINTS.size || [...V2_ENDPOINTS].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
+  return value;
+}
+
+function parseV2Quote(payload, intent) {
+  let value;
+  try { value = v2QuoteResponse.parse(payload); }
+  catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
+  if (value.intent.from !== `${intent.from_chain}:${intent.from_token}` || value.intent.to !== `${intent.to_chain}:${intent.to_token}` || value.intent.amount_usd !== intent.amount_usd) throw new Error("assetfare_v2_quote_binding_failed");
+  if (value.offer.output_symbol !== intent.to_token || value.offer.estimated_min_receive_amount > value.offer.expected_receive_amount) throw new Error("assetfare_v2_quote_binding_failed");
+  return value;
+}
 
 // Wallet-bound workflow tools use an access token produced by the preceding
 // non-transactional signMessage flow. They never require a server-side API key
@@ -71,9 +204,11 @@ function serverCard() {
     serverInfo: { name: "AssetFare", version: VERSION },
     authentication: { required: false, schemes: [] },
     tools: [
-      { name: "assetfare_status", description: "Read current route capabilities, caps, and safety gates.", inputSchema: object({}) },
+      { name: "assetfare_status", description: LEGACY_STATUS_DESCRIPTION, inputSchema: object({}) },
       { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
-      { name: "assetfare_quote", description: "Get a fee-inclusive, non-binding Solana SOL to Base or Arbitrum ETH quote without creating a transaction.", inputSchema: object({ amount_usd: { type: "integer", minimum: 1, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
+      { name: "assetfare_v2_capabilities", description: V2_CAPABILITIES_DESCRIPTION, inputSchema: object({}) },
+      { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object({ from_chain: { type: "string", enum: V2_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: { type: "number", minimum: 1, maximum: 1000 } }) },
+      { name: "assetfare_quote", description: LEGACY_QUOTE_DESCRIPTION, inputSchema: object({ amount_usd: { type: "integer", minimum: 1, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
       { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
       { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
       { name: "assetfare_create_session", description: "Lock a fresh quote into one wallet-bound execution session. Creates no blockchain transaction.", inputSchema: object({ access_token: token, quote_id: uuid, idempotency_key: idempotency, source_wallet: wallet, destination_wallet: evmWallet }) },
@@ -103,12 +238,18 @@ function createServer(provenance = {}) {
   const api = apiClient(provenance);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
-    { instructions: "This optional MCP adapter covers only the original Solana SOL to Base or Arbitrum ETH routes. Use AssetFare REST/OpenAPI v2 for the four-chain matrix. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
+    { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary four-chain quote-only surface. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only. A v2 quote ID is never valid input to a legacy session tool. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
   );
 
-  addTool(server, "assetfare_status", "Read current capabilities, caps, pause state, and independent RPC quorum.", {}, readonly(), () => api("/v1/status"));
+  addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
   addTool(server, "assetfare_manifest", "Read the Ed25519-signed capability, contract, release, and mainnet-evidence manifest.", {}, readonly(), () => api("/.well-known/assetfare-manifest.json"));
-  addTool(server, "assetfare_quote", "Get a fee-inclusive Solana SOL to Base or Arbitrum ETH quote. This does not create a session or transaction.", { amount_usd: z.number().int().min(1).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
+  addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
+  addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
+    const intent = parseV2Intent(args);
+    const quote = parseV2Quote(await api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
+    return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true } };
+  });
+  addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: z.number().int().min(1).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
   addTool(server, "assetfare_start_wallet_auth", "Create a non-transactional Solana signMessage challenge. Requires caller approval because it creates a short-lived login challenge; it cannot move funds.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
   addTool(server, "assetfare_finish_wallet_auth", "Verify a wallet signature over the exact challenge message and return a wallet-bound access token. Requires caller approval; the returned token is sensitive.", { challenge_id: z.string().uuid(), source_wallet: sourceWallet, signature: z.string().min(64).max(128), terms_version: z.string().min(1).max(160) }, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));
@@ -218,4 +359,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders };
+export { V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders, serverCard };

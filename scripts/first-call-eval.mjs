@@ -15,18 +15,17 @@ function parse(result) {
 try {
   await client.connect(transport);
   const tools = await client.listTools();
-  const required = ["assetfare_manifest", "assetfare_status", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session"];
+  const required = ["assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_manifest", "assetfare_quote", "assetfare_create_session"];
   const names = tools.tools.map((tool) => tool.name);
-  const manifest = parse(await client.callTool({ name: "assetfare_manifest", arguments: {} }));
-  const status = parse(await client.callTool({ name: "assetfare_status", arguments: {} }));
-  const quote = parse(await client.callTool({ name: "assetfare_quote", arguments: { amount_usd: 1, destination_chain: "arbitrum" } }));
+  const capabilities = parse(await client.callTool({ name: "assetfare_v2_capabilities", arguments: {} }));
+  const quote = parse(await client.callTool({ name: "assetfare_v2_quote", arguments: { from_chain: "solana", from_token: "SOL", to_chain: "base", to_token: "USDC", amount_usd: 1 } }));
   const checks = {
     required_tools: required.every((name) => names.includes(name)),
     no_submission_tool: !names.some((name) => /sign|submit|send/i.test(name)),
-    self_service: status.self_service_wallet_authentication_enabled === true,
-    server_non_custodial: status.server_submission === false && manifest.execution.server_submission === false,
-    signed_manifest: manifest.signature?.algorithm === "Ed25519" && Boolean(manifest.signature?.public_key_url),
-    capped_quote: quote.status === "available" && quote.intent?.amount_usd === 1 && quote.intent?.to === "arbitrum:ETH" && quote.execution?.supported === true,
+    full_v2_scope: capabilities.public_api_enabled === true && capabilities.directed_conversion_routes === 72 && capabilities.asset_endpoints?.length === 9,
+    server_non_custodial: capabilities.server_signing === false && capabilities.server_submission === false && quote.risk?.server_signing === false && quote.risk?.server_submission === false,
+    capped_quote: quote.status === "capped_public_agent_release" && quote.intent?.amount_usd === 1 && quote.intent?.to === "base:USDC" && quote.execution?.supported === true,
+    quote_only: quote.guidance?.legacyWorkflowCompatible === false && quote.guidance?.walletAuthenticationPerformed === false && quote.guidance?.sessionCreated === false && quote.guidance?.actionPrepared === false && quote.guidance?.transactionSigned === false && quote.guidance?.transactionSubmitted === false,
   };
   if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify(checks));
   console.log(JSON.stringify({ status: "pass", endpoint, tool_count: names.length, checks }));
