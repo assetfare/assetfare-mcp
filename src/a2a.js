@@ -93,7 +93,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "Read-only non-custodial route quotes across Solana, Base, Arbitrum, and Robinhood Chain. AssetFare never receives a private key and never signs or submits.",
+    description: "Read-only cross-chain crypto bridge and same-chain swap route quotes for AI agents across Solana, Base, Arbitrum, and Robinhood Chain. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
     version: "0.1.0",
@@ -107,7 +107,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
       description: "Return one fresh quote for nine supported asset endpoints and 72 directed routes from USD 1 through 1,000. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd; stop before authentication, preparation, signing, or submission.",
-      tags: ["cross-chain", "quote", "solana", "base", "arbitrum", "robinhood", "non-custodial"],
+      tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"solana","fromToken":"SOL","toChain":"arbitrum","toToken":"ETH","amountUsd":250}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
