@@ -278,8 +278,8 @@ Registry releases remain separately reviewed from remote deployment.
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
-- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (reviewed revision `b4c8b5924e8e53d06e43a6295002c0badcdda4a5`)
-- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (reviewed revision `2770263d157006d5e4dfd90a42fa0713c3de5ec6`)
+- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `401ecf835a3e0c95807c245a208eeda81b0d9b81`)
+- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `995b5c5be4d88a6c94241ef22ac3a6581dfa8cdb`)
 - A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
 - ARD: `https://assetfare.dev/.well-known/ard.json`
 
