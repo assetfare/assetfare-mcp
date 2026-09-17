@@ -89,6 +89,12 @@ Read-only framework integrations are available for
 [Agenti](./integrations/agenti/). None of these integrations exposes preparation,
 signing, submission, funding, swap, or bridge execution.
 
+Dify agents can install the reviewed
+[AssetFare Marketplace plugin](https://marketplace.dify.ai/plugin/odaiin/assetfare).
+It exposes two native REST tools—live capabilities and one route quote—with no
+credentials, wallet, authentication, session, preparation, signing, submission,
+swap, or bridge execution tool.
+
 ## A2A v1 quote adapter
 
 AssetFare also exposes a read-only A2A v1 interface for agents that discover
@@ -263,6 +269,7 @@ Registry releases remain separately reviewed from remote deployment.
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
+- Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
 - A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
 - ARD: `https://assetfare.dev/.well-known/ard.json`
 
