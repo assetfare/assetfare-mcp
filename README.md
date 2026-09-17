@@ -45,6 +45,14 @@ No API key, wallet authentication, session, signature, or transaction is
 required for this read-only evaluation call:
 
 ```bash
+curl -sS https://api.assetfare.dev/v2/quote \
+  -H 'content-type: application/json' \
+  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":1}'
+```
+
+From a cloned repository, the dependency-free examples are:
+
+```bash
 node examples/rest-quote.mjs 1 solana SOL base USDC
 python3 examples/rest_quote.py 1 solana SOL base USDC
 ```
@@ -53,7 +61,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=github:odaiin/assetfare-mcp assetfare-route-eval \
+npx --yes --package=github:odaiin/assetfare-mcp#v0.3.0 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token ETH
 ```
 
@@ -95,15 +103,10 @@ A card fetch, registry health check, TCK request, or registry-generated
 
 The public endpoint was checked with official `a2aproject/a2a-tck` commit
 `263b9cfa`: all 55 applicable MUST checks passed. Five generic TCK SUT fixture
-tests that require magic free-text commands to produce unrelated text/file/data
-artifacts are deliberately not implemented by this structured quote-only
-agent; the exception is disclosed rather than presented as a full 100% pass.
-
-```bash
-curl -sS https://api.assetfare.dev/v2/quote \
-  -H 'content-type: application/json' \
-  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":1}'
-```
+tests send fixed TextPart payloads with magic messageId prefixes and require
+unrelated text/file/data artifacts. They are deliberately not implemented by
+this structured quote-only agent; the exception is disclosed rather than
+presented as a full 100% pass.
 
 Connect a remote MCP client directly—no package installation or AssetFare API
 key is required:
