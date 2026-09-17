@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.odaiin/assetfare",
   "title": "AssetFare",
-  "description": "Discovery adapters for AssetFare's four-chain REST/OpenAPI v2 routes: optional MCP compatibility tools plus a quote-only A2A v1 interface. The server never signs or submits.",
+  "description": "Non-custodial four-chain route quotes for AI agents. Optional MCP and A2A; never signs or submits.",
     "version": "0.3.0",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
