@@ -129,7 +129,37 @@ function createServer(provenance = {}) {
 function allowedOrigin(origin) { return !origin || ORIGINS.has(origin); }
 function allowedHost(host) { return host === PUBLIC_HOST || LOCAL_HOSTS.has(host); }
 
-async function serveHttp() {
+function normalizeA2AVersion(value) {
+  const match = /^(\d+)\.(\d+)(?:\.\d+)?$/.exec(String(value || "").trim());
+  return match ? `${Number(match[1])}.${Number(match[2])}` : null;
+}
+
+function a2aVersionGuard(supportedVersions) {
+  const supported = [...new Set((Array.isArray(supportedVersions) ? supportedVersions : [supportedVersions]).map(normalizeA2AVersion).filter(Boolean))];
+  if (!supported.length) throw new Error("A2A JSONRPC supported version missing");
+  return (req, res, next) => {
+    const rawRequestedVersion = String(req.get("a2a-version") || "0.3");
+    const requestedVersion = rawRequestedVersion.slice(0, 32);
+    const normalizedRequestedVersion = rawRequestedVersion.length <= 32 ? normalizeA2AVersion(rawRequestedVersion) : null;
+    if (supported.includes(normalizedRequestedVersion)) {
+      req.headers["a2a-version"] = normalizedRequestedVersion;
+      return next();
+    }
+    const requestId = req.body?.id;
+    const safeId = requestId === null || typeof requestId === "string" || typeof requestId === "number" ? requestId : null;
+    return res.status(400).set("cache-control", "no-store").vary("A2A-Version").json({
+      jsonrpc: "2.0",
+      id: safeId ?? null,
+      error: {
+        code: -32009,
+        message: `The requested A2A protocol version '${requestedVersion}' is not supported. Supported versions: ${supported.join(", ")}`,
+        data: [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", reason: "VERSION_NOT_SUPPORTED", domain: "a2a-protocol.org" }],
+      },
+    });
+  };
+}
+
+function createHttpApp() {
   const app = express();
   app.disable("x-powered-by");
   app.use((req, res, next) => allowedHost(req.get("host") || "") ? next() : res.status(421).json({ error: "assetfare_host_not_allowed" }));
@@ -137,13 +167,14 @@ async function serveHttp() {
   const a2a=createAssetFareA2A({ apiBaseUrl:A2A_API_BASE, serviceUrl:A2A_SERVICE_URL });
   const card=agentCardHandler({ agentCardProvider:async()=>a2a.card, cache:{ maxAge:300 } });
   const rpc=jsonRpcHandler({ requestHandler:a2a.requestHandler, userBuilder:UserBuilder.noAuthentication });
+  const guardA2AVersion=a2aVersionGuard(a2a.card.supportedInterfaces.filter((item)=>item.protocolBinding==="JSONRPC").map((item)=>item.protocolVersion));
   app.use(`/${AGENT_CARD_PATH}`,card);
   app.use("/.well-known/agent.json",card);
   app.use("/a2a",(req,res,next)=>{
     if(req.method==="HEAD")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(405).end();
     if(req.method==="OPTIONS")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(204).end();
     if(req.method!=="POST")return res.set("allow","POST, OPTIONS").status(405).json({error:"a2a_method_not_allowed"});
-    return rpc(req,res,next);
+    return guardA2AVersion(req,res,()=>rpc(req,res,next));
   });
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
@@ -168,6 +199,11 @@ async function serveHttp() {
     if(error instanceof SyntaxError)return res.status(400).json({error:"invalid_json"});
     return res.status(500).json({error:"assetfare_adapter_internal_error"});
   });
+  return app;
+}
+
+async function serveHttp() {
+  const app=createHttpApp();
   app.listen(PORT, HOST, () => process.stdout.write(`assetfare-mcp listening on ${HOST}:${PORT}\n`));
 }
 
@@ -182,4 +218,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { allowedHost, createServer, provenanceFromHeaders };
+export { a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders };
