@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
@@ -23,6 +24,28 @@ assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.ok(registryMetadata.description.length <= 100);
 assert.match(registryMetadata.description, /Solana.*Base.*Arbitrum.*Robinhood/);
 assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
+
+function importedV2Base(extraEnvironment) {
+  const result = spawnSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    "import('./src/server.js').then((module) => process.stdout.write(module.V2_API_BASE))",
+  ], {
+    cwd: new URL("..", import.meta.url),
+    env: {
+      ...process.env,
+      ASSETFARE_API_BASE_URL: "http://127.0.0.1:8788",
+      ASSETFARE_A2A_API_BASE_URL: "http://127.0.0.1:8791",
+      ...extraEnvironment,
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout;
+}
+
+assert.equal(importedV2Base({ ASSETFARE_V2_API_BASE_URL: "" }), "http://127.0.0.1:8791");
+assert.equal(importedV2Base({ ASSETFARE_V2_API_BASE_URL: "http://127.0.0.1:8792/" }), "http://127.0.0.1:8792");
 
 function capabilities(overrides = {}) {
   return {

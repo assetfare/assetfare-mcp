@@ -11,6 +11,14 @@ import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
 const VERSION = "0.4.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
+// The legacy v1 API and the four-chain v2 API run on separate local services
+// in production. Reuse the already-required A2A/v2 base as the safe fallback,
+// while allowing an explicit v2 override for other deployments.
+const V2_API_BASE = (
+  process.env.ASSETFARE_V2_API_BASE_URL
+  || process.env.ASSETFARE_A2A_API_BASE_URL
+  || "https://api.assetfare.dev"
+).replace(/\/$/, "");
 const HOST = process.env.ASSETFARE_MCP_HOST || "127.0.0.1";
 const PORT = Number(process.env.ASSETFARE_MCP_PORT || "8790");
 const ORIGINS = new Set((process.env.ASSETFARE_MCP_ALLOWED_ORIGINS || "https://chatgpt.com,https://chat.openai.com,https://claude.ai,https://claude.com").split(",").map((value) => value.trim()).filter(Boolean));
@@ -120,7 +128,7 @@ function safeV2ErrorPayload(payload, status) {
   return Object.assign(new Error(error), { status, payload: value });
 }
 
-function apiClient(provenance = {}) {
+function apiClient(provenance = {}, baseUrl = API_BASE) {
   return async function api(path, { method = "GET", body, token, timeoutMs = 30_000, maximumBytes = 0, rejectRedirects = false, sanitizeErrors = false } = {}) {
   const headers = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -130,7 +138,7 @@ function apiClient(provenance = {}) {
   headers["x-assetfare-channel"] = "mcp";
   let response;
   try {
-    response = await fetch(API_BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: rejectRedirects ? "error" : "follow", signal: AbortSignal.timeout(timeoutMs) });
+    response = await fetch(baseUrl + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), redirect: rejectRedirects ? "error" : "follow", signal: AbortSignal.timeout(timeoutMs) });
   } catch (error) {
     if (sanitizeErrors) throw new Error("assetfare_v2_upstream_unavailable");
     throw error;
@@ -236,6 +244,7 @@ function addTool(server, name, description, inputSchema, annotations, action) {
 
 function createServer(provenance = {}) {
   const api = apiClient(provenance);
+  const v2Api = apiClient(provenance, V2_API_BASE);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
     { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary four-chain quote-only surface. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only. A v2 quote ID is never valid input to a legacy session tool. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
@@ -243,10 +252,10 @@ function createServer(provenance = {}) {
 
   addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
   addTool(server, "assetfare_manifest", "Read the Ed25519-signed capability, contract, release, and mainnet-evidence manifest.", {}, readonly(), () => api("/.well-known/assetfare-manifest.json"));
-  addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
+  addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await v2Api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
   addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
     const intent = parseV2Intent(args);
-    const quote = parseV2Quote(await api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
+    const quote = parseV2Quote(await v2Api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
     return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true } };
   });
   addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: z.number().int().min(1).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
@@ -359,4 +368,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders, serverCard };
+export { V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders, serverCard };
