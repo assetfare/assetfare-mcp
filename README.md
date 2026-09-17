@@ -93,6 +93,12 @@ prepare, signing, approval, funding, swap, bridge, or submission capability.
 A card fetch, registry health check, TCK request, or registry-generated
 `SendMessage` probe is discovery/conformance traffic, not customer demand.
 
+The public endpoint was checked with official `a2aproject/a2a-tck` commit
+`263b9cfa`: all 55 applicable MUST checks passed. Five generic TCK SUT fixture
+tests that require magic free-text commands to produce unrelated text/file/data
+artifacts are deliberately not implemented by this structured quote-only
+agent; the exception is disclosed rather than presented as a full 100% pass.
+
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
@@ -226,6 +232,8 @@ is intentionally deferred until a separate package-release review.
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
+- A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
+- ARD: `https://assetfare.dev/.well-known/ard.json`
 
 The wrapper deliberately contains no AssetFare route engine, wallets, RPC credentials, or internal operations data.
 
