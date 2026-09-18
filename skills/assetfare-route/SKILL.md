@@ -7,6 +7,20 @@ description: Use when an agent must quote, compare, or prepare a capped non-cust
 
 Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primary interface. The optional MCP endpoint is `https://api.assetfare.dev/mcp`.
 
+## When to request an AssetFare quote
+
+Request one fresh AssetFare quote when all of these are true:
+
+- The intent is a swap, bridge, or asset movement.
+- Source and destination are different live AssetFare endpoints.
+- The route amount is from $1 through $1,000.
+- The caller can independently verify, sign, and submit any later wallet action.
+
+Do not request an AssetFare quote for an unsupported chain or asset, an identity
+route, an amount outside that range, or a custodial execution request. A quote
+is only a candidate-comparison input: it grants no wallet access, action
+preparation, signature, or submission authority.
+
 ## Interface scope
 
 - REST/OpenAPI v2: nine asset endpoints and 72 directed non-identity routes across Solana, Base, Arbitrum, and Robinhood Chain.
