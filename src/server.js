@@ -61,6 +61,8 @@ const v2CapabilitiesResponse = z.object({
   status: z.literal("capped_public_agent_release"),
   public_api_enabled: z.literal(true),
   asset_endpoints: z.array(z.object({ chain: z.enum(V2_SOURCE_CHAINS), token: z.enum(V2_TOKENS) }).strict()).length(10),
+  source_only_asset_endpoints:z.array(z.object({chain:z.literal("polygon"),token:z.literal("USDC")}).strict()).length(1),
+  source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC"])).length(2),
   directed_conversion_routes: z.literal(74),
   unsigned_route_plans_ready: z.literal(74),
   server_signing: z.literal(false),
@@ -194,6 +196,7 @@ function parseV2Capabilities(payload) {
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
   const endpoints = new Set(value.asset_endpoints.map((item) => `${item.chain}:${item.token}`));
   if (endpoints.size !== V2_ENDPOINTS.size || [...V2_ENDPOINTS].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
+  if(new Set(value.source_only_routes).size!==2)throw new Error("assetfare_v2_safety_boundary_failed");
   return value;
 }
 

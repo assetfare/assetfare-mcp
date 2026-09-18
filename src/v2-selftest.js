@@ -55,6 +55,8 @@ function capabilities(overrides = {}) {
     public_api_enabled: true,
     chains: ["arbitrum", "base", "polygon", "robinhood", "solana"],
     asset_endpoints: ENDPOINTS.map(([chain, token]) => ({ chain, token })),
+    source_only_asset_endpoints:[{chain:"polygon",token:"USDC"}],
+    source_only_routes:["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC"],
     directed_conversion_routes: 74,
     unsigned_route_plans_ready: 74,
     server_signing: false,
@@ -107,7 +109,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (mode === "invalid-json") return new Response("<secret>", { status: 200, headers: { "content-type": "text/html" } });
   if (mode === "wrong-content-type") return new Response(JSON.stringify(quote(validIntent)), { status: 200, headers: { "content-type": "text/plain" } });
   if (mode === "unsafe-error") return new Response(JSON.stringify({ error: "SECRET leak\n", reason_class: "unsafe detail!", retry_after_seconds: 99999 }), { status: 502, headers: { "content-type": "application/json" } });
-  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : capabilities());
+  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({source_only_routes:["polygon:USDC->base:ETH","polygon:USDC->arbitrum:USDC"]}) : capabilities());
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if(mode==="nested-signing"){const value=quote(intent);value.offer.server_submission=true;value.route.steps[0].server_signing=true;value.execution.server_submission=true;return Response.json(value);}
@@ -220,9 +222,9 @@ try {
   }
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
-  for (const failureMode of ["unsafe-capabilities", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
-    const result = await call(client, failureMode === "unsafe-capabilities" ? "assetfare_v2_capabilities" : "assetfare_v2_quote", failureMode === "unsafe-capabilities" ? {} : validIntent);
+    const capabilityFailure=["unsafe-capabilities","wrong-source-only"].includes(failureMode);const result = await call(client, capabilityFailure ? "assetfare_v2_capabilities" : "assetfare_v2_quote", capabilityFailure ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
     const value = parse(result);
     const serialized = JSON.stringify(value);

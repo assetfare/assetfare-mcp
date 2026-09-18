@@ -43,7 +43,7 @@ const QuoteIntent = z.object({
   if (value.fromChain === "polygon" && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "unsupported Polygon source route" });
 });
 
-const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(5), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(10), directed_conversion_routes:z.literal(74), unsigned_route_plans_ready:z.literal(74), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
+const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(5), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(10),source_only_asset_endpoints:z.array(z.object({chain:z.literal("polygon"),token:z.literal("USDC")}).passthrough()).length(1),source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC"])).length(2), directed_conversion_routes:z.literal(74), unsigned_route_plans_ready:z.literal(74), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Status = z.object({ status: z.literal("capped_public_agent_release"), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Quote = z.object({
   status: z.literal("capped_public_agent_release"),
@@ -58,6 +58,7 @@ function validateCapabilities(payload) {
   rejectSigningClaims(payload);
   const value=Capabilities.parse(payload),chains=new Set(value.chains),endpoints=new Set(value.asset_endpoints.map((item)=>`${item.chain}:${item.token}`));
   if(chains.size!==5||Object.keys(TOKENS_BY_CHAIN).some((chain)=>!chains.has(chain))||endpoints.size!==ENDPOINTS.size||[...ENDPOINTS].some((endpoint)=>!endpoints.has(endpoint)))throw new Error("assetfare_safety_boundary_failed");
+  if(new Set(value.source_only_routes).size!==2)throw new Error("assetfare_safety_boundary_failed");
   return value;
 }
 
