@@ -11,10 +11,13 @@ Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primar
 
 Request one fresh AssetFare quote when all of these are true:
 
-- The intent is a swap, bridge, or asset movement.
-- Source and destination are different live AssetFare endpoints.
+- The intent is a swap or bridge between different live AssetFare endpoints.
 - The route amount is from $1 through $1,000.
 - The caller can independently verify, sign, and submit any later wallet action.
+
+Read `/v2/capabilities` to identify the live endpoints. The full 72-route
+policy applies to REST/OpenAPI v2; an MCP-only client remains limited to its two
+original Solana-origin corridors.
 
 Do not request an AssetFare quote for an unsupported chain or asset, an identity
 route, an amount outside that range, or a custodial execution request. A quote
