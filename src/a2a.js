@@ -25,6 +25,7 @@ const TOKENS_BY_CHAIN = {
   robinhood: ["ETH", "USDG"],
   polygon: ["USDC"],
 };
+const ENDPOINTS = new Set(Object.entries(TOKENS_BY_CHAIN).flatMap(([chain,tokens]) => tokens.map((token) => `${chain}:${token}`)));
 
 const SourceChain = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon"]);
 const DestinationChain = z.enum(["solana", "base", "arbitrum", "robinhood"]);
@@ -42,14 +43,28 @@ const QuoteIntent = z.object({
   if (value.fromChain === "polygon" && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "unsupported Polygon source route" });
 });
 
-const Capabilities = z.object({ public_api_enabled: z.literal(true), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
+const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(5), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(10), directed_conversion_routes:z.literal(74), unsigned_route_plans_ready:z.literal(74), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Status = z.object({ status: z.literal("capped_public_agent_release"), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Quote = z.object({
   status: z.literal("capped_public_agent_release"),
+  intent: z.object({from:z.string(),to:z.string(),amount_usd:z.number().finite(),estimated_input_base:z.number().int().positive()}).passthrough(),
   execution: z.object({ supported: z.literal(true) }).passthrough(),
   risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
-  offer: z.record(z.unknown()),
+  offer: z.object({expected_receive_amount:z.number().finite().positive(),estimated_min_receive_amount:z.number().finite().positive(),output_symbol:Token}).passthrough(),
+  route:z.object({route:z.string(),steps:z.array(z.record(z.unknown())).min(1),server_signing:z.literal(false),server_submission:z.literal(false)}).passthrough(),
 }).passthrough();
+
+function validateCapabilities(payload) {
+  const value=Capabilities.parse(payload),chains=new Set(value.chains),endpoints=new Set(value.asset_endpoints.map((item)=>`${item.chain}:${item.token}`));
+  if(chains.size!==5||Object.keys(TOKENS_BY_CHAIN).some((chain)=>!chains.has(chain))||endpoints.size!==ENDPOINTS.size||[...ENDPOINTS].some((endpoint)=>!endpoints.has(endpoint)))throw new Error("assetfare_safety_boundary_failed");
+  return value;
+}
+
+function validateQuote(payload,intent) {
+  const value=Quote.parse(payload),source=`${intent.fromChain}:${intent.fromToken}`,destination=`${intent.toChain}:${intent.toToken}`;
+  if(value.intent.from!==source||value.intent.to!==destination||value.intent.amount_usd!==intent.amountUsd||value.offer.output_symbol!==intent.toToken||value.offer.estimated_min_receive_amount>value.offer.expected_receive_amount||value.route.route!==`${source}->${destination}`)throw new Error("assetfare_safety_boundary_failed");
+  return value;
+}
 
 function provenance(headers = {}) {
   const raw = headers["x-forwarded-for"];
@@ -153,8 +168,8 @@ class QuoteExecutor {
     let quote;
     try {
       const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
-      Capabilities.parse(capabilitiesRaw);Status.parse(statusRaw);
-      quote = Quote.parse(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }));
+      validateCapabilities(capabilitiesRaw);Status.parse(statusRaw);
+      quote = validateQuote(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }),intent);
     } catch (error) {
       this.publish(context,bus,{error:{code:error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed"}});return;
     }

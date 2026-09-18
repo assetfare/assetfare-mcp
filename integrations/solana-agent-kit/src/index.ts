@@ -107,7 +107,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live four-chain scope and safety boundary before comparing a route. This action never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's live five-chain source scope and safety boundary before comparing a route. This action never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},

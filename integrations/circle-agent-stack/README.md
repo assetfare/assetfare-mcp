@@ -18,7 +18,7 @@ action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live nine-endpoint, 72-route matrix. The first quote requires no AssetFare
+the live ten-endpoint, 74-route source matrix. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
 
 ## Safety boundary

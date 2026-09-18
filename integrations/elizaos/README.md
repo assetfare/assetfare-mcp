@@ -12,7 +12,7 @@ This Phase 1 plugin adds only:
 - `ASSETFARE_QUOTE_ROUTE`
 
 It uses elizaOS `ModelType.OBJECT_SMALL` to extract a bounded route intent,
-validates the exact nine endpoints and `$1–$1,000` range, requests a quote, and
+validates the exact ten source endpoints and `$1–$1,000` range, requests a quote, and
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 

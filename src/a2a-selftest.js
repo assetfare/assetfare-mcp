@@ -4,9 +4,10 @@ import { JsonRpcTransportHandler, defaultServerCallContextBuilder } from "@a2a-j
 import { A2A_PROTOCOL_VERSION, assetFareAgentCard, createAssetFareA2A } from "./a2a.js";
 
 const ok = (value) => new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
-const caps = { public_api_enabled: true, server_signing: false, server_submission: false };
+const endpoints=[["solana","SOL"],["solana","USDC"],["solana","USDG"],["base","ETH"],["base","USDC"],["arbitrum","ETH"],["arbitrum","USDC"],["robinhood","ETH"],["robinhood","USDG"],["polygon","USDC"]];
+const caps = { status:"capped_public_agent_release",public_api_enabled: true,chains:["arbitrum","base","polygon","robinhood","solana"],asset_endpoints:endpoints.map(([chain,token])=>({chain,token})),directed_conversion_routes:74,unsigned_route_plans_ready:74,server_signing: false, server_submission: false };
 const status = { status: "capped_public_agent_release", server_signing: false, server_submission: false };
-const quote = { status: "capped_public_agent_release", execution: { supported: true }, risk: { server_signing: false, server_submission: false }, offer: { expected_receive_usd: .98 } };
+const quoteFor = (intent) => ({ status: "capped_public_agent_release",intent:{from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,amount_usd:intent.amount_usd,estimated_input_base:1},execution: { supported: true }, risk: { server_signing: false, server_submission: false }, offer: {expected_receive_amount:.99,estimated_min_receive_amount:.98,output_symbol:intent.to_token,expected_receive_usd:.99},route:{route:`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`,steps:[{provider:"fixture"}],server_signing:false,server_submission:false} });
 const data = (value) => ({ content: { $case: "data", value }, metadata: undefined, filename: "", mediaType: "application/json" });
 const text = (value) => ({ content: { $case: "text", value }, metadata: undefined, filename: "", mediaType: "text/plain" });
 const message = (parts) => Message.toJSON({ messageId: "m", contextId: "", taskId: "", role: Role.ROLE_USER, parts, metadata: undefined, extensions: [], referenceTaskIds: [] });
@@ -27,7 +28,7 @@ assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-
 
 let observedBody;let observedHeaders;
 const fetchMock = async (url, init = {}) => {
-  if (String(url).endsWith("/v2/quote")) { observedBody = JSON.parse(String(init.body));observedHeaders = init.headers;return ok(quote); }
+  if (String(url).endsWith("/v2/quote")) { observedBody = JSON.parse(String(init.body));observedHeaders = init.headers;return ok(quoteFor(observedBody)); }
   if (String(url).endsWith("/v2/capabilities")) return ok(caps);
   if (String(url).endsWith("/v2/status")) return ok(status);
   return new Response("{}", { status: 404 });
@@ -56,11 +57,18 @@ const freeText = await transport.handle(request([text("send money")], "3"), cont
 assert.equal(freeText.result.message.parts[0].data.error.code, "quote_intent_invalid");
 assert.equal(JSON.stringify(freeText).includes('"quote"'), false);
 
-const unsafeFetch = async (url) => String(url).endsWith("/v2/capabilities") ? ok(caps) : String(url).endsWith("/v2/status") ? ok(status) : ok({ ...quote, risk: { server_signing: false, server_submission: true } });
+const unsafeFetch = async (url,init={}) => String(url).endsWith("/v2/capabilities") ? ok(caps) : String(url).endsWith("/v2/status") ? ok(status) : ok({ ...quoteFor(JSON.parse(String(init.body))), risk: { server_signing: false, server_submission: true } });
 const unsafe = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: unsafeFetch }).requestHandler);
 const unsafeResult = await unsafe.handle(request([data(intent)], "4"), context());
 assert.equal(unsafeResult.result.message.parts[0].data.error.code, "assetfare_safety_boundary_failed");
 assert.equal(JSON.stringify(unsafeResult).includes('"quote"'), false);
+
+const oldCapabilitiesFetch=async(url,init={})=>String(url).endsWith("/v2/capabilities")?ok({...caps,directed_conversion_routes:72,unsigned_route_plans_ready:72}):String(url).endsWith("/v2/status")?ok(status):ok(quoteFor(JSON.parse(String(init.body))));
+const oldCapabilitiesResult=await new JsonRpcTransportHandler(createAssetFareA2A({fetch:oldCapabilitiesFetch}).requestHandler).handle(request([data(polygonIntent)],"old-capabilities"),context());
+assert.equal(oldCapabilitiesResult.result.message.parts[0].data.error.code,"assetfare_safety_boundary_failed");
+const mismatchedFetch=async(url,init={})=>String(url).endsWith("/v2/capabilities")?ok(caps):String(url).endsWith("/v2/status")?ok(status):ok(quoteFor({from_chain:"solana",from_token:"SOL",to_chain:"robinhood",to_token:"ETH",amount_usd:999}));
+const mismatchedResult=await new JsonRpcTransportHandler(createAssetFareA2A({fetch:mismatchedFetch}).requestHandler).handle(request([data(polygonIntent)],"mismatch"),context());
+assert.equal(mismatchedResult.result.message.parts[0].data.error.code,"assetfare_safety_boundary_failed");
 
 const leaky = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: async()=>{throw Error("SECRET https://internal/?key=bad");} }).requestHandler);
 const leakyResult = await leaky.handle(request([data(intent)], "5"), context());

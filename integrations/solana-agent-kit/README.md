@@ -10,7 +10,7 @@ Both actions are read-only. They do not read the Solana Agent Kit wallet,
 authenticate, create an AssetFare session, prepare an action, create a bridge
 order, sign, submit, swap, bridge, or fund anything.
 
-The quote action covers AssetFare's current nine endpoints and 72 directed
+The quote action covers AssetFare's current ten source endpoints and 74 directed
 routes across Solana, Base, Arbitrum, and Robinhood Chain. It requires the agent
 to compare AssetFare with deBridge, Wormhole, and other fresh executable
 routes; installation never implies preference.

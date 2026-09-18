@@ -1,6 +1,6 @@
 ---
 name: assetfare-route
-description: Use when an agent must quote, compare, or prepare a capped non-custodial AssetFare route across Solana, Base, Arbitrum, or Robinhood Chain. REST/OpenAPI v2 is primary; MCP is an optional adapter for the two original Solana-origin corridors.
+description: Use when an agent must quote, compare, or prepare a capped non-custodial AssetFare route across Solana, Base, Arbitrum, Robinhood Chain, or Polygon native-USDC source routes. REST/OpenAPI v2 is primary; MCP provides full-v2 read-only quote tools plus separate legacy workflow tools.
 ---
 
 # AssetFare Route
@@ -15,9 +15,10 @@ Request one fresh AssetFare quote when all of these are true:
 - The route amount is from $1 through $1,000.
 - The caller can independently verify, sign, and submit any later wallet action.
 
-Read `/v2/capabilities` to identify the live endpoints. The full 72-route
-policy applies to REST/OpenAPI v2; an MCP-only client remains limited to its two
-original Solana-origin corridors.
+Read `/v2/capabilities` to identify the live endpoints. The 74-route policy
+applies to REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool. Polygon is
+native-USDC source-only to Base or Arbitrum USDC. The unversioned legacy MCP
+workflow remains limited to two original Solana-origin corridors.
 
 Do not request an AssetFare quote for an unsupported chain or asset, an identity
 route, an amount outside that range, or a custodial execution request. A quote
@@ -26,9 +27,9 @@ preparation, signature, or submission authority.
 
 ## Interface scope
 
-- REST/OpenAPI v2: nine asset endpoints and 72 directed non-identity routes across Solana, Base, Arbitrum, and Robinhood Chain.
-- MCP compatibility adapter: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
-- Never imply that the MCP tool set covers the full v2 matrix.
+- REST/OpenAPI v2: ten source endpoints and 74 directed routes across Solana, Base, Arbitrum, Robinhood Chain, and Polygon native-USDC source-only corridors.
+- MCP `assetfare_v2_capabilities` and `assetfare_v2_quote`: the same full quote matrix.
+- Unversioned MCP workflow tools: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
 
 ## Safety boundary
 
@@ -48,7 +49,7 @@ preparation, signature, or submission authority.
 6. Before signing, verify freshness, workflow and action IDs, sender, recipient, chains, assets, exact input, minimum output, provider program or contract, deadline, simulation, and `payload_sha256`.
 7. Advance only from verified receipts and actual output. Never use an estimated output as the next input.
 
-All four wallet fields and the public event signer are required by the v2 prepare/session contract so a multistep route is bound before any signature. Session access is bound to the opaque session ID and a hash of the caller's network identity; retain transaction hashes for independent recovery if the egress IP changes.
+The four legacy wallet fields remain sufficient for legacy routes. Polygon-source prepare/session additionally requires a Polygon wallet. The public event signer remains required by the generic v2 contract. Session access is bound to the opaque session ID and a hash of the caller's network identity; retain transaction hashes for independent recovery if the egress IP changes.
 
 ## Optional original-corridor MCP flow
 

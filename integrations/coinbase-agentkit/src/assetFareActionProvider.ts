@@ -44,7 +44,7 @@ export class AssetFareActionProvider extends ActionProvider {
 
   @CreateAction({
     name: "get_capabilities",
-    description: `Read AssetFare's current public four-chain route scope and safety boundary.
+    description: `Read AssetFare's current public five-chain source route scope and safety boundary.
 
 Use this before requesting a quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
     schema: EmptySchema,
