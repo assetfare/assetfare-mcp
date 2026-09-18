@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.1",
-  "description": "Read-only MCP and A2A quote adapters for AssetFare's non-custodial four-chain REST/OpenAPI v2 route service.",
+  "version": "0.4.2",
+  "description": "Read-only MCP and A2A quote adapters for AssetFare's non-custodial five-chain source REST/OpenAPI v2 route service.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -33,6 +33,7 @@
     "base",
     "arbitrum",
     "robinhood-chain",
+    "polygon",
     "mcp",
     "a2a",
     "openapi",

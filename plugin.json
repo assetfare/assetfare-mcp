@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Multichain route evaluation for AI agents; AssetFare never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
@@ -21,6 +21,7 @@
     "base",
     "arbitrum",
     "robinhood-chain",
+    "polygon",
     "non-custodial"
   ]
 }

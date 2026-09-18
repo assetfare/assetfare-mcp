@@ -9,9 +9,9 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
-// The legacy v1 API and the four-chain v2 API run on separate local services
+// The legacy v1 API and the five-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
 // while allowing an explicit v2 override for other deployments.
 const V2_API_BASE = (
@@ -28,18 +28,20 @@ const A2A_SERVICE_URL = process.env.ASSETFARE_A2A_SERVICE_URL || "https://api.as
 const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
 const V2_TIMEOUT_MS = 45_000;
 const V2_MAX_RESPONSE_BYTES = 1_048_576;
-const V2_CHAINS = ["solana", "base", "arbitrum", "robinhood"];
+const V2_SOURCE_CHAINS = ["solana", "base", "arbitrum", "robinhood", "polygon"];
+const V2_DESTINATION_CHAINS = ["solana", "base", "arbitrum", "robinhood"];
 const V2_TOKENS = ["SOL", "ETH", "USDC", "USDG"];
 const V2_ENDPOINTS = new Set([
   "solana:SOL", "solana:USDC", "solana:USDG",
   "base:ETH", "base:USDC",
   "arbitrum:ETH", "arbitrum:USDC",
   "robinhood:ETH", "robinhood:USDG",
+  "polygon:USDC",
 ]);
-const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary four-chain quote surface.";
+const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary five-chain source quote surface.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote for Solana SOL to Base or Arbitrum ETH. Use only with the legacy wallet-auth/session workflow; prefer assetfare_v2_quote for new evaluations.";
-const V2_CAPABILITIES_DESCRIPTION = "Primary current four-chain discovery tool. Read the live nine asset endpoints, 72 directed routes, release status, and no-sign/no-submit boundary before a v2 quote.";
-const V2_QUOTE_DESCRIPTION = "Primary current four-chain quote-only tool. Return one fresh non-binding quote across Solana, Base, Arbitrum, or Robinhood Chain and stop before authentication, session creation, action preparation, signing, or submission.";
+const V2_CAPABILITIES_DESCRIPTION = "Primary current five-chain source discovery tool. Read the live ten source endpoints, 74 directed routes, Polygon source-only constraint, release status, and no-sign/no-submit boundary before a v2 quote.";
+const V2_QUOTE_DESCRIPTION = "Primary current quote-only tool. Return one fresh non-binding quote across Solana, Base, Arbitrum, Robinhood Chain, or Polygon native-USDC source routes to Base/Arbitrum, and stop before authentication, session creation, action preparation, signing, or submission.";
 
 const accessToken = z.string().min(20).max(512);
 const sessionId = z.string().uuid();
@@ -47,9 +49,9 @@ const idempotencyKey = z.string().min(8).max(128);
 const sourceWallet = z.string().min(32).max(64);
 const destinationWallet = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const v2QuoteFields = {
-  from_chain: z.enum(V2_CHAINS),
+  from_chain: z.enum(V2_SOURCE_CHAINS),
   from_token: z.enum(V2_TOKENS),
-  to_chain: z.enum(V2_CHAINS),
+  to_chain: z.enum(V2_DESTINATION_CHAINS),
   to_token: z.enum(V2_TOKENS),
   amount_usd: z.number().finite().min(1).max(1000),
 };
@@ -58,9 +60,9 @@ const v2QuoteIntent = z.object(v2QuoteFields).strict();
 const v2CapabilitiesResponse = z.object({
   status: z.literal("capped_public_agent_release"),
   public_api_enabled: z.literal(true),
-  asset_endpoints: z.array(z.object({ chain: z.enum(V2_CHAINS), token: z.enum(V2_TOKENS) }).strict()).length(9),
-  directed_conversion_routes: z.literal(72),
-  unsigned_route_plans_ready: z.literal(72),
+  asset_endpoints: z.array(z.object({ chain: z.enum(V2_SOURCE_CHAINS), token: z.enum(V2_TOKENS) }).strict()).length(10),
+  directed_conversion_routes: z.literal(74),
+  unsigned_route_plans_ready: z.literal(74),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -176,6 +178,7 @@ function parseV2Intent(args) {
   if (!V2_ENDPOINTS.has(source)) throw new Error("assetfare_v2_source_endpoint_unsupported");
   if (!V2_ENDPOINTS.has(destination)) throw new Error("assetfare_v2_destination_endpoint_unsupported");
   if (source === destination) throw new Error("assetfare_v2_identity_route_not_required");
+  if (intent.from_chain === "polygon" && !(intent.from_token === "USDC" && ["base", "arbitrum"].includes(intent.to_chain) && intent.to_token === "USDC")) throw new Error("assetfare_v2_polygon_source_route_unsupported");
   return intent;
 }
 
@@ -215,7 +218,7 @@ function serverCard() {
       { name: "assetfare_status", description: LEGACY_STATUS_DESCRIPTION, inputSchema: object({}) },
       { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
       { name: "assetfare_v2_capabilities", description: V2_CAPABILITIES_DESCRIPTION, inputSchema: object({}) },
-      { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object({ from_chain: { type: "string", enum: V2_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: { type: "number", minimum: 1, maximum: 1000 } }) },
+      { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object({ from_chain: { type: "string", enum: V2_SOURCE_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_DESTINATION_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: { type: "number", minimum: 1, maximum: 1000 } }) },
       { name: "assetfare_quote", description: LEGACY_QUOTE_DESCRIPTION, inputSchema: object({ amount_usd: { type: "integer", minimum: 1, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
       { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
       { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
@@ -247,7 +250,7 @@ function createServer(provenance = {}) {
   const v2Api = apiClient(provenance, V2_API_BASE);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
-    { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary four-chain quote-only surface. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only. A v2 quote ID is never valid input to a legacy session tool. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
+    { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary five-chain source quote-only surface. Polygon is native-USDC source-only to Base or Arbitrum USDC. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only. A v2 quote ID is never valid input to a legacy session tool. AssetFare is non-custodial: never request a private key, and verify every unsigned action before the caller signs and submits it." },
   );
 
   addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));

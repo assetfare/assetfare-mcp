@@ -56,7 +56,8 @@ const v2CapabilitiesTool = result.tools.find((tool) => tool.name === "assetfare_
 const v2QuoteTool = result.tools.find((tool) => tool.name === "assetfare_v2_quote");
 if (Object.keys(v2CapabilitiesTool?.inputSchema?.properties || {}).length !== 0) throw new Error("v2 capabilities must take no arguments");
 if (JSON.stringify(v2QuoteTool?.inputSchema?.required) !== JSON.stringify(["from_chain", "from_token", "to_chain", "to_token", "amount_usd"])) throw new Error("v2 quote required fields mismatch");
-if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_chain?.enum) !== JSON.stringify(["solana", "base", "arbitrum", "robinhood"])) throw new Error("v2 quote chain schema mismatch");
+if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_chain?.enum) !== JSON.stringify(["solana", "base", "arbitrum", "robinhood", "polygon"])) throw new Error("v2 quote source chain schema mismatch");
+if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.to_chain?.enum) !== JSON.stringify(["solana", "base", "arbitrum", "robinhood"])) throw new Error("v2 quote destination chain schema mismatch");
 if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_token?.enum) !== JSON.stringify(["SOL", "ETH", "USDC", "USDG"])) throw new Error("v2 quote token schema mismatch");
 if (v2QuoteTool?.inputSchema?.properties?.amount_usd?.type !== "number" || v2QuoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || v2QuoteTool?.inputSchema?.properties?.amount_usd?.maximum !== 1000) throw new Error("v2 quote amount schema mismatch");
 if (v2QuoteTool?.annotations?.readOnlyHint !== true || v2QuoteTool?.annotations?.destructiveHint !== false || v2QuoteTool?.annotations?.idempotentHint !== false) throw new Error("v2 quote annotations mismatch");
@@ -88,8 +89,8 @@ try {
   const port = listener.address().port;
   const health = await getJson(port, "/healthz");
   const card = await getJson(port, "/.well-known/mcp/server-card.json");
-  if (health.status !== 200 || health.body?.version !== "0.4.1" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.1" || card.body?.tools?.length !== 15) throw new Error("server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.2" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.2" || card.body?.tools?.length !== 15) throw new Error("server card contract mismatch");
   const legacy = await postJson(port, "0.3", "legacy");
   const missing = await postJson(port, undefined, "missing");
   const current = await postJson(port, "1.0", "current");
@@ -110,6 +111,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.1", server_card_tools: 15, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.2", server_card_tools: 15, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

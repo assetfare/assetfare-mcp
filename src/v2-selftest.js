@@ -11,18 +11,19 @@ const ENDPOINTS = [
   ["base", "ETH"], ["base", "USDC"],
   ["arbitrum", "ETH"], ["arbitrum", "USDC"],
   ["robinhood", "ETH"], ["robinhood", "USDG"],
+  ["polygon", "USDC"],
 ];
-const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "bridge", "swap", "solana", "base", "arbitrum", "robinhood-chain", "mcp", "a2a", "openapi", "non-custodial"];
+const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "bridge", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "mcp", "a2a", "openapi", "non-custodial"];
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
-assert.equal(packageMetadata.version, "0.4.1");
-assert.equal(lockMetadata.version, "0.4.1");
-assert.equal(lockMetadata.packages[""].version, "0.4.1");
-assert.equal(registryMetadata.version, "0.4.1");
+assert.equal(packageMetadata.version, "0.4.2");
+assert.equal(lockMetadata.version, "0.4.2");
+assert.equal(lockMetadata.packages[""].version, "0.4.2");
+assert.equal(registryMetadata.version, "0.4.2");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /Solana.*Base.*Arbitrum.*Robinhood/);
+assert.match(registryMetadata.description, /Five-chain.*Polygon.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
 
 function importedV2Base(extraEnvironment) {
@@ -52,10 +53,10 @@ function capabilities(overrides = {}) {
     version: "assetfare-multichain-api-v2",
     status: "capped_public_agent_release",
     public_api_enabled: true,
-    chains: ["arbitrum", "base", "robinhood", "solana"],
+    chains: ["arbitrum", "base", "polygon", "robinhood", "solana"],
     asset_endpoints: ENDPOINTS.map(([chain, token]) => ({ chain, token })),
-    directed_conversion_routes: 72,
-    unsigned_route_plans_ready: 72,
+    directed_conversion_routes: 74,
+    unsigned_route_plans_ready: 74,
     server_signing: false,
     server_submission: false,
     ...overrides,
@@ -128,7 +129,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 15);
-  assert.equal(card.serverInfo.version, "0.4.1");
+  assert.equal(card.serverInfo.version, "0.4.2");
   assert.equal(card.tools.length, 15);
   assert.equal(dynamicCapabilities.description, staticCapabilities.description);
   assert.equal(dynamicQuote.description, staticQuote.description);
@@ -152,13 +153,14 @@ try {
   assert.equal(invalidCapabilities.isError, true);
   assert.equal(calls.length, 0, "invalid capabilities input reached upstream");
   const capabilityValue = parse(await call(client, "assetfare_v2_capabilities", {}));
-  assert.equal(capabilityValue.asset_endpoints.length, 9);
-  assert.equal(capabilityValue.directed_conversion_routes, 72);
+  assert.equal(capabilityValue.asset_endpoints.length, 10);
+  assert.equal(capabilityValue.directed_conversion_routes, 74);
   let quoteValue;
   let routeCount = 0;
   for (const [from_chain, from_token] of ENDPOINTS) {
-    for (const [to_chain, to_token] of ENDPOINTS) {
+    for (const [to_chain, to_token] of ENDPOINTS.filter(([chain]) => chain !== "polygon")) {
       if (from_chain === to_chain && from_token === to_token) continue;
+      if (from_chain === "polygon" && !(from_token === "USDC" && ["base", "arbitrum"].includes(to_chain) && to_token === "USDC")) continue;
       const intent = { from_chain, from_token, to_chain, to_token, amount_usd: 2.5 };
       const quoteResult = await call(client, "assetfare_v2_quote", intent);
       assert.equal(quoteResult.isError, false, `valid route rejected: ${JSON.stringify(intent)}`);
@@ -170,7 +172,7 @@ try {
       routeCount += 1;
     }
   }
-  assert.equal(routeCount, 72);
+  assert.equal(routeCount, 74);
   assert.equal(quoteValue.intent.from, "robinhood:USDG");
   assert.equal(quoteValue.intent.to, "solana:USDC");
   assert.equal(quoteValue.intent.amount_usd, 2.5);
@@ -181,13 +183,13 @@ try {
   assert.equal(quoteValue.guidance.transactionSigned, false);
   assert.equal(quoteValue.guidance.transactionSubmitted, false);
 
-  assert.equal(calls.length, 73);
+  assert.equal(calls.length, 75);
   assert.equal(calls[0].url, "https://api.assetfare.dev/v2/capabilities");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.body, undefined);
   assert.equal(calls[1].url, "https://api.assetfare.dev/v2/quote");
   assert.equal(calls[1].init.method, "POST");
-  assert.equal(calls.slice(1).filter((item) => item.url.endsWith("/v2/quote") && item.init.method === "POST").length, 72);
+  assert.equal(calls.slice(1).filter((item) => item.url.endsWith("/v2/quote") && item.init.method === "POST").length, 74);
   for (const item of calls) {
     assert.equal(item.init.redirect, "error");
     assert.ok(item.init.signal instanceof AbortSignal);
@@ -200,6 +202,8 @@ try {
   const invalid = [
     { ...validIntent, from_chain: "base", from_token: "SOL" },
     { ...validIntent, to_chain: "robinhood", to_token: "USDC" },
+    { ...validIntent, to_chain: "polygon", to_token: "USDC" },
+    { ...validIntent, from_chain: "polygon", from_token: "USDC", to_chain: "solana", to_token: "USDC" },
     { ...validIntent, to_chain: "robinhood", to_token: "USDG", from_chain: "robinhood", from_token: "USDG" },
     { ...validIntent, amount_usd: true },
     { ...validIntent, amount_usd: Number.NaN },
@@ -226,7 +230,7 @@ try {
   }
 
   assert.ok(calls.every((item) => item.url.endsWith("/v2/capabilities") || item.url.endsWith("/v2/quote")), "v2 tools reached an unauthorized path");
-  console.log(JSON.stringify({ status: "pass", version: packageMetadata.version, registry_description_chars: registryMetadata.description.length, keyword_count: packageMetadata.keywords.length, tool_count: listed.tools.length, v2_tools: [dynamicCapabilities.name, dynamicQuote.name], valid_routes: routeCount, valid_upstream_calls: 73, invalid_upstream_calls: 0, timeout_ms: V2_TIMEOUT_MS, max_response_bytes: V2_MAX_RESPONSE_BYTES, signed: false, submitted: false }));
+  console.log(JSON.stringify({ status: "pass", version: packageMetadata.version, registry_description_chars: registryMetadata.description.length, keyword_count: packageMetadata.keywords.length, tool_count: listed.tools.length, v2_tools: [dynamicCapabilities.name, dynamicQuote.name], valid_routes: routeCount, valid_upstream_calls: 75, invalid_upstream_calls: 0, timeout_ms: V2_TIMEOUT_MS, max_response_bytes: V2_MAX_RESPONSE_BYTES, signed: false, submitted: false }));
 } finally {
   globalThis.fetch = originalFetch;
   await client.close();

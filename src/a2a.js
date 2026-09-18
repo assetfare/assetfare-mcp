@@ -23,20 +23,23 @@ const TOKENS_BY_CHAIN = {
   base: ["ETH", "USDC"],
   arbitrum: ["ETH", "USDC"],
   robinhood: ["ETH", "USDG"],
+  polygon: ["USDC"],
 };
 
-const Chain = z.enum(["solana", "base", "arbitrum", "robinhood"]);
+const SourceChain = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon"]);
+const DestinationChain = z.enum(["solana", "base", "arbitrum", "robinhood"]);
 const Token = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const QuoteIntent = z.object({
-  fromChain: Chain,
+  fromChain: SourceChain,
   fromToken: Token,
-  toChain: Chain,
+  toChain: DestinationChain,
   toToken: Token,
   amountUsd: z.number().finite().min(1).max(1000),
 }).strict().superRefine((value, context) => {
   if (!TOKENS_BY_CHAIN[value.fromChain].includes(value.fromToken)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["fromToken"], message: "unsupported source token" });
   if (!TOKENS_BY_CHAIN[value.toChain].includes(value.toToken)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "unsupported destination token" });
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route" });
+  if (value.fromChain === "polygon" && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "unsupported Polygon source route" });
 });
 
 const Capabilities = z.object({ public_api_enabled: z.literal(true), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
@@ -93,10 +96,10 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "Read-only cross-chain crypto bridge and same-chain swap route quotes for AI agents across Solana, Base, Arbitrum, and Robinhood Chain. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
+    description: "Read-only cross-chain crypto bridge and same-chain swap route quotes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon native-USDC source routes. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.1",
+    version: "0.1.2",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -106,9 +109,9 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for nine supported asset endpoints and 72 directed routes from USD 1 through 1,000. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd; stop before authentication, preparation, signing, or submission.",
-      tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "non-custodial"],
-      examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"solana","fromToken":"SOL","toChain":"arbitrum","toToken":"ETH","amountUsd":250}'],
+      description: "Return one fresh quote for ten supported source endpoints and 74 directed routes from USD 1 through 1,000. Polygon is native-USDC source-only to Base or Arbitrum USDC. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd; stop before authentication, preparation, signing, or submission.",
+      tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "non-custodial"],
+      examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],

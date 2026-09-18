@@ -15,7 +15,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.1");
+assert.equal(card.version, "0.1.2");
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
@@ -42,6 +42,13 @@ assert.equal(observedHeaders.get("x-assetfare-channel"), "a2a");
 assert.equal(result.result.message.role, "ROLE_AGENT");
 assert.ok(result.result.message.parts[0].data.quote);
 assert.equal(result.result.message.parts[0].data.guidance.transactionSubmitted, false);
+
+const polygonIntent = { fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 10 };
+const polygonResult = await transport.handle(request([data(polygonIntent)], "polygon"), context());
+assert.deepEqual(observedBody, { from_chain: "polygon", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 10 });
+assert.ok(polygonResult.result.message.parts[0].data.quote);
+const polygonDestination = await transport.handle(request([data({ ...polygonIntent, fromChain: "base", toChain: "polygon" })], "polygon-destination"), context());
+assert.equal(polygonDestination.result.message.parts[0].data.error.code, "quote_intent_invalid");
 
 const oldMethod = await transport.handle(request([data(intent)], "2", "message/send"), context());
 assert.equal(oldMethod.error.code, -32601);
