@@ -182,7 +182,13 @@ function parseV2Intent(args) {
   return intent;
 }
 
+function rejectSigningClaims(value) {
+  const stack=[[value,0]];let seen=0;
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>512||depth>12)throw new Error("assetfare_v2_safety_boundary_failed");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of ["server_signing","server_submission"])if(key in node&&node[key]!==false)throw new Error("assetfare_v2_safety_boundary_failed");for(const child of Object.values(node))stack.push([child,depth+1]);}}
+}
+
 function parseV2Capabilities(payload) {
+  rejectSigningClaims(payload);
   let value;
   try { value = v2CapabilitiesResponse.parse(payload); }
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
@@ -192,6 +198,7 @@ function parseV2Capabilities(payload) {
 }
 
 function parseV2Quote(payload, intent) {
+  rejectSigningClaims(payload);
   let value;
   try { value = v2QuoteResponse.parse(payload); }
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }

@@ -69,6 +69,9 @@ assert.equal(oldCapabilitiesResult.result.message.parts[0].data.error.code,"asse
 const mismatchedFetch=async(url,init={})=>String(url).endsWith("/v2/capabilities")?ok(caps):String(url).endsWith("/v2/status")?ok(status):ok(quoteFor({from_chain:"solana",from_token:"SOL",to_chain:"robinhood",to_token:"ETH",amount_usd:999}));
 const mismatchedResult=await new JsonRpcTransportHandler(createAssetFareA2A({fetch:mismatchedFetch}).requestHandler).handle(request([data(polygonIntent)],"mismatch"),context());
 assert.equal(mismatchedResult.result.message.parts[0].data.error.code,"assetfare_safety_boundary_failed");
+const nestedSigningFetch=async(url,init={})=>{if(String(url).endsWith("/v2/capabilities"))return ok(caps);if(String(url).endsWith("/v2/status"))return ok(status);const value=quoteFor(JSON.parse(String(init.body)));value.offer.server_submission=true;value.route.steps[0].server_signing=true;value.execution.server_submission=true;return ok(value);};
+const nestedSigningResult=await new JsonRpcTransportHandler(createAssetFareA2A({fetch:nestedSigningFetch}).requestHandler).handle(request([data(intent)],"nested-signing"),context());
+assert.equal(nestedSigningResult.result.message.parts[0].data.error.code,"assetfare_safety_boundary_failed");
 
 const leaky = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: async()=>{throw Error("SECRET https://internal/?key=bad");} }).requestHandler);
 const leakyResult = await leaky.handle(request([data(intent)], "5"), context());

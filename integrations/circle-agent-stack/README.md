@@ -18,7 +18,9 @@ action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live ten-endpoint, 74-route source matrix. The first quote requires no AssetFare
+the live REST ten-endpoint, 74-route source matrix. This legacy reference remains
+limited to the pre-Polygon schema; use REST/OpenAPI or the main MCP v2 quote tool
+for Polygon. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
 
 ## Safety boundary

@@ -55,15 +55,22 @@ const Quote = z.object({
 }).passthrough();
 
 function validateCapabilities(payload) {
+  rejectSigningClaims(payload);
   const value=Capabilities.parse(payload),chains=new Set(value.chains),endpoints=new Set(value.asset_endpoints.map((item)=>`${item.chain}:${item.token}`));
   if(chains.size!==5||Object.keys(TOKENS_BY_CHAIN).some((chain)=>!chains.has(chain))||endpoints.size!==ENDPOINTS.size||[...ENDPOINTS].some((endpoint)=>!endpoints.has(endpoint)))throw new Error("assetfare_safety_boundary_failed");
   return value;
 }
 
 function validateQuote(payload,intent) {
+  rejectSigningClaims(payload);
   const value=Quote.parse(payload),source=`${intent.fromChain}:${intent.fromToken}`,destination=`${intent.toChain}:${intent.toToken}`;
   if(value.intent.from!==source||value.intent.to!==destination||value.intent.amount_usd!==intent.amountUsd||value.offer.output_symbol!==intent.toToken||value.offer.estimated_min_receive_amount>value.offer.expected_receive_amount||value.route.route!==`${source}->${destination}`)throw new Error("assetfare_safety_boundary_failed");
   return value;
+}
+
+function rejectSigningClaims(value) {
+  const stack=[[value,0]];let seen=0;
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>512||depth>12)throw new Error("assetfare_safety_boundary_failed");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of ["server_signing","server_submission"])if(key in node&&node[key]!==false)throw new Error("assetfare_safety_boundary_failed");for(const child of Object.values(node))stack.push([child,depth+1]);}}
 }
 
 function provenance(headers = {}) {

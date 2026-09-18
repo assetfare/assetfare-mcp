@@ -44,7 +44,7 @@ export class AssetFareActionProvider extends ActionProvider {
 
   @CreateAction({
     name: "get_capabilities",
-    description: `Read AssetFare's current public five-chain source route scope and safety boundary.
+    description: `Read AssetFare's current public capabilities. This legacy reference provider's quote schema remains limited to the four pre-Polygon chains; use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon.
 
 Use this before requesting a quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
     schema: EmptySchema,
@@ -69,7 +69,7 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
 
   @CreateAction({
     name: "quote_route",
-    description: `Request one fresh, fee-inclusive AssetFare REST v2 quote across Solana, Base, Arbitrum, or Robinhood Chain.
+    description: `Request one fresh, fee-inclusive AssetFare REST v2 quote across the four pre-Polygon chains supported by this legacy reference provider. Use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon.
 
 This action is read-only: it does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Compare the returned expected receive, conservative minimum receive, fees, ETA, step count, and non-atomic risk against other fresh executable routes. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
     schema: AssetFareQuoteSchema,

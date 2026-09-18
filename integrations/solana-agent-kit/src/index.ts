@@ -107,7 +107,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live five-chain source scope and safety boundary before comparing a route. This action never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's live capabilities. This legacy reference plugin quotes only the four pre-Polygon chains; use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon. It never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},
@@ -135,7 +135,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh fee-inclusive AssetFare quote across Solana, Base, Arbitrum, or Robinhood Chain. Compare it with deBridge, Wormhole, and other fresh executable routes. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh fee-inclusive AssetFare quote across the four pre-Polygon chains supported by this legacy reference plugin. Use REST/OpenAPI or the main MCP v2 quote tool for Polygon. Compare it with other fresh executable routes. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 },

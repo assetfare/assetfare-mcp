@@ -110,6 +110,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : capabilities());
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
+    if(mode==="nested-signing"){const value=quote(intent);value.offer.server_submission=true;value.route.steps[0].server_signing=true;value.execution.server_submission=true;return Response.json(value);}
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
   throw new Error(`unexpected upstream URL ${url}`);
@@ -219,7 +220,7 @@ try {
   }
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
-  for (const failureMode of ["unsafe-capabilities", "unsafe-quote", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
     const result = await call(client, failureMode === "unsafe-capabilities" ? "assetfare_v2_capabilities" : "assetfare_v2_quote", failureMode === "unsafe-capabilities" ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
