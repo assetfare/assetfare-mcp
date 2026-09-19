@@ -2,6 +2,7 @@
 // AssetFare session, prepares an action, signs, approves, funds, or submits.
 
 import { isIP } from "node:net";
+import { randomBytes } from "node:crypto";
 import {
   A2A_CONTENT_TYPE,
   A2A_PROTOCOL_VERSION,
@@ -24,12 +25,25 @@ const TOKENS_BY_CHAIN = {
   arbitrum: ["ETH", "USDC"],
   robinhood: ["ETH", "USDG"],
   polygon: ["USDC"],
+  optimism: ["USDC"],
 };
 const ENDPOINTS = new Set(Object.entries(TOKENS_BY_CHAIN).flatMap(([chain,tokens]) => tokens.map((token) => `${chain}:${token}`)));
+const SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism"]);
+const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
+const SESSION_URL = "https://api.assetfare.dev/v2/session";
+const HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
+const EXECUTION_NOT_READY = "execution_not_ready_phase_b";
+const FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
+const SESSION_TOKEN_HEADER = "x-assetfare-session-token";
 
-const SourceChain = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon"]);
+const SourceChain = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
 const DestinationChain = z.enum(["solana", "base", "arbitrum", "robinhood"]);
 const Token = z.enum(["SOL", "ETH", "USDC", "USDG"]);
+const SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
+const PublicAddress = z.string().refine((value) => /^0x[0-9a-fA-F]{40}$/.test(value) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), "not a public address");
+const WalletMap = z.record(SourceChain, PublicAddress);
+const IdempotencyKey = z.string().min(8).max(128);
+const SessionId = z.string().uuid();
 const QuoteIntent = z.object({
   fromChain: SourceChain,
   fromToken: Token,
@@ -40,25 +54,86 @@ const QuoteIntent = z.object({
   if (!TOKENS_BY_CHAIN[value.fromChain].includes(value.fromToken)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["fromToken"], message: "unsupported source token" });
   if (!TOKENS_BY_CHAIN[value.toChain].includes(value.toToken)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "unsupported destination token" });
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route" });
-  if (value.fromChain === "polygon" && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "unsupported Polygon source route" });
+  if (SOURCE_ONLY_CHAINS.has(value.fromChain) && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "unsupported source-only route" });
 });
 
-const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(5), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(10),source_only_asset_endpoints:z.array(z.object({chain:z.literal("polygon"),token:z.literal("USDC")}).passthrough()).length(1),source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC"])).length(2), directed_conversion_routes:z.literal(74), unsigned_route_plans_ready:z.literal(74), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
+const PrepareIntent = z.object({
+  callerApproved: z.literal(true),
+  fromChain: SourceChain,
+  fromToken: Token,
+  toChain: DestinationChain,
+  toToken: Token,
+  amountUsd: z.number().finite().min(1).max(1000),
+  wallets: WalletMap,
+  eventSignerPublic: PublicAddress.optional(),
+}).strict();
+const SessionCreateIntent = PrepareIntent.extend({ sessionToken: SessionToken, idempotencyKey: IdempotencyKey }).strict();
+const SessionReadIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId }).strict();
+const ObserveSourceIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId, idempotencyKey: IdempotencyKey, transactionHashes: z.array(z.string().min(16).max(128)).min(1).max(8) }).strict();
+const ObserveOutputIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId, idempotencyKey: IdempotencyKey, transactionHash: z.string().min(16).max(128).optional() }).strict();
+const RefreshActionIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId, idempotencyKey: IdempotencyKey }).strict();
+
+const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(6), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(11),source_only_asset_endpoints:z.array(z.object({chain:z.enum(["polygon","optimism"]),token:z.literal("USDC")}).passthrough()).length(2),source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC","optimism:USDC->base:USDC","optimism:USDC->arbitrum:USDC"])).length(4), directed_conversion_routes:z.literal(76), unsigned_route_plans_ready:z.literal(76), execution_ready_routes:z.literal(72), phase_b_blocked_routes:z.literal(4), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Status = z.object({ status: z.literal("capped_public_agent_release"), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Quote = z.object({
   status: z.literal("capped_public_agent_release"),
   intent: z.object({from:z.string(),to:z.string(),amount_usd:z.number().finite(),estimated_input_base:z.number().int().positive()}).passthrough(),
-  execution: z.object({ supported: z.literal(true) }).passthrough(),
+  execution: z.object({ supported: z.boolean(), first_unsigned_action_supported: z.boolean() }).passthrough(),
   risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
-  offer: z.object({expected_receive_amount:z.number().finite().positive(),estimated_min_receive_amount:z.number().finite().positive(),output_symbol:Token}).passthrough(),
+  offer: z.object({expected_receive_amount:z.number().finite().positive(),estimated_min_receive_amount:z.number().finite().positive(),output_symbol:Token,assetfare_fee_bps:z.number().int().min(0).max(1),fee_modeled_bps:z.number().int().min(0).max(1),fee_collectible_now:z.boolean(),fee_collection_steps:z.array(z.number().int().nonnegative()).max(8),fee_collection:z.literal(FEE_COLLECTION_CONST)}).passthrough(),
   route:z.object({route:z.string(),steps:z.array(z.record(z.unknown())).min(1),server_signing:z.literal(false),server_submission:z.literal(false)}).passthrough(),
+  caller_action_plan_handoff:z.object({}).passthrough(),
 }).passthrough();
+
+const Bundle = z.object({ unsigned_action: z.object({}).passthrough(), server_signing: z.literal(false), server_submission: z.literal(false), signed: z.literal(false), submitted: z.literal(false) }).passthrough();
+const Session = z.object({ session_id: z.string().min(1), server_signing: z.literal(false), server_submission: z.literal(false), signed: z.literal(false), submitted: z.literal(false) }).passthrough();
+
+function deepEqualArray(actual, expected) {
+  return Array.isArray(actual) && actual.length === expected.length && actual.every((item, index) => item === expected[index]);
+}
+
+// Fail-closed passthrough of the upstream caller_action_plan_handoff (no local fallback).
+function validateHandoff(handoff, sourceOnly) {
+  if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_safety_boundary_failed");
+  if (handoff.kind !== "caller_operated_rest_prepare" || handoff.method !== "POST") throw new Error("assetfare_safety_boundary_failed");
+  if (!deepEqualArray(handoff.request_fields, HANDOFF_REQUEST_FIELDS)) throw new Error("assetfare_safety_boundary_failed");
+  if (handoff.requires_explicit_caller_approval !== true || handoff.requires_public_wallet_addresses !== true || handoff.assetfare_server_signing !== false || handoff.assetfare_server_submission !== false || handoff.caller_must_verify_sign_and_submit !== true || handoff.requires_fresh_requote !== true || handoff.automatic_prepare_call_forbidden !== true) throw new Error("assetfare_safety_boundary_failed");
+  if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_safety_boundary_failed");
+  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
+  for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_safety_boundary_failed");
+  if (sourceOnly) {
+    if (handoff.available !== false || handoff.blocker !== EXECUTION_NOT_READY || "url" in handoff || "options" in handoff) throw new Error("assetfare_safety_boundary_failed");
+    return handoff;
+  }
+  if (handoff.available !== true || handoff.url !== PREPARE_URL || !Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_safety_boundary_failed");
+  const [prepareOption, sessionOption] = handoff.options;
+  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.url !== PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_safety_boundary_failed");
+  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.url !== SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_safety_boundary_failed");
+  const lifecycle = sessionOption.lifecycle_urls;
+  if (!lifecycle || lifecycle.create?.url !== SESSION_URL || lifecycle.read?.url !== `${SESSION_URL}/{session_id}` || lifecycle.observe_source?.url !== `${SESSION_URL}/{session_id}/observe-source` || lifecycle.observe_output?.url !== `${SESSION_URL}/{session_id}/observe-output` || lifecycle.refresh_action?.url !== `${SESSION_URL}/{session_id}/refresh-action`) throw new Error("assetfare_safety_boundary_failed");
+  return handoff;
+}
+
+function validateFee(offer, stepCount, sourceOnly) {
+  if (![0, 1].includes(offer.assetfare_fee_bps) || ![0, 1].includes(offer.fee_modeled_bps)) throw new Error("assetfare_safety_boundary_failed");
+  if (sourceOnly && offer.fee_collectible_now !== false) throw new Error("assetfare_safety_boundary_failed");
+  const steps = offer.fee_collection_steps;
+  if (steps.some((index) => !Number.isInteger(index) || index < 0 || index >= stepCount) || new Set(steps).size !== steps.length) throw new Error("assetfare_safety_boundary_failed");
+  if (offer.assetfare_fee_bps === 1 && steps.length !== 1) throw new Error("assetfare_safety_boundary_failed");
+  if (offer.assetfare_fee_bps === 0 && steps.length !== 0) throw new Error("assetfare_safety_boundary_failed");
+}
+
+function rejectSecretMaterial(value) {
+  const forbidden = new Set(["private_key", "privatekey", "privkey", "secret_key", "secretkey", "seed", "seed_phrase", "mnemonic", "keypair", "secret", "signature", "signed_transaction", "signed_tx", "raw_transaction", "signed", "password", "passphrase"]);
+  const stack = [[value, 0]]; let seen = 0;
+  while (stack.length) { const [node, depth] = stack.pop(); seen += 1; if (seen > 512 || depth > 12) throw new Error("assetfare_safety_boundary_failed"); if (Array.isArray(node)) { for (const child of node) stack.push([child, depth + 1]); continue; } if (node && typeof node === "object") { for (const key of Object.keys(node)) if (forbidden.has(String(key).toLowerCase())) throw new Error("assetfare_secret_material_rejected"); for (const child of Object.values(node)) stack.push([child, depth + 1]); } }
+}
 
 function validateCapabilities(payload) {
   rejectSigningClaims(payload);
   const value=Capabilities.parse(payload),chains=new Set(value.chains),endpoints=new Set(value.asset_endpoints.map((item)=>`${item.chain}:${item.token}`));
-  if(chains.size!==5||Object.keys(TOKENS_BY_CHAIN).some((chain)=>!chains.has(chain))||endpoints.size!==ENDPOINTS.size||[...ENDPOINTS].some((endpoint)=>!endpoints.has(endpoint)))throw new Error("assetfare_safety_boundary_failed");
-  if(new Set(value.source_only_routes).size!==2)throw new Error("assetfare_safety_boundary_failed");
+  if(chains.size!==6||Object.keys(TOKENS_BY_CHAIN).some((chain)=>!chains.has(chain))||endpoints.size!==ENDPOINTS.size||[...ENDPOINTS].some((endpoint)=>!endpoints.has(endpoint)))throw new Error("assetfare_safety_boundary_failed");
+  if(new Set(value.source_only_routes).size!==4)throw new Error("assetfare_safety_boundary_failed");
   return value;
 }
 
@@ -66,7 +141,25 @@ function validateQuote(payload,intent) {
   rejectSigningClaims(payload);
   const value=Quote.parse(payload),source=`${intent.fromChain}:${intent.fromToken}`,destination=`${intent.toChain}:${intent.toToken}`;
   if(value.intent.from!==source||value.intent.to!==destination||value.intent.amount_usd!==intent.amountUsd||value.offer.output_symbol!==intent.toToken||value.offer.estimated_min_receive_amount>value.offer.expected_receive_amount||value.route.route!==`${source}->${destination}`)throw new Error("assetfare_safety_boundary_failed");
+  const sourceOnly=SOURCE_ONLY_CHAINS.has(intent.fromChain);
+  if(sourceOnly){if(value.execution.supported!==false||value.execution.first_unsigned_action_supported!==false||value.execution.blocker!==EXECUTION_NOT_READY)throw new Error("assetfare_safety_boundary_failed");}
+  else{if(value.execution.supported!==true||value.execution.first_unsigned_action_supported!==true)throw new Error("assetfare_safety_boundary_failed");}
+  validateFee(value.offer,value.route.steps.length,sourceOnly);
+  validateHandoff(value.caller_action_plan_handoff,sourceOnly);
   return value;
+}
+
+function validateBundle(payload) { rejectSigningClaims(payload); return Bundle.parse(payload); }
+function validateSession(payload) { rejectSigningClaims(payload); return Session.parse(payload); }
+function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
+  const source = `${fromChain}:${fromToken}`, destination = `${toChain}:${toToken}`;
+  if (!ENDPOINTS.has(source) || !ENDPOINTS.has(destination)) throw new Error("assetfare_route_unsupported");
+  if (source === destination) throw new Error("assetfare_identity_route");
+  if (SOURCE_ONLY_CHAINS.has(fromChain)) throw new Error(EXECUTION_NOT_READY);
+}
+function newSessionCapability() {
+  const token = randomBytes(32).toString("base64url");
+  return { session_token: token, token_bits: 256, token_length: token.length, sensitivity: "sensitive_capability", is_private_key: false, usage: "Send as sessionToken to session_create and every session read/observe/refresh; delivered in the X-AssetFare-Session-Token header. The server stores only its hash. Never a private key.", server_signing: false, server_submission: false };
 }
 
 function rejectSigningClaims(value) {
@@ -119,10 +212,10 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "Read-only cross-chain crypto bridge and same-chain swap route quotes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon native-USDC source routes. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
+    description: "Non-custodial cross-chain crypto bridge and same-chain swap routes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source routes. Quote 76 directed routes, then execute the 72 execution-ready routes through the caller-approved /v2/prepare one-shot or the full /v2/session lifecycle. Polygon and Optimism are source-only Phase-B routes (quote/action-plan only). No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.2",
+    version: "0.1.3",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -132,9 +225,36 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for ten supported source endpoints and 74 directed routes from USD 1 through 1,000. Polygon is native-USDC source-only to Base or Arbitrum USDC. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd; stop before authentication, preparation, signing, or submission.",
-      tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "non-custodial"],
+      description: "Return one fresh quote for eleven supported source endpoints and 76 directed routes (72 execution-ready) from USD 1 through 1,000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Phase-B, quote/action-plan only). Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd (operation:\"quote\" or omitted); stop before authentication, preparation, signing, or submission. The quote passes through the caller_action_plan_handoff.",
+      tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
+      inputModes: ["application/json"],
+      outputModes: ["application/json"],
+      securityRequirements: [],
+    }, {
+      id: "new-session-capability",
+      name: "Generate a session capability token",
+      description: "Locally generate one caller-owned high-entropy session capability token (>=256-bit CSPRNG, url-safe). No network call. Send {\"operation\":\"new_session_capability\"}. The token is a SENSITIVE capability credential (never a private key); store it and pass it as sessionToken to session_create and every session read/observe/refresh.",
+      tags: ["session", "capability-token", "non-custodial", "security"],
+      examples: ['{"operation":"new_session_capability"}'],
+      inputModes: ["application/json"],
+      outputModes: ["application/json"],
+      securityRequirements: [],
+    }, {
+      id: "prepare-first-unsigned-action",
+      name: "Prepare the first unsigned action (caller-approved)",
+      description: "Caller-approved one-shot POST /v2/prepare for an execution-ready route: returns the fresh re-quoted bounded first unsigned action bundle. Send {\"operation\":\"prepare\",\"callerApproved\":true, fromChain, fromToken, toChain, toToken, amountUsd, wallets:{chain:publicAddress}, eventSignerPublic?}. Requires an explicit callerApproved:true; rejects source-only Phase-B routes and any private key/seed/signed transaction. Never auto-called from a quote. AssetFare never signs or submits.",
+      tags: ["prepare", "unsigned-action", "cross-chain", "non-custodial", "caller-approved"],
+      examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
+      inputModes: ["application/json"],
+      outputModes: ["application/json"],
+      securityRequirements: [],
+    }, {
+      id: "session-lifecycle",
+      name: "Run the caller-approved session lifecycle",
+      description: "Full receipt-driven /v2/session lifecycle for an execution-ready route. Requires callerApproved:true on create and the caller's session capability token (X-AssetFare-Session-Token) on every call. Operations: session_create (+wallets, idempotencyKey), session_get, observe_source (caller-submitted transactionHashes), observe_output, refresh_action. Never auto-chains, signs, or submits; only the caller's submitted tx hashes are observed.",
+      tags: ["session", "lifecycle", "observe", "receipts", "non-custodial", "caller-approved"],
+      examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],
@@ -167,21 +287,72 @@ class QuoteExecutor {
     bus.finished();
   }
   async execute(context, bus) {
-    let intent;
-    try { intent = QuoteIntent.parse(dataValue(context.userMessage.parts)); }
-    catch { this.publish(context,bus,{error:{code:"quote_intent_invalid"}});return; }
+    let value;
+    try { value = dataValue(context.userMessage.parts); }
+    catch { this.publish(context,bus,{error:{code:"quote_intent_required"}});return; }
+    // The operation selects the A2A skill. Absent/quote => the legacy read-only quote flow
+    // (backward compatible). Prepare and the session lifecycle mirror the MCP tools exactly.
+    const operation = value && typeof value === "object" && typeof value.operation === "string" ? value.operation : "quote";
     const headers = context.context.state.get("headers") || {};
     const request = requester(this.config, headers);
-    const known = new Set(["assetfare_upstream_unavailable", "assetfare_response_too_large", "assetfare_response_invalid", "assetfare_upstream_status_error"]);
-    let quote;
+    const known = new Set(["assetfare_upstream_unavailable", "assetfare_response_too_large", "assetfare_response_invalid", "assetfare_upstream_status_error", EXECUTION_NOT_READY, "assetfare_secret_material_rejected", "assetfare_route_unsupported", "assetfare_identity_route"]);
+    const fail = (error) => this.publish(context, bus, { error: { code: error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed" } });
+    // Distinguish a caller-intent parse failure (intent_invalid) from an upstream-response
+    // validation failure (safety_boundary_failed): only the former is the caller's fault.
+    const withoutOp = (input) => { const { operation: _op, ...rest } = input || {}; return rest; };
+    const parseIntent = (schema, input) => { try { return schema.parse(input); } catch { throw Object.assign(new Error("intent_invalid"), { intentInvalid: true }); } };
     try {
-      const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
-      validateCapabilities(capabilitiesRaw);Status.parse(statusRaw);
-      quote = validateQuote(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }),intent);
+      if (operation === "new_session_capability") { this.publish(context, bus, { session_capability: newSessionCapability() }); return; }
+      if (operation === "quote") {
+        const intent = parseIntent(QuoteIntent, withoutOp(value));
+        const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
+        validateCapabilities(capabilitiesRaw); Status.parse(statusRaw);
+        const quote = validateQuote(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }), intent);
+        this.publish(context, bus, { quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } });
+        return;
+      }
+      if (operation === "prepare") {
+        const intent = parseIntent(PrepareIntent, withoutOp(value));
+        rejectSecretMaterial({ ...intent, operation: undefined });
+        assertExecutableRoute(intent.fromChain, intent.fromToken, intent.toChain, intent.toToken);
+        const body = { caller_approved: true, from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd, wallets: intent.wallets, ...(intent.eventSignerPublic ? { event_signer_public: intent.eventSignerPublic } : {}) };
+        const bundle = validateBundle(await request("/v2/prepare", { method: "POST", body: JSON.stringify(body) }));
+        this.publish(context, bus, { bundle, guidance: { freshRequoted: true, callerApprovalHonored: true, transactionSigned: false, transactionSubmitted: false, callerMustVerifySignAndSubmit: true } });
+        return;
+      }
+      if (operation === "session_create") {
+        const intent = parseIntent(SessionCreateIntent, withoutOp(value));
+        rejectSecretMaterial({ ...intent, sessionToken: undefined, operation: undefined });
+        assertExecutableRoute(intent.fromChain, intent.fromToken, intent.toChain, intent.toToken);
+        const body = { caller_approved: true, from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd, wallets: intent.wallets, idempotency_key: intent.idempotencyKey, ...(intent.eventSignerPublic ? { event_signer_public: intent.eventSignerPublic } : {}) };
+        this.publish(context, bus, { session: validateSession(await request("/v2/session", { method: "POST", headers: { [SESSION_TOKEN_HEADER]: intent.sessionToken }, body: JSON.stringify(body) })) });
+        return;
+      }
+      if (operation === "session_get") {
+        const intent = parseIntent(SessionReadIntent, withoutOp(value));
+        this.publish(context, bus, { session: validateSession(await request(`/v2/session/${intent.sessionId}`, { headers: { [SESSION_TOKEN_HEADER]: intent.sessionToken } })) });
+        return;
+      }
+      if (operation === "observe_source") {
+        const intent = parseIntent(ObserveSourceIntent, withoutOp(value));
+        this.publish(context, bus, { session: validateSession(await request(`/v2/session/${intent.sessionId}/observe-source`, { method: "POST", headers: { [SESSION_TOKEN_HEADER]: intent.sessionToken }, body: JSON.stringify({ idempotency_key: intent.idempotencyKey, transaction_hashes: intent.transactionHashes }) })) });
+        return;
+      }
+      if (operation === "observe_output") {
+        const intent = parseIntent(ObserveOutputIntent, withoutOp(value));
+        this.publish(context, bus, { session: validateSession(await request(`/v2/session/${intent.sessionId}/observe-output`, { method: "POST", headers: { [SESSION_TOKEN_HEADER]: intent.sessionToken }, body: JSON.stringify({ idempotency_key: intent.idempotencyKey, ...(intent.transactionHash ? { transaction_hash: intent.transactionHash } : {}) }) })) });
+        return;
+      }
+      if (operation === "refresh_action") {
+        const intent = parseIntent(RefreshActionIntent, withoutOp(value));
+        this.publish(context, bus, { session: validateSession(await request(`/v2/session/${intent.sessionId}/refresh-action`, { method: "POST", headers: { [SESSION_TOKEN_HEADER]: intent.sessionToken }, body: JSON.stringify({ idempotency_key: intent.idempotencyKey }) })) });
+        return;
+      }
+      this.publish(context, bus, { error: { code: "assetfare_operation_unsupported" } });
     } catch (error) {
-      this.publish(context,bus,{error:{code:error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed"}});return;
+      if (error?.intentInvalid) { this.publish(context, bus, { error: { code: `${operation}_intent_invalid` } }); return; }
+      fail(error);
     }
-    this.publish(context,bus,{ quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } });
   }
   async cancelTask(_taskId, bus) { bus.finished(); }
 }

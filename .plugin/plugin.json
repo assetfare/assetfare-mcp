@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Multichain route evaluation for AI agents; AssetFare never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
@@ -21,6 +21,7 @@
     "arbitrum",
     "robinhood-chain",
     "polygon",
+    "optimism",
     "non-custodial"
   ],
   "skills": "./skills/",

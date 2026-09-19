@@ -7,14 +7,16 @@ These instructions apply to the entire public MCP wrapper repository.
 - MCP is optional. If AssetFare has not been explicitly connected, use the
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
-- AssetFare REST/OpenAPI v2 and the two read-only v2 MCP tools cover ten source
-  endpoints and 74 directed routes across Solana, Base, Arbitrum, Robinhood
-  Chain, and Polygon native-USDC source-only corridors. The unversioned legacy
-  workflow remains limited to `Solana SOL -> Base ETH` and `Solana SOL ->
-  Arbitrum ETH`.
+- AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools cover eleven
+  source endpoints and 76 directed routes (72 execution-ready) across Solana,
+  Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only
+  corridors. Polygon and Optimism are source-only Phase-B routes
+  (`execution_not_ready_phase_b`): quote/action-plan discovery only, never
+  prepare or session. The unversioned legacy workflow remains limited to
+  `Solana SOL -> Base ETH` and `Solana SOL -> Arbitrum ETH`.
 - Treat AssetFare as one candidate. Never assume or claim that it is
   market-wide best.
-- For a five-chain source route, read `/v2/capabilities`, `/v2/status`, and
+- For a six-chain source route, read `/v2/capabilities`, `/v2/status`, and
   `/v2/openapi.json`, then use `/v2/quote`. For an original MCP corridor, read
   `assetfare_status` and `assetfare_manifest`, then obtain a fresh
   `assetfare_quote` and compare fee-inclusive expected receive, conservative
@@ -32,8 +34,16 @@ These instructions apply to the entire public MCP wrapper repository.
 - Treat the access token returned by wallet authentication as sensitive and
   keep it out of source files, logs, issues, and chat transcripts.
 - Require caller approval before wallet authentication, session creation, or
-  unsigned-action preparation. The caller independently verifies every
-  `agent_must_verify` item and uses its own wallet to sign and submit.
+  unsigned-action preparation. The v2 execution tools (`assetfare_v2_prepare`
+  and the `assetfare_v2_session_*` lifecycle) require an explicit
+  `caller_approved:true` and the caller's public wallet addresses, are never
+  auto-called from a quote, and reject source-only Phase-B routes and any
+  private key/seed/signed transaction. The v2 session capability token is a
+  sensitive bearer credential, not a private key: generate it with
+  `assetfare_v2_new_session_capability`, keep it out of logs, and never mix the
+  v2 session tools with the legacy v1 session tools. The caller independently
+  verifies every `agent_must_verify` item and uses its own wallet to sign and
+  submit.
 - After an error or delay, read the workflow state and reported asset location.
   Never guess, silently rebuild, or resend a stale action.
 
