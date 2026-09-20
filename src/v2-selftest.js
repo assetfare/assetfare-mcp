@@ -81,9 +81,12 @@ function capabilities(overrides = {}) {
   };
 }
 
-const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, preview_or_manual_first_action_only: true, not_a_session: true, do_not_start_session_after_submission: true, note: "Stateless: returns only the first unsigned bundle." };
-const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, recommended_for_multistep: true, note: "Idempotent multi-step lifecycle." };
-function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, selection: "choose_exactly_one", mutually_exclusive: true, do_not_call_both: true, selection_before_signing: true, once_any_action_submitted_do_not_start_other_mode: true, enforcement: "advisory_caller_side", options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
+const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Stateless: returns only the first unsigned bundle." };
+const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Idempotent multi-step lifecycle." };
+const PREPARE_OPTION_V2 = { ...structuredClone(PREPARE_OPTION), preview_or_manual_first_action_only: true, not_a_session: true, do_not_start_session_after_submission: true };
+const SESSION_OPTION_V2 = { ...structuredClone(SESSION_OPTION), recommended_for_multistep: true };
+function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
+function executableHandoffV2() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, schema_version: 2, selection: "choose_exactly_one", mutually_exclusive: true, do_not_call_both: true, selection_before_signing: true, once_any_action_submitted_do_not_start_other_mode: true, enforcement: "advisory_caller_side", options: [structuredClone(PREPARE_OPTION_V2), structuredClone(SESSION_OPTION_V2)], note: "Machine-readable v2.", available: true }; }
 function quote(intent, overrides = {}) {
   const sourceOnly = SOURCE_ONLY.has(intent.from_chain);
   const fee = 1;
@@ -99,6 +102,8 @@ function quote(intent, overrides = {}) {
     risk: { non_atomic: true, server_signing: false, server_submission: false },
     execution: { supported: true, first_unsigned_action_supported: true, blocker: null },
     caller_action_plan_handoff: executableHandoff(),
+    caller_action_plan_handoff_v2: executableHandoffV2(),
+    handoff_schema_version: 2,
     ...overrides,
   };
 }
@@ -144,7 +149,25 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "handoff-request-fields-short") { const value = quote(intent); value.caller_action_plan_handoff.request_fields = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]; return Response.json(value); }
     if (mode === "handoff-approval-false") { const value = quote(intent); value.caller_action_plan_handoff.requires_explicit_caller_approval = false; return Response.json(value); }
     if (mode === "handoff-server-signs") { const value = quote(intent); value.caller_action_plan_handoff.assetfare_server_signing = true; return Response.json(value); }
-    if (mode === "handoff-not-mutually-exclusive") { const value = quote(intent); delete value.caller_action_plan_handoff.do_not_call_both; return Response.json(value); }
+    if (mode === "handoff-v2-not-mutually-exclusive") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.do_not_call_both; return Response.json(value); }
+    if (mode === "handoff-v2-wrong-schema-version") { const value = quote(intent); value.caller_action_plan_handoff_v2.schema_version = 1; return Response.json(value); }
+    if (mode === "handoff-v2-cross-field") { const value = quote(intent); value.caller_action_plan_handoff_v2.options[0].recommended_for_multistep = true; return Response.json(value); }
+    if (mode === "handoff-v2-enforcement-overclaim") { const value = quote(intent); value.caller_action_plan_handoff_v2.enforcement = "server_enforced"; return Response.json(value); }
+    if (mode === "handoff-schema-version-mismatch") { const value = quote(intent); value.handoff_schema_version = 3; return Response.json(value); }
+    if (mode === "rollback-core-no-v2") { const value = quote(intent); delete value.caller_action_plan_handoff_v2; delete value.handoff_schema_version; return Response.json(value); }
+    if (mode === "handoff-v2-orphan-version") { const value = quote(intent); delete value.caller_action_plan_handoff_v2; return Response.json(value); }
+    if (mode === "handoff-v2-orphan-sibling") { const value = quote(intent); delete value.handoff_schema_version; return Response.json(value); }
+    if (mode === "handoff-v2-null-sibling") { const value = quote(intent); value.caller_action_plan_handoff_v2 = null; return Response.json(value); }
+    if (mode === "handoff-v2-option-missing-note") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.options[0].note; return Response.json(value); }
+    if (mode === "handoff-v2-option-missing-required") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.options[0].not_a_session; return Response.json(value); }
+    if (mode === "handoff-v2-missing-lifecycle") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.options[1].lifecycle_urls.create; return Response.json(value); }
+    if (mode === "handoff-v2-arbitrary-lifecycle") { const value = quote(intent); value.caller_action_plan_handoff_v2.options[1].lifecycle_urls.create.url = "https://api.assetfare.dev/v2/evil"; return Response.json(value); }
+    if (mode === "handoff-v2-extra-lifecycle") { const value = quote(intent); value.caller_action_plan_handoff_v2.options[1].lifecycle_urls.extra = { method: "POST", url: SESSION_URL }; return Response.json(value); }
+    if (mode === "handoff-v2-lifecycle-missing-method") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.options[1].lifecycle_urls.create.method; return Response.json(value); }
+    if (mode === "handoff-v2-null-without-version") { const value = quote(intent); value.caller_action_plan_handoff_v2 = null; delete value.handoff_schema_version; return Response.json(value); }
+    if (mode === "handoff-v2-array-sibling") { const value = quote(intent); value.caller_action_plan_handoff_v2 = []; return Response.json(value); }
+    if (mode === "handoff-v2-blocker-key") { const value = quote(intent); value.caller_action_plan_handoff_v2.blocker = null; return Response.json(value); }
+    if (mode === "handoff-v2-missing-required-top") { const value = quote(intent); delete value.caller_action_plan_handoff_v2.selection; return Response.json(value); }
     if (mode === "fee-8bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 8; value.offer.fee_modeled_bps = 1; return Response.json(value); }
     if (mode === "fee-0bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 0; value.offer.fee_modeled_bps = 0; value.offer.fee_collectible_now = false; value.offer.fee_collection_steps = []; return Response.json(value); }
     if (mode === "fee-2-step") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [0, 0]; return Response.json(value); }
@@ -283,13 +306,18 @@ try {
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-not-mutually-exclusive", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
     const result = await call(client, "assetfare_v2_quote", executableIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
   }
+  // Rollback/transition: a Core that omits the v2 sibling (v1-only) must STILL quote successfully.
+  mode = "rollback-core-no-v2";
+  const rollbackQuote = await call(client, "assetfare_v2_quote", executableIntent);
+  assert.equal(rollbackQuote.isError ?? false, false, "rollback core (v1-only, no v2 sibling) failed to quote");
+  mode = "success";
   // An audited 1bp source-only route claiming the fee is not collectible must fail closed.
   mode = "source-only-fee-uncollectible";
   const feeReadiness = await call(client, "assetfare_v2_quote", { from_chain: "polygon", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 25 });

@@ -276,6 +276,13 @@ function deepEqualArray(actual, expected) {
   return Array.isArray(actual) && actual.length === expected.length && actual.every((item, index) => item === expected[index]);
 }
 
+// EXACT key-set equality on a plain object: rejects BOTH missing and extra keys.
+function exactKeys(object, keys) {
+  if (!object || typeof object !== "object" || Array.isArray(object)) return false;
+  const actual = Object.keys(object);
+  return actual.length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(object, key));
+}
+
 // Fail-closed validation of the upstream caller_action_plan_handoff. No local fallback:
 // a missing/null/array/extra/private-key/wrong-fields handoff is a real API regression.
 function validateHandoff(handoff) {
@@ -290,27 +297,46 @@ function validateHandoff(handoff) {
   if (handoff.caller_must_verify_sign_and_submit !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.requires_fresh_requote !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.automatic_prepare_call_forbidden !== true) throw new Error("assetfare_v2_handoff_invalid");
-  // Mutual-exclusivity machine fields: the two options are one-of. Fail closed if any is missing or wrong so the two
-  // modes can never be presented as safe-to-run-both.
-  if (handoff.selection !== "choose_exactly_one") throw new Error("assetfare_v2_handoff_invalid");
-  if (handoff.mutually_exclusive !== true) throw new Error("assetfare_v2_handoff_invalid");
-  if (handoff.do_not_call_both !== true) throw new Error("assetfare_v2_handoff_invalid");
-  if (handoff.selection_before_signing !== true) throw new Error("assetfare_v2_handoff_invalid");
-  if (handoff.once_any_action_submitted_do_not_start_other_mode !== true) throw new Error("assetfare_v2_handoff_invalid");
-  // Honest boundary: the mutual-exclusivity fields are ADVISORY caller-side (no server selection token). Require the
-  // marker so a caller cannot be told it is server-enforced.
-  if (handoff.enforcement !== "advisory_caller_side") throw new Error("assetfare_v2_handoff_invalid");
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_v2_handoff_invalid");
-  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available", "blocker"]);
+  // v1 stays the UNCHANGED exact allow-list (no machine fields) so this adapter also validates the backward-compatible
+  // Core response; the advisory machine contract lives in the caller_action_plan_handoff_v2 sibling (validateHandoffV2).
+  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_v2_handoff_extra_field");
   if (handoff.available !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.url !== V2_PREPARE_URL) throw new Error("assetfare_v2_handoff_invalid");
   if (!Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_v2_handoff_options_invalid");
   const [prepareOption, sessionOption] = handoff.options;
-  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== V2_PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true || prepareOption.preview_or_manual_first_action_only !== true || prepareOption.not_a_session !== true || prepareOption.do_not_start_session_after_submission !== true) throw new Error("assetfare_v2_handoff_prepare_option_invalid");
-  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== V2_SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true || sessionOption.recommended_for_multistep !== true) throw new Error("assetfare_v2_handoff_session_option_invalid");
+  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== V2_PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_v2_handoff_prepare_option_invalid");
+  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== V2_SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_v2_handoff_session_option_invalid");
   const lifecycle = sessionOption.lifecycle_urls;
   if (!lifecycle || typeof lifecycle !== "object" || lifecycle.create?.url !== V2_SESSION_URL || lifecycle.read?.url !== `${V2_SESSION_URL}/{session_id}` || lifecycle.observe_source?.url !== `${V2_SESSION_URL}/{session_id}/observe-source` || lifecycle.observe_output?.url !== `${V2_SESSION_URL}/{session_id}/observe-output` || lifecycle.refresh_action?.url !== `${V2_SESSION_URL}/{session_id}/refresh-action`) throw new Error("assetfare_v2_handoff_session_lifecycle_invalid");
+  return handoff;
+}
+
+// Optional versioned SIBLING: validated EXACTLY when present (transition period accepts old-only OR v2). Advisory
+// machine contract with per-kind exact option keys so prepare/session cross-fields are rejected.
+function validateHandoffV2(handoff) {
+  // Called ONLY when the sibling key is present (see parseV2Quote); a present-but-null/array sibling is rejected.
+  if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_v2_handoff_v2_invalid");
+  if (!deepEqualArray(handoff.request_fields, V2_HANDOFF_REQUEST_FIELDS)) throw new Error("assetfare_v2_handoff_v2_request_fields_invalid");
+  const scalars = [["schema_version", 2], ["kind", "caller_operated_rest_prepare"], ["method", "POST"], ["requires_explicit_caller_approval", true], ["requires_public_wallet_addresses", true], ["assetfare_server_signing", false], ["assetfare_server_submission", false], ["caller_must_verify_sign_and_submit", true], ["requires_fresh_requote", true], ["automatic_prepare_call_forbidden", true], ["selection", "choose_exactly_one"], ["mutually_exclusive", true], ["do_not_call_both", true], ["selection_before_signing", true], ["once_any_action_submitted_do_not_start_other_mode", true], ["enforcement", "advisory_caller_side"], ["available", true], ["url", V2_PREPARE_URL]];
+  for (const [k, v] of scalars) if (handoff[k] !== v) throw new Error("assetfare_v2_handoff_v2_invalid");
+  if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_v2_handoff_v2_invalid");
+  // v2 is ALWAYS the available=true machine contract: EXACT key set (no blocker) — reject missing AND extra.
+  const topRequired = ["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "schema_version", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available"];
+  if (!exactKeys(handoff, topRequired)) throw new Error("assetfare_v2_handoff_v2_extra_field");
+  if (!Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_v2_handoff_v2_options_invalid");
+  const [prepareOption, sessionOption] = handoff.options;
+  // Per-kind EXACT option key sets: reject missing AND extra keys (and cross-fields), require nonempty note.
+  const prepKeys = ["kind", "method", "url", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "preview_or_manual_first_action_only", "not_a_session", "do_not_start_session_after_submission", "note"];
+  if (!exactKeys(prepareOption, prepKeys) || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== V2_PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true || prepareOption.preview_or_manual_first_action_only !== true || prepareOption.not_a_session !== true || prepareOption.do_not_start_session_after_submission !== true || typeof prepareOption.note !== "string" || !prepareOption.note.length) throw new Error("assetfare_v2_handoff_v2_prepare_option_invalid");
+  const sessKeys = ["kind", "method", "url", "lifecycle_urls", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "recommended_for_multistep", "note"];
+  if (!exactKeys(sessionOption, sessKeys) || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== V2_SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true || sessionOption.recommended_for_multistep !== true || typeof sessionOption.note !== "string" || !sessionOption.note.length) throw new Error("assetfare_v2_handoff_v2_session_option_invalid");
+  // lifecycle_urls: EXACT key set + each { method, url } exact (same URLs as v1).
+  const lifecycle = sessionOption.lifecycle_urls;
+  if (!exactKeys(lifecycle, ["create", "read", "observe_source", "observe_output", "refresh_action"])) throw new Error("assetfare_v2_handoff_v2_session_lifecycle_invalid");
+  const expectedLifecycle = [["create", "POST", V2_SESSION_URL], ["read", "GET", `${V2_SESSION_URL}/{session_id}`], ["observe_source", "POST", `${V2_SESSION_URL}/{session_id}/observe-source`], ["observe_output", "POST", `${V2_SESSION_URL}/{session_id}/observe-output`], ["refresh_action", "POST", `${V2_SESSION_URL}/{session_id}/refresh-action`]];
+  for (const [name, method, url] of expectedLifecycle) { const entry = lifecycle[name]; if (!exactKeys(entry, ["method", "url"]) || entry.method !== method || entry.url !== url) throw new Error("assetfare_v2_handoff_v2_session_lifecycle_invalid"); }
   return handoff;
 }
 
@@ -388,6 +414,17 @@ function parseV2Quote(payload, intent) {
   if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true || ("blocker" in value.execution && value.execution.blocker !== null)) throw new Error("assetfare_v2_execution_boundary_failed");
   validateFee(value.offer, value.route.steps.length);
   validateHandoff(value.caller_action_plan_handoff);
+  // Transition-safe: v1 is ALWAYS validated (exact old shape). The v2 sibling and its schema_version are strictly
+  // coupled — both present (version===2, sibling a non-null object) or both absent (rollback Core still quotes).
+  // Coupling by KEY PRESENCE (not value): the version key and the sibling key are both present or both absent. A
+  // present sibling that is null/array is rejected by validateHandoffV2 (not treated as absent).
+  const hasVersion = Object.prototype.hasOwnProperty.call(value, "handoff_schema_version");
+  const hasSibling = Object.prototype.hasOwnProperty.call(value, "caller_action_plan_handoff_v2");
+  if (hasVersion !== hasSibling) throw new Error("assetfare_v2_handoff_schema_version_invalid");
+  if (hasSibling) {
+    if (value.handoff_schema_version !== 2) throw new Error("assetfare_v2_handoff_schema_version_invalid");
+    validateHandoffV2(value.caller_action_plan_handoff_v2);
+  }
   return value;
 }
 

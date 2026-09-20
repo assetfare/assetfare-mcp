@@ -91,24 +91,52 @@ function deepEqualArray(actual, expected) {
   return Array.isArray(actual) && actual.length === expected.length && actual.every((item, index) => item === expected[index]);
 }
 
+// EXACT key-set equality: rejects BOTH missing and extra keys.
+function exactKeys(object, keys) {
+  if (!object || typeof object !== "object" || Array.isArray(object)) return false;
+  return Object.keys(object).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(object, key));
+}
+
 // Fail-closed passthrough of the upstream caller_action_plan_handoff (no local fallback).
 function validateHandoff(handoff) {
   if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_safety_boundary_failed");
   if (handoff.kind !== "caller_operated_rest_prepare" || handoff.method !== "POST") throw new Error("assetfare_safety_boundary_failed");
   if (!deepEqualArray(handoff.request_fields, HANDOFF_REQUEST_FIELDS)) throw new Error("assetfare_safety_boundary_failed");
   if (handoff.requires_explicit_caller_approval !== true || handoff.requires_public_wallet_addresses !== true || handoff.assetfare_server_signing !== false || handoff.assetfare_server_submission !== false || handoff.caller_must_verify_sign_and_submit !== true || handoff.requires_fresh_requote !== true || handoff.automatic_prepare_call_forbidden !== true) throw new Error("assetfare_safety_boundary_failed");
-  // ADVISORY (caller-side) mutual-exclusivity machine fields; fail closed if any is missing or wrong. enforcement
-  // marks the honest boundary — no server selection token, so this is caller guidance, not server-enforced.
-  if (handoff.selection !== "choose_exactly_one" || handoff.mutually_exclusive !== true || handoff.do_not_call_both !== true || handoff.selection_before_signing !== true || handoff.once_any_action_submitted_do_not_start_other_mode !== true || handoff.enforcement !== "advisory_caller_side") throw new Error("assetfare_safety_boundary_failed");
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_safety_boundary_failed");
-  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available", "blocker"]);
+  // v1 stays the UNCHANGED old exact allow-list (backward compatible). Machine contract is the v2 sibling below.
+  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_safety_boundary_failed");
   if (handoff.available !== true || handoff.url !== PREPARE_URL || !Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_safety_boundary_failed");
   const [prepareOption, sessionOption] = handoff.options;
-  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.url !== PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true || prepareOption.preview_or_manual_first_action_only !== true || prepareOption.not_a_session !== true || prepareOption.do_not_start_session_after_submission !== true) throw new Error("assetfare_safety_boundary_failed");
-  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.url !== SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true || sessionOption.recommended_for_multistep !== true) throw new Error("assetfare_safety_boundary_failed");
+  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.url !== PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_safety_boundary_failed");
+  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.url !== SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_safety_boundary_failed");
   const lifecycle = sessionOption.lifecycle_urls;
   if (!lifecycle || lifecycle.create?.url !== SESSION_URL || lifecycle.read?.url !== `${SESSION_URL}/{session_id}` || lifecycle.observe_source?.url !== `${SESSION_URL}/{session_id}/observe-source` || lifecycle.observe_output?.url !== `${SESSION_URL}/{session_id}/observe-output` || lifecycle.refresh_action?.url !== `${SESSION_URL}/{session_id}/refresh-action`) throw new Error("assetfare_safety_boundary_failed");
+  return handoff;
+}
+
+// Optional versioned SIBLING: validated EXACTLY when present. Advisory machine contract with per-kind exact option keys.
+function validateHandoffV2(handoff) {
+  // Called ONLY when the sibling key is present; a present-but-null/array sibling is rejected.
+  if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_safety_boundary_failed");
+  if (!deepEqualArray(handoff.request_fields, HANDOFF_REQUEST_FIELDS)) throw new Error("assetfare_safety_boundary_failed");
+  const scalars = [["schema_version", 2], ["kind", "caller_operated_rest_prepare"], ["method", "POST"], ["requires_explicit_caller_approval", true], ["requires_public_wallet_addresses", true], ["assetfare_server_signing", false], ["assetfare_server_submission", false], ["caller_must_verify_sign_and_submit", true], ["requires_fresh_requote", true], ["automatic_prepare_call_forbidden", true], ["selection", "choose_exactly_one"], ["mutually_exclusive", true], ["do_not_call_both", true], ["selection_before_signing", true], ["once_any_action_submitted_do_not_start_other_mode", true], ["enforcement", "advisory_caller_side"], ["available", true], ["url", PREPARE_URL]];
+  for (const [k, v] of scalars) if (handoff[k] !== v) throw new Error("assetfare_safety_boundary_failed");
+  if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_safety_boundary_failed");
+  // v2 is ALWAYS the available=true machine contract: EXACT key set (no blocker) — reject missing AND extra.
+  const topRequired = ["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "schema_version", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available"];
+  if (!exactKeys(handoff, topRequired)) throw new Error("assetfare_safety_boundary_failed");
+  if (!Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_safety_boundary_failed");
+  const [prepareOption, sessionOption] = handoff.options;
+  const prepKeys = ["kind", "method", "url", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "preview_or_manual_first_action_only", "not_a_session", "do_not_start_session_after_submission", "note"];
+  if (!exactKeys(prepareOption, prepKeys) || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true || prepareOption.preview_or_manual_first_action_only !== true || prepareOption.not_a_session !== true || prepareOption.do_not_start_session_after_submission !== true || typeof prepareOption.note !== "string" || !prepareOption.note.length) throw new Error("assetfare_safety_boundary_failed");
+  const sessKeys = ["kind", "method", "url", "lifecycle_urls", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "recommended_for_multistep", "note"];
+  if (!exactKeys(sessionOption, sessKeys) || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true || sessionOption.recommended_for_multistep !== true || typeof sessionOption.note !== "string" || !sessionOption.note.length) throw new Error("assetfare_safety_boundary_failed");
+  const lifecycle = sessionOption.lifecycle_urls;
+  if (!exactKeys(lifecycle, ["create", "read", "observe_source", "observe_output", "refresh_action"])) throw new Error("assetfare_safety_boundary_failed");
+  const expectedLifecycle = [["create", "POST", SESSION_URL], ["read", "GET", `${SESSION_URL}/{session_id}`], ["observe_source", "POST", `${SESSION_URL}/{session_id}/observe-source`], ["observe_output", "POST", `${SESSION_URL}/{session_id}/observe-output`], ["refresh_action", "POST", `${SESSION_URL}/{session_id}/refresh-action`]];
+  for (const [name, method, url] of expectedLifecycle) { const entry = lifecycle[name]; if (!exactKeys(entry, ["method", "url"]) || entry.method !== method || entry.url !== url) throw new Error("assetfare_safety_boundary_failed"); }
   return handoff;
 }
 
@@ -140,6 +168,13 @@ function validateQuote(payload,intent) {
   if(value.execution.supported!==true||value.execution.first_unsigned_action_supported!==true||("blocker" in value.execution&&value.execution.blocker!==null))throw new Error("assetfare_safety_boundary_failed");
   validateFee(value.offer,value.route.steps.length);
   validateHandoff(value.caller_action_plan_handoff);
+  const hasVersion = Object.prototype.hasOwnProperty.call(value, "handoff_schema_version");
+  const hasSibling = Object.prototype.hasOwnProperty.call(value, "caller_action_plan_handoff_v2");
+  if (hasVersion !== hasSibling) throw new Error("assetfare_safety_boundary_failed");
+  if (hasSibling) {
+    if (value.handoff_schema_version !== 2) throw new Error("assetfare_safety_boundary_failed");
+    validateHandoffV2(value.caller_action_plan_handoff_v2);
+  }
   return value;
 }
 
