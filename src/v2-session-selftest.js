@@ -2,8 +2,8 @@
 // Full v2 caller-approved prepare + session-lifecycle self-test for the MCP adapter.
 // A stateful in-memory mock stands in for the upstream /v2/prepare and /v2/session API
 // (NO network is hit). It enforces the real contract invariants: caller_approved:true,
-// route-specific exact wallet sets, conditional event_signer_public, source-only Phase-B
-// blocking, and the caller-generated capability-token ownership + idempotency model.
+// route-specific exact wallet sets, conditional event_signer_public, all 76 execution-ready
+// routes, and the caller-generated capability-token ownership + idempotency model.
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -12,6 +12,7 @@ import { createServer } from "./server.js";
 
 const EXECUTABLE_ROUTES={"solana:SOL->solana:USDC":{"chains":["solana"],"signer":false},"solana:SOL->solana:USDG":{"chains":["solana"],"signer":false},"solana:SOL->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:SOL->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:SOL->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:SOL->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDC->solana:USDG":{"chains":["solana"],"signer":false},"solana:USDC->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDC->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDC->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDG->solana:USDC":{"chains":["solana"],"signer":false},"solana:USDG->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDG->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDG->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"base:ETH->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:ETH->base:USDC":{"chains":["base"],"signer":false},"base:ETH->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:ETH->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"base:USDC->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:USDC->base:ETH":{"chains":["base"],"signer":false},"base:USDC->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:USDC->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"arbitrum:ETH->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->arbitrum:USDC":{"chains":["arbitrum"],"signer":false},"arbitrum:ETH->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:ETH->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->arbitrum:ETH":{"chains":["arbitrum"],"signer":false},"arbitrum:USDC->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"robinhood:ETH->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->robinhood:USDG":{"chains":["robinhood"],"signer":false},"robinhood:USDG->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->robinhood:ETH":{"chains":["robinhood"],"signer":false}};
 const SOURCE_ONLY_ROUTES={"polygon:USDC->base:USDC":{"chains":["base", "polygon"],"signer":false},"polygon:USDC->arbitrum:USDC":{"chains":["arbitrum", "polygon"],"signer":false},"optimism:USDC->base:USDC":{"chains":["base", "optimism"],"signer":false},"optimism:USDC->arbitrum:USDC":{"chains":["arbitrum", "optimism"],"signer":false}};
+const ALL_EXECUTABLE_ROUTES={...EXECUTABLE_ROUTES,...SOURCE_ONLY_ROUTES};
 
 import { createHash } from "node:crypto";
 function tokenHash(value) { return createHash("sha256").update(value).digest("hex"); }
@@ -52,16 +53,14 @@ globalThis.fetch = async (url, init = {}) => {
   // POST /v2/prepare (stateless)
   if (path === "/v2/prepare" && init.method === "POST") {
     if (body.caller_approved !== true) return json(400, { error: "caller_approval_required" });
-    if (`${body.from_chain}`.match(/polygon|optimism/)) return json(409, { error: "execution_not_ready_phase_b" });
     return json(200, { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: uuid(), step_index: 0, expires_in_seconds: 60, unsigned_action: { transaction: "0xUNSIGNED" }, minimum_output_base: 1, server_signing: false, server_submission: false, signed: false, submitted: false });
   }
   // POST /v2/session (create)
   if (path === "/v2/session" && init.method === "POST") {
     if (body.caller_approved !== true) return json(400, { error: "caller_approval_required" });
     if (!TOKEN_OK(token)) return json(400, { error: "session_token_required" });
-    if (`${body.from_chain}`.match(/polygon|optimism/)) return json(409, { error: "execution_not_ready_phase_b" });
     const route = `${body.from_chain}:${body.from_token}->${body.to_chain}:${body.to_token}`;
-    const spec = EXECUTABLE_ROUTES[route];
+    const spec = ALL_EXECUTABLE_ROUTES[route];
     if (!spec) return json(400, { error: "route_unsupported" });
     const provided = Object.keys(body.wallets || {}).sort();
     if (JSON.stringify(provided) !== JSON.stringify([...spec.chains].sort())) return json(400, { error: "route_specific_chain_wallets_required" });
@@ -198,9 +197,10 @@ try {
   assert.equal(refreshed.action_available, true, "refresh must produce a fresh action");
   passed += 1;
 
-  // 8) 76-route e2e mock matrix: 72 executable complete; 4 source-only blocked before any network.
-  let completed = 0, blocked = 0;
-  for (const [route, spec] of Object.entries(EXECUTABLE_ROUTES)) {
+  // 8) 76-route e2e mock matrix: every route completes, including four directional
+  // Polygon/Optimism native-USDC source corridors.
+  let completed = 0;
+  for (const [route, spec] of Object.entries(ALL_EXECUTABLE_ROUTES)) {
     const [from, to] = route.split("->");
     const [from_chain, from_token] = from.split(":");
     const [to_chain, to_token] = to.split(":");
@@ -217,23 +217,10 @@ try {
     assert.equal(oo.status, "complete", `observe-output failed for ${route}`);
     completed += 1;
   }
-  for (const route of Object.keys(SOURCE_ONLY_ROUTES)) {
-    const [from, to] = route.split("->");
-    const [from_chain, from_token] = from.split(":");
-    const [to_chain, to_token] = to.split(":");
-    const netBefore = netlog.length;
-    const prErr = await expectError("assetfare_v2_prepare", { caller_approved: true, from_chain, from_token, to_chain, to_token, amount_usd: 10, wallets: walletsFor(SOURCE_ONLY_ROUTES[route].chains) });
-    assert.match(String(prErr), /execution_not_ready_phase_b/, `source-only prepare not blocked for ${route}`);
-    const crErr = await expectError("assetfare_v2_session_create", { caller_approved: true, from_chain, from_token, to_chain, to_token, amount_usd: 10, wallets: walletsFor(SOURCE_ONLY_ROUTES[route].chains), session_token: newToken(), idempotency_key: `blocked-${String(blocked).padStart(3, "0")}` });
-    assert.match(String(crErr), /execution_not_ready_phase_b/, `source-only session not blocked for ${route}`);
-    assert.equal(netlog.length, netBefore, `source-only ${route} reached upstream (must fail closed locally)`);
-    blocked += 1;
-  }
-  assert.equal(completed, 72);
-  assert.equal(blocked, 4);
+  assert.equal(completed, 76);
   passed += 1;
 
-  console.log(JSON.stringify({ status: "pass", checks_passed: passed, e2e_executable_completed: completed, e2e_source_only_blocked: blocked, matrix_total: completed + blocked, network_hits: 0, signed: false, submitted: false }));
+  console.log(JSON.stringify({ status: "pass", checks_passed: passed, e2e_executable_completed: completed, e2e_source_only_blocked: 0, matrix_total: completed, network_hits: 0, signed: false, submitted: false }));
 } finally {
   globalThis.fetch = originalFetch;
   await client.close();

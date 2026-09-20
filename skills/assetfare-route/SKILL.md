@@ -15,11 +15,10 @@ Request one fresh AssetFare quote when all of these are true:
 - The route amount is from $1 through $1,000.
 - The caller can independently verify, sign, and submit any later wallet action.
 
-Read `/v2/capabilities` to identify the live endpoints. The 76-route policy
-(72 execution-ready) applies to REST/OpenAPI v2 and the MCP `assetfare_v2_quote`
-tool. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC
-and are not execution-ready this phase (`execution_not_ready_phase_b`):
-quote/action-plan discovery only, never prepare or session. The unversioned
+Read `/v2/capabilities` to identify the live endpoints. All 76 routes are
+execution-ready through REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool.
+Polygon and Optimism are directional native-USDC source-only origins to Base or
+Arbitrum USDC and use the same caller-approved prepare/session boundary. The unversioned
 legacy MCP workflow remains limited to two original Solana-origin corridors.
 
 Do not request an AssetFare quote for an unsupported chain or asset, an identity
@@ -29,9 +28,9 @@ preparation, signature, or submission authority.
 
 ## Interface scope
 
-- REST/OpenAPI v2: eleven source endpoints and 76 directed routes (72 execution-ready) across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
+- REST/OpenAPI v2: eleven source endpoints and 76 execution-ready directed routes across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
 - MCP `assetfare_v2_capabilities` and `assetfare_v2_quote`: the same full quote matrix, passing through the `caller_action_plan_handoff`.
-- MCP caller-approved v2 execution tools for the 72 execution-ready routes: `assetfare_v2_new_session_capability` (local token generation), `assetfare_v2_prepare` (one-shot first unsigned bundle), and the `assetfare_v2_session_create`/`_get`/`_observe_source`/`_observe_output`/`_refresh_action` lifecycle. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and rejects source-only Phase-B routes and any private key/seed/signed transaction. Never mix these with the legacy v1 session tools.
+- MCP caller-approved v2 execution tools for all 76 routes: `assetfare_v2_new_session_capability` (local token generation), `assetfare_v2_prepare` (one-shot first unsigned bundle), and the `assetfare_v2_session_create`/`_get`/`_observe_source`/`_observe_output`/`_refresh_action` lifecycle. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and rejects any private key/seed/signed transaction. Never mix these with the legacy v1 session tools.
 - Unversioned MCP workflow tools: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
 
 ## Safety boundary

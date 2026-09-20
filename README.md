@@ -8,13 +8,13 @@
 AssetFare's primary product is a capped, non-custodial REST/OpenAPI v2 route
 service for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and
 Polygon/Optimism native-USDC source routes. It exposes eleven source endpoints
-and 76 directed routes (72 execution-ready), returns
+and 76 directed routes, all execution-ready through caller-operated wallets, returns
 bounded unsigned actions, and never receives private keys, signs, or submits.
 
 This repository contains an optional MCP adapter. Its primary read-only
 tools expose the full six-chain source v2 quote matrix, and dedicated caller-approved
 v2 tools (`assetfare_v2_prepare` plus the `assetfare_v2_session_*` lifecycle) operate
-the non-custodial `/v2/prepare` and `/v2/session` endpoints for the 72 execution-ready
+the non-custodial `/v2/prepare` and `/v2/session` endpoints for all 76 execution-ready
 routes. The unversioned wallet authentication, session, preparation, and observation
 tools remain compatibility surfaces for the two original Solana SOL → Base ETH and
 Solana SOL → Arbitrum ETH workflows and must never be mixed with the v2 session tools.
@@ -31,8 +31,8 @@ MCP:
 ## Safety model
 
 - AssetFare MCP never accepts a private key and never signs or submits a transaction.
-- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route quote-only v2 scope (72 execution-ready). Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC and are not execution-ready this phase (`execution_not_ready_phase_b`).
-- `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses source-only Phase-B routes and any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); the caller generates it with `assetfare_v2_new_session_capability` and supplies it on every session call.
+- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. All 76 are execution-ready; Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
+- `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); the caller generates it with `assetfare_v2_new_session_capability` and supplies it on every session call.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are legacy original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
@@ -44,9 +44,8 @@ MCP:
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
-from $1 through $1,000; 72 are execution-ready. Polygon and Optimism contribute
-exactly four source-only routes to Base and Arbitrum USDC (quote/action-plan only,
-Phase B). Legacy workflow scope remains
+from $1 through $1,000; all 76 are execution-ready. Polygon and Optimism contribute
+exactly four directional source-only routes to Base and Arbitrum USDC. Legacy workflow scope remains
 `solana:SOL → base:ETH` and `solana:SOL → arbitrum:ETH`.
 
 For a new evaluation, call `assetfare_v2_capabilities` and then

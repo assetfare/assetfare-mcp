@@ -34,8 +34,8 @@ const A2A_DISCOVERY_CHANNELS = Object.freeze({
 const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
 const V2_TIMEOUT_MS = 45_000;
 const V2_MAX_RESPONSE_BYTES = 1_048_576;
-// Six-chain QUOTE discovery surface. Polygon and Optimism are native-USDC SOURCE-ONLY
-// (quote/action-plan discovery only; NOT execution-ready this phase — future Phase B).
+// Six-chain quote and caller-approved execution surface. Polygon and Optimism are
+// directional native-USDC SOURCE-ONLY origins, but their four corridors are execution-ready.
 const V2_SOURCE_CHAINS = ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"];
 const V2_DESTINATION_CHAINS = ["solana", "base", "arbitrum", "robinhood"];
 const V2_SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism"]);
@@ -53,15 +53,14 @@ const V2_ENDPOINTS = new Set([
 const V2_PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const V2_SESSION_URL = "https://api.assetfare.dev/v2/session";
 const V2_HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
-const V2_EXECUTION_NOT_READY = "execution_not_ready_phase_b";
 const V2_FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const V2_SESSION_TOKEN_HEADER = "x-assetfare-session-token";
-const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary five-chain source quote surface.";
+const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary six-chain source quote and execution surface.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote for Solana SOL to Base or Arbitrum ETH. Use only with the legacy wallet-auth/session workflow; prefer assetfare_v2_quote for new evaluations.";
-const V2_CAPABILITIES_DESCRIPTION = "Primary current six-chain source discovery tool. Read the live eleven source endpoints, 76 directed quote routes, 72 execution-ready routes, the four Polygon/Optimism source-only Phase-B-blocked routes, release status, and the no-sign/no-submit boundary before a v2 quote.";
+const V2_CAPABILITIES_DESCRIPTION = "Primary current six-chain source discovery tool. Read the live eleven source endpoints, all 76 execution-ready directed routes, the four directional Polygon/Optimism native-USDC source-only routes, release status, and the no-sign/no-submit boundary before a v2 quote.";
 const V2_QUOTE_DESCRIPTION = "Primary current quote-only tool. Return one fresh non-binding quote across Solana, Base, Arbitrum, Robinhood Chain, or Polygon/Optimism native-USDC source routes to Base/Arbitrum, pass through the caller action-plan handoff, and stop before authentication, session creation, action preparation, signing, or submission.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local-only: generate one caller-owned high-entropy session capability token (>=256-bit CSPRNG, url-safe, 43-128 chars). Makes NO network call. Store it as a SENSITIVE capability (never a private key); pass it into assetfare_v2_session_create and every session read/observe/refresh.";
-const V2_PREPARE_DESCRIPTION = "Explicit caller-approved one-shot: POST the fixed-origin /v2/prepare to obtain the fresh re-quoted bounded FIRST unsigned action bundle for an execution-ready four-chain route. Requires caller_approved:true and the route's exact public wallet map. Never auto-called from a quote; rejects source-only Phase-B routes and any private key/seed/signed transaction. AssetFare never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Explicit caller-approved one-shot: POST the fixed-origin /v2/prepare to obtain the fresh re-quoted bounded FIRST unsigned action bundle for any of the 76 execution-ready routes. Requires caller_approved:true and the route's exact public wallet map. Never auto-called from a quote; rejects any private key/seed/signed transaction. AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Explicit caller-approved: create one idempotent receipt-driven /v2/session for an execution-ready route and return its first unsigned action. Requires caller_approved:true, a caller-generated session capability token (X-AssetFare-Session-Token), and the route's exact public wallet map. Never auto-chains, signs, or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read a v2 session's current workflow state and current unsigned action. Requires the caller's session capability token. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Observe the caller's already-submitted source transaction hashes for a v2 session and advance the workflow. Requires the caller's session capability token. Never submits a transaction.";
@@ -114,9 +113,9 @@ const v2CapabilitiesResponse = z.object({
   source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC","optimism:USDC->base:USDC","optimism:USDC->arbitrum:USDC"])).length(4),
   directed_conversion_routes: z.literal(76),
   unsigned_route_plans_ready: z.literal(76),
-  execution_ready_routes: z.literal(72),
-  phase_b_blocked_routes: z.literal(4),
-  blocked_source_only_routes: z.array(z.string()).length(4),
+  execution_ready_routes: z.literal(76),
+  phase_b_blocked_routes: z.literal(0),
+  blocked_source_only_routes: z.array(z.never()).length(0),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -245,14 +244,15 @@ function parseV2Intent(args) {
 }
 
 // Gate a prepare/session route BEFORE any network call: endpoints must be real, the route
-// must not be an identity, and source-only Phase-B routes fail closed (no signable action).
+// must not be an identity, and directional source-only chains may use only their audited
+// native-USDC corridors to Base or Arbitrum USDC.
 function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
   const source = `${fromChain}:${fromToken}`;
   const destination = `${toChain}:${toToken}`;
   if (!V2_ENDPOINTS.has(source)) throw new Error("assetfare_v2_source_endpoint_unsupported");
   if (!V2_ENDPOINTS.has(destination)) throw new Error("assetfare_v2_destination_endpoint_unsupported");
   if (source === destination) throw new Error("assetfare_v2_identity_route_not_required");
-  if (V2_SOURCE_ONLY_CHAINS.has(fromChain)) throw new Error(V2_EXECUTION_NOT_READY);
+  if (V2_SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
 }
 
 // Reject any private key, seed phrase, signed transaction, or secret material a caller
@@ -278,7 +278,7 @@ function deepEqualArray(actual, expected) {
 
 // Fail-closed validation of the upstream caller_action_plan_handoff. No local fallback:
 // a missing/null/array/extra/private-key/wrong-fields handoff is a real API regression.
-function validateHandoff(handoff, sourceOnly) {
+function validateHandoff(handoff) {
   if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_v2_handoff_missing");
   if (handoff.kind !== "caller_operated_rest_prepare") throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.method !== "POST") throw new Error("assetfare_v2_handoff_invalid");
@@ -293,13 +293,6 @@ function validateHandoff(handoff, sourceOnly) {
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_v2_handoff_invalid");
   const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_v2_handoff_extra_field");
-  if (sourceOnly) {
-    if (handoff.available !== false) throw new Error("assetfare_v2_handoff_invalid");
-    if (handoff.blocker !== V2_EXECUTION_NOT_READY) throw new Error("assetfare_v2_handoff_invalid");
-    if ("url" in handoff) throw new Error("assetfare_v2_handoff_source_only_offers_prepare");
-    if ("options" in handoff) throw new Error("assetfare_v2_handoff_source_only_offers_prepare");
-    return handoff;
-  }
   if (handoff.available !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.url !== V2_PREPARE_URL) throw new Error("assetfare_v2_handoff_invalid");
   if (!Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_v2_handoff_options_invalid");
@@ -312,12 +305,13 @@ function validateHandoff(handoff, sourceOnly) {
 }
 
 // Fee representation must be EXACTLY {0,1}bp collected at most once on an eligible step.
-function validateFee(offer, stepCount, sourceOnly) {
+function validateFee(offer, stepCount) {
   if (offer.fee_collection !== V2_FEE_COLLECTION_CONST) throw new Error("assetfare_v2_fee_invalid");
   if (![0, 1].includes(offer.assetfare_fee_bps)) throw new Error("assetfare_v2_fee_invalid");
   if (![0, 1].includes(offer.fee_modeled_bps)) throw new Error("assetfare_v2_fee_invalid");
   if (typeof offer.fee_collectible_now !== "boolean") throw new Error("assetfare_v2_fee_invalid");
-  if (sourceOnly && offer.fee_collectible_now !== false) throw new Error("assetfare_v2_fee_collectible_while_blocked");
+  if (offer.fee_modeled_bps !== offer.assetfare_fee_bps) throw new Error("assetfare_v2_fee_invalid");
+  if (offer.fee_collectible_now !== (offer.assetfare_fee_bps === 1)) throw new Error("assetfare_v2_fee_collectibility_mismatch");
   const steps = offer.fee_collection_steps;
   if (!Array.isArray(steps)) throw new Error("assetfare_v2_fee_invalid");
   if (steps.some((index) => !Number.isInteger(index) || index < 0 || index >= stepCount)) throw new Error("assetfare_v2_fee_step_out_of_range");
@@ -339,7 +333,7 @@ function parseV2Capabilities(payload) {
   const endpoints = new Set(value.asset_endpoints.map((item) => `${item.chain}:${item.token}`));
   if (endpoints.size !== V2_ENDPOINTS.size || [...V2_ENDPOINTS].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
   if(new Set(value.source_only_routes).size!==4)throw new Error("assetfare_v2_safety_boundary_failed");
-  if(new Set(value.blocked_source_only_routes).size!==4)throw new Error("assetfare_v2_safety_boundary_failed");
+  if(value.blocked_source_only_routes.length!==0)throw new Error("assetfare_v2_safety_boundary_failed");
   return value;
 }
 
@@ -386,15 +380,9 @@ function parseV2Quote(payload, intent) {
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
   if (value.intent.from !== `${intent.from_chain}:${intent.from_token}` || value.intent.to !== `${intent.to_chain}:${intent.to_token}` || value.intent.amount_usd !== intent.amount_usd) throw new Error("assetfare_v2_quote_binding_failed");
   if (value.offer.output_symbol !== intent.to_token || value.offer.estimated_min_receive_amount > value.offer.expected_receive_amount) throw new Error("assetfare_v2_quote_binding_failed");
-  const sourceOnly = V2_SOURCE_ONLY_CHAINS.has(intent.from_chain);
-  // Execution object must be discriminated by route class (Phase-B split, dir 18/21).
-  if (sourceOnly) {
-    if (value.execution.supported !== false || value.execution.first_unsigned_action_supported !== false || value.execution.blocker !== V2_EXECUTION_NOT_READY) throw new Error("assetfare_v2_execution_boundary_failed");
-  } else {
-    if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true) throw new Error("assetfare_v2_execution_boundary_failed");
-  }
-  validateFee(value.offer, value.route.steps.length, sourceOnly);
-  validateHandoff(value.caller_action_plan_handoff, sourceOnly);
+  if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true || ("blocker" in value.execution && value.execution.blocker !== null)) throw new Error("assetfare_v2_execution_boundary_failed");
+  validateFee(value.offer, value.route.steps.length);
+  validateHandoff(value.caller_action_plan_handoff);
   return value;
 }
 
@@ -461,7 +449,7 @@ function createServer(provenance = {}) {
   const v2Api = apiClient(provenance, V2_API_BASE);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
-    { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary six-chain source quote-only surface (76 directed routes; 72 execution-ready). Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC and are NOT execution-ready this phase (execution_not_ready_phase_b): their quotes carry execution.supported=false and an unavailable action-plan handoff, so never call prepare or create a session for them. To execute an execution-ready route, act only on the caller_action_plan_handoff: call assetfare_v2_prepare for the one-shot first unsigned bundle, or assetfare_v2_new_session_capability then assetfare_v2_session_create and the observe/refresh tools for the full receipt-driven workflow. All of those require an explicit caller_approved:true and the caller's own public wallet addresses; never auto-call them from a quote. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only and must never be mixed with the v2 session tools. A v2 quote ID is never valid input to a legacy session tool. The session capability token is a sensitive bearer credential, not a private key. AssetFare is non-custodial: it never signs or submits, never request a private key, and verify every unsigned action before the caller signs and submits it." },
+    { instructions: "For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote, which expose the primary six-chain surface with all 76 directed routes execution-ready. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC, not destinations. To execute any supported route, act only on the caller_action_plan_handoff: call assetfare_v2_prepare for the one-shot first unsigned bundle, or assetfare_v2_new_session_capability then assetfare_v2_session_create and the observe/refresh tools for the full receipt-driven workflow. All of those require an explicit caller_approved:true and the caller's own public wallet addresses; never auto-call them from a quote. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only and must never be mixed with the v2 session tools. A v2 quote ID is never valid input to a legacy session tool. The session capability token is a sensitive bearer credential, not a private key. AssetFare is non-custodial: it never signs or submits, never requests a private key, and verifies every unsigned action before the caller signs and submits it." },
   );
 
   addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
@@ -470,12 +458,9 @@ function createServer(provenance = {}) {
   addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
     const intent = parseV2Intent(args);
     const quote = parseV2Quote(await v2Api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
-    const sourceOnly = V2_SOURCE_ONLY_CHAINS.has(intent.from_chain);
     // The upstream caller_action_plan_handoff (passed through verbatim above) documents the
     // REST endpoints; guidance points callers at the explicit MCP tools that operate them.
-    const executionHandoff = sourceOnly
-      ? { execution_ready: false, blocker: V2_EXECUTION_NOT_READY, note: "Source-only Phase-B route: no prepare or session. Discovery/comparison only.", mcp_tools: [] }
-      : { execution_ready: true, note: "AssetFare never signs or submits. Requires explicit caller_approved:true and the caller's public wallet addresses. Never auto-call these from a quote.", mcp_tools: { one_shot_prepare: "assetfare_v2_prepare", new_session_capability: "assetfare_v2_new_session_capability", session_create: "assetfare_v2_session_create", session_get: "assetfare_v2_session_get", observe_source: "assetfare_v2_session_observe_source", observe_output: "assetfare_v2_session_observe_output", refresh_action: "assetfare_v2_session_refresh_action" }, rest_endpoints: { prepare: V2_PREPARE_URL, session: V2_SESSION_URL } };
+    const executionHandoff = { execution_ready: true, note: "AssetFare never signs or submits. Requires explicit caller_approved:true and the caller's public wallet addresses. Never auto-call these from a quote.", mcp_tools: { one_shot_prepare: "assetfare_v2_prepare", new_session_capability: "assetfare_v2_new_session_capability", session_create: "assetfare_v2_session_create", session_get: "assetfare_v2_session_get", observe_source: "assetfare_v2_session_observe_source", observe_output: "assetfare_v2_session_observe_output", refresh_action: "assetfare_v2_session_refresh_action" }, rest_endpoints: { prepare: V2_PREPARE_URL, session: V2_SESSION_URL } };
     return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true, caller_action_plan: executionHandoff } };
   });
   addTool(server, "assetfare_v2_new_session_capability", V2_NEW_SESSION_CAPABILITY_DESCRIPTION, emptyStrictInput, { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async () => generateSessionCapability());

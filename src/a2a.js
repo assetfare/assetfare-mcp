@@ -32,7 +32,6 @@ const SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism"]);
 const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
-const EXECUTION_NOT_READY = "execution_not_ready_phase_b";
 const FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const SESSION_TOKEN_HEADER = "x-assetfare-session-token";
 
@@ -73,7 +72,7 @@ const ObserveSourceIntent = z.object({ sessionToken: SessionToken, sessionId: Se
 const ObserveOutputIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId, idempotencyKey: IdempotencyKey, transactionHash: z.string().min(16).max(128).optional() }).strict();
 const RefreshActionIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId, idempotencyKey: IdempotencyKey }).strict();
 
-const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(6), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(11),source_only_asset_endpoints:z.array(z.object({chain:z.enum(["polygon","optimism"]),token:z.literal("USDC")}).passthrough()).length(2),source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC","optimism:USDC->base:USDC","optimism:USDC->arbitrum:USDC"])).length(4), directed_conversion_routes:z.literal(76), unsigned_route_plans_ready:z.literal(76), execution_ready_routes:z.literal(72), phase_b_blocked_routes:z.literal(4), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
+const Capabilities = z.object({ status: z.literal("capped_public_agent_release"), public_api_enabled: z.literal(true), chains: z.array(SourceChain).length(6), asset_endpoints: z.array(z.object({chain:SourceChain,token:Token}).passthrough()).length(11),source_only_asset_endpoints:z.array(z.object({chain:z.enum(["polygon","optimism"]),token:z.literal("USDC")}).passthrough()).length(2),source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC","optimism:USDC->base:USDC","optimism:USDC->arbitrum:USDC"])).length(4), directed_conversion_routes:z.literal(76), unsigned_route_plans_ready:z.literal(76), execution_ready_routes:z.literal(76), phase_b_blocked_routes:z.literal(0), blocked_source_only_routes:z.array(z.never()).length(0), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Status = z.object({ status: z.literal("capped_public_agent_release"), server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough();
 const Quote = z.object({
   status: z.literal("capped_public_agent_release"),
@@ -93,7 +92,7 @@ function deepEqualArray(actual, expected) {
 }
 
 // Fail-closed passthrough of the upstream caller_action_plan_handoff (no local fallback).
-function validateHandoff(handoff, sourceOnly) {
+function validateHandoff(handoff) {
   if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) throw new Error("assetfare_safety_boundary_failed");
   if (handoff.kind !== "caller_operated_rest_prepare" || handoff.method !== "POST") throw new Error("assetfare_safety_boundary_failed");
   if (!deepEqualArray(handoff.request_fields, HANDOFF_REQUEST_FIELDS)) throw new Error("assetfare_safety_boundary_failed");
@@ -101,10 +100,6 @@ function validateHandoff(handoff, sourceOnly) {
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_safety_boundary_failed");
   const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_safety_boundary_failed");
-  if (sourceOnly) {
-    if (handoff.available !== false || handoff.blocker !== EXECUTION_NOT_READY || "url" in handoff || "options" in handoff) throw new Error("assetfare_safety_boundary_failed");
-    return handoff;
-  }
   if (handoff.available !== true || handoff.url !== PREPARE_URL || !Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_safety_boundary_failed");
   const [prepareOption, sessionOption] = handoff.options;
   if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.url !== PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_safety_boundary_failed");
@@ -114,9 +109,9 @@ function validateHandoff(handoff, sourceOnly) {
   return handoff;
 }
 
-function validateFee(offer, stepCount, sourceOnly) {
+function validateFee(offer, stepCount) {
   if (![0, 1].includes(offer.assetfare_fee_bps) || ![0, 1].includes(offer.fee_modeled_bps)) throw new Error("assetfare_safety_boundary_failed");
-  if (sourceOnly && offer.fee_collectible_now !== false) throw new Error("assetfare_safety_boundary_failed");
+  if (offer.fee_modeled_bps !== offer.assetfare_fee_bps || offer.fee_collectible_now !== (offer.assetfare_fee_bps === 1)) throw new Error("assetfare_safety_boundary_failed");
   const steps = offer.fee_collection_steps;
   if (steps.some((index) => !Number.isInteger(index) || index < 0 || index >= stepCount) || new Set(steps).size !== steps.length) throw new Error("assetfare_safety_boundary_failed");
   if (offer.assetfare_fee_bps === 1 && steps.length !== 1) throw new Error("assetfare_safety_boundary_failed");
@@ -141,11 +136,9 @@ function validateQuote(payload,intent) {
   rejectSigningClaims(payload);
   const value=Quote.parse(payload),source=`${intent.fromChain}:${intent.fromToken}`,destination=`${intent.toChain}:${intent.toToken}`;
   if(value.intent.from!==source||value.intent.to!==destination||value.intent.amount_usd!==intent.amountUsd||value.offer.output_symbol!==intent.toToken||value.offer.estimated_min_receive_amount>value.offer.expected_receive_amount||value.route.route!==`${source}->${destination}`)throw new Error("assetfare_safety_boundary_failed");
-  const sourceOnly=SOURCE_ONLY_CHAINS.has(intent.fromChain);
-  if(sourceOnly){if(value.execution.supported!==false||value.execution.first_unsigned_action_supported!==false||value.execution.blocker!==EXECUTION_NOT_READY)throw new Error("assetfare_safety_boundary_failed");}
-  else{if(value.execution.supported!==true||value.execution.first_unsigned_action_supported!==true)throw new Error("assetfare_safety_boundary_failed");}
-  validateFee(value.offer,value.route.steps.length,sourceOnly);
-  validateHandoff(value.caller_action_plan_handoff,sourceOnly);
+  if(value.execution.supported!==true||value.execution.first_unsigned_action_supported!==true||("blocker" in value.execution&&value.execution.blocker!==null))throw new Error("assetfare_safety_boundary_failed");
+  validateFee(value.offer,value.route.steps.length);
+  validateHandoff(value.caller_action_plan_handoff);
   return value;
 }
 
@@ -155,7 +148,7 @@ function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
   const source = `${fromChain}:${fromToken}`, destination = `${toChain}:${toToken}`;
   if (!ENDPOINTS.has(source) || !ENDPOINTS.has(destination)) throw new Error("assetfare_route_unsupported");
   if (source === destination) throw new Error("assetfare_identity_route");
-  if (SOURCE_ONLY_CHAINS.has(fromChain)) throw new Error(EXECUTION_NOT_READY);
+  if (SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
 }
 function newSessionCapability() {
   const token = randomBytes(32).toString("base64url");
@@ -212,7 +205,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "Non-custodial cross-chain crypto bridge and same-chain swap routes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source routes. Quote 76 directed routes, then execute the 72 execution-ready routes through the caller-approved /v2/prepare one-shot or the full /v2/session lifecycle. Polygon and Optimism are source-only Phase-B routes (quote/action-plan only). No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
+    description: "Non-custodial cross-chain crypto bridge and same-chain swap routes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source routes. Quote and execute all 76 directed routes through the caller-approved /v2/prepare one-shot or the full /v2/session lifecycle. Polygon and Optimism remain directional source-only origins to Base or Arbitrum USDC. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
     version: "0.1.3",
@@ -225,7 +218,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for eleven supported source endpoints and 76 directed routes (72 execution-ready) from USD 1 through 1,000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Phase-B, quote/action-plan only). Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd (operation:\"quote\" or omitted); stop before authentication, preparation, signing, or submission. The quote passes through the caller_action_plan_handoff.",
+      description: "Return one fresh quote for eleven supported source endpoints and all 76 execution-ready directed routes from USD 1 through 1,000. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd (operation:\"quote\" or omitted); stop before authentication, preparation, signing, or submission. The quote passes through the caller_action_plan_handoff.",
       tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
       inputModes: ["application/json"],
@@ -243,7 +236,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     }, {
       id: "prepare-first-unsigned-action",
       name: "Prepare the first unsigned action (caller-approved)",
-      description: "Caller-approved one-shot POST /v2/prepare for an execution-ready route: returns the fresh re-quoted bounded first unsigned action bundle. Send {\"operation\":\"prepare\",\"callerApproved\":true, fromChain, fromToken, toChain, toToken, amountUsd, wallets:{chain:publicAddress}, eventSignerPublic?}. Requires an explicit callerApproved:true; rejects source-only Phase-B routes and any private key/seed/signed transaction. Never auto-called from a quote. AssetFare never signs or submits.",
+      description: "Caller-approved one-shot POST /v2/prepare for any supported route: returns the fresh re-quoted bounded first unsigned action bundle. Send {\"operation\":\"prepare\",\"callerApproved\":true, fromChain, fromToken, toChain, toToken, amountUsd, wallets:{chain:publicAddress}, eventSignerPublic?}. Requires an explicit callerApproved:true; rejects any private key/seed/signed transaction. Never auto-called from a quote. AssetFare never signs or submits.",
       tags: ["prepare", "unsigned-action", "cross-chain", "non-custodial", "caller-approved"],
       examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
       inputModes: ["application/json"],
@@ -295,7 +288,7 @@ class QuoteExecutor {
     const operation = value && typeof value === "object" && typeof value.operation === "string" ? value.operation : "quote";
     const headers = context.context.state.get("headers") || {};
     const request = requester(this.config, headers);
-    const known = new Set(["assetfare_upstream_unavailable", "assetfare_response_too_large", "assetfare_response_invalid", "assetfare_upstream_status_error", EXECUTION_NOT_READY, "assetfare_secret_material_rejected", "assetfare_route_unsupported", "assetfare_identity_route"]);
+    const known = new Set(["assetfare_upstream_unavailable", "assetfare_response_too_large", "assetfare_response_invalid", "assetfare_upstream_status_error", "assetfare_secret_material_rejected", "assetfare_route_unsupported", "assetfare_identity_route"]);
     const fail = (error) => this.publish(context, bus, { error: { code: error instanceof Error && known.has(error.message) ? error.message : "assetfare_safety_boundary_failed" } });
     // Distinguish a caller-intent parse failure (intent_invalid) from an upstream-response
     // validation failure (safety_boundary_failed): only the former is the caller's fault.

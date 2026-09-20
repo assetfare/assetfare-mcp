@@ -18,7 +18,7 @@ const SOURCE_ONLY = new Set(["polygon", "optimism"]);
 const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
-const BLOCKED_ROUTES = ["optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
+const SOURCE_ONLY_ROUTES = ["optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
 const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "bridge", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "mcp", "a2a", "openapi", "non-custodial"];
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
@@ -62,12 +62,12 @@ function capabilities(overrides = {}) {
     chains: ["arbitrum", "base", "optimism", "polygon", "robinhood", "solana"],
     asset_endpoints: ENDPOINTS.map(([chain, token]) => ({ chain, token })),
     source_only_asset_endpoints: [{ chain: "optimism", token: "USDC" }, { chain: "polygon", token: "USDC" }],
-    source_only_routes: [...BLOCKED_ROUTES],
+    source_only_routes: [...SOURCE_ONLY_ROUTES],
     directed_conversion_routes: 76,
     unsigned_route_plans_ready: 76,
-    execution_ready_routes: 72,
-    phase_b_blocked_routes: 4,
-    blocked_source_only_routes: [...BLOCKED_ROUTES],
+    execution_ready_routes: 76,
+    phase_b_blocked_routes: 0,
+    blocked_source_only_routes: [],
     server_signing: false,
     server_submission: false,
     ...overrides,
@@ -77,12 +77,9 @@ function capabilities(overrides = {}) {
 const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Stateless: returns only the first unsigned bundle." };
 const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Idempotent multi-step lifecycle." };
 function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
-function blockedHandoff() { return { kind: "caller_operated_rest_prepare", method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, note: "Quote/action-plan discovery only.", available: false, blocker: "execution_not_ready_phase_b" }; }
-
 function quote(intent, overrides = {}) {
   const sourceOnly = SOURCE_ONLY.has(intent.from_chain);
-  const optimism = intent.from_chain === "optimism";
-  const fee = sourceOnly && optimism ? 0 : 1;
+  const fee = 1;
   return {
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
@@ -90,11 +87,11 @@ function quote(intent, overrides = {}) {
     as_of: "2026-09-19T00:00:00Z",
     ttl_seconds: 20,
     intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 2_500_000 },
-    offer: { expected_receive_amount: 2.49, estimated_min_receive_amount: 2.45, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: sourceOnly ? false : fee === 1, fee_blocker: sourceOnly ? "execution_not_ready_phase_b" : null, fee_collection_steps: fee === 1 ? [0] : [], fee_collection: "only_on_eligible_successful_executor_step" },
+    offer: { expected_receive_amount: 2.49, estimated_min_receive_amount: 2.45, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [0], fee_collection: "only_on_eligible_successful_executor_step" },
     route: { steps: [{ index: 0, provider: "fixture" }], server_signing: false, server_submission: false },
     risk: { non_atomic: true, server_signing: false, server_submission: false },
-    execution: sourceOnly ? { supported: false, first_unsigned_action_supported: false, blocker: "execution_not_ready_phase_b" } : { supported: true, first_unsigned_action_supported: true, blocker: null },
-    caller_action_plan_handoff: sourceOnly ? blockedHandoff() : executableHandoff(),
+    execution: { supported: true, first_unsigned_action_supported: true, blocker: null },
+    caller_action_plan_handoff: executableHandoff(),
     ...overrides,
   };
 }
@@ -145,9 +142,10 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "fee-0-step-for-1bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = []; return Response.json(value); }
     if (mode === "fee-step-out-of-range") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [7]; return Response.json(value); }
     if (mode === "execution-false-on-executable") { const value = quote(intent); value.execution = { supported: false, first_unsigned_action_supported: false, blocker: "execution_not_ready_phase_b" }; return Response.json(value); }
-    if (mode === "source-only-fee-collectible") { const value = quote(intent); value.offer.fee_collectible_now = true; return Response.json(value); }
+    if (mode === "source-only-fee-uncollectible") { const value = quote(intent); value.offer.fee_collectible_now = false; return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
+  if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "wf-source-only", step_index: 0, unsigned_action: { transaction: "0xUNSIGNED" }, server_signing: false, server_submission: false, signed: false, submitted: false });
   throw new Error(`unexpected upstream URL ${url}`);
 };
 
@@ -196,8 +194,9 @@ try {
   const capabilityValue = parse(await call(client, "assetfare_v2_capabilities", {}));
   assert.equal(capabilityValue.asset_endpoints.length, 11);
   assert.equal(capabilityValue.directed_conversion_routes, 76);
-  assert.equal(capabilityValue.execution_ready_routes, 72);
-  assert.equal(capabilityValue.phase_b_blocked_routes, 4);
+  assert.equal(capabilityValue.execution_ready_routes, 76);
+  assert.equal(capabilityValue.phase_b_blocked_routes, 0);
+  assert.deepEqual(capabilityValue.blocked_source_only_routes, []);
 
   let quoteValue;
   let sourceOnlyQuoteValue;
@@ -214,27 +213,23 @@ try {
       const value = parse(quoteResult);
       assert.equal(value.intent.from, `${from_chain}:${from_token}`);
       assert.equal(value.intent.to, `${to_chain}:${to_token}`);
-      // Handoff and execution object are discriminated by route class and passed through verbatim.
+      // Every supported route has the same caller-approved non-custodial execution handoff.
       if (SOURCE_ONLY.has(from_chain)) {
-        assert.equal(value.execution.supported, false);
-        assert.equal(value.caller_action_plan_handoff.available, false);
-        assert.equal(value.caller_action_plan_handoff.blocker, "execution_not_ready_phase_b");
-        assert.ok(!("url" in value.caller_action_plan_handoff), "source-only handoff must not offer a prepare url");
-        assert.ok(!("options" in value.caller_action_plan_handoff), "source-only handoff must not offer options");
-        assert.equal(value.offer.fee_collectible_now, false);
-        assert.deepEqual(value.guidance.caller_action_plan.mcp_tools, []);
+        assert.equal(value.execution.supported, true);
+        assert.equal(value.caller_action_plan_handoff.available, true);
+        assert.equal(value.offer.assetfare_fee_bps, 1);
+        assert.equal(value.offer.fee_collectible_now, true);
         sourceOnlyQuoteValue = value;
         sourceOnlyCount += 1;
-      } else {
-        assert.equal(value.execution.supported, true);
-        assert.equal(value.execution.first_unsigned_action_supported, true);
-        assert.equal(value.caller_action_plan_handoff.available, true);
-        assert.equal(value.caller_action_plan_handoff.url, PREPARE_URL);
-        assert.equal(value.caller_action_plan_handoff.options.length, 2);
-        assert.deepEqual(value.caller_action_plan_handoff.request_fields, REQUEST_FIELDS);
-        assert.equal(value.guidance.caller_action_plan.mcp_tools.one_shot_prepare, "assetfare_v2_prepare");
-        assert.equal(value.guidance.caller_action_plan.rest_endpoints.prepare, PREPARE_URL);
       }
+      assert.equal(value.execution.supported, true);
+      assert.equal(value.execution.first_unsigned_action_supported, true);
+      assert.equal(value.caller_action_plan_handoff.available, true);
+      assert.equal(value.caller_action_plan_handoff.url, PREPARE_URL);
+      assert.equal(value.caller_action_plan_handoff.options.length, 2);
+      assert.deepEqual(value.caller_action_plan_handoff.request_fields, REQUEST_FIELDS);
+      assert.equal(value.guidance.caller_action_plan.mcp_tools.one_shot_prepare, "assetfare_v2_prepare");
+      assert.equal(value.guidance.caller_action_plan.rest_endpoints.prepare, PREPARE_URL);
       if (from_chain === validIntent.from_chain && from_token === validIntent.from_token && to_chain === validIntent.to_chain && to_token === validIntent.to_token) quoteValue = value;
       routeCount += 1;
     }
@@ -286,10 +281,10 @@ try {
     const result = await call(client, "assetfare_v2_quote", executableIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
   }
-  // Source-only route claiming fee_collectible_now:true must fail closed (fee bound to readiness).
-  mode = "source-only-fee-collectible";
+  // An audited 1bp source-only route claiming the fee is not collectible must fail closed.
+  mode = "source-only-fee-uncollectible";
   const feeReadiness = await call(client, "assetfare_v2_quote", { from_chain: "polygon", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 25 });
-  assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:true was not rejected");
+  assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:false was not rejected");
 
   mode = "success";
   for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
@@ -304,12 +299,12 @@ try {
   }
   mode = "success";
 
-  // Source-only routes never offer or call prepare: the prepare tool refuses BEFORE any network.
+  // Source-only directional routes are execution-ready and reach the caller-approved prepare endpoint.
   const beforePrepare = calls.length;
   const sourceOnlyPrepare = await call(client, "assetfare_v2_prepare", { caller_approved: true, from_chain: "polygon", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 25, wallets: { polygon: "0x1111111111111111111111111111111111111111", base: "0x2222222222222222222222222222222222222222" } });
-  assert.equal(sourceOnlyPrepare.isError, true, "source-only prepare must fail closed");
-  assert.match(parse(sourceOnlyPrepare).error, /execution_not_ready_phase_b/);
-  assert.equal(calls.length, beforePrepare, "source-only prepare reached upstream");
+  assert.equal(sourceOnlyPrepare.isError, false, "source-only prepare was rejected");
+  assert.equal(parse(sourceOnlyPrepare).signed, false);
+  assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
 
   // caller_approved gate: false / missing / string / number rejected BEFORE any network call.
   const badApproval = [
@@ -341,7 +336,7 @@ try {
   const token2 = parse(await call(client, "assetfare_v2_new_session_capability", {}));
   assert.notEqual(token.session_token, token2.session_token, "token generator must be non-deterministic");
 
-  assert.ok(calls.every((item) => item.url.endsWith("/v2/capabilities") || item.url.endsWith("/v2/quote")), "v2 quote/capabilities tools reached an unauthorized path");
+  assert.ok(calls.every((item) => item.url.endsWith("/v2/capabilities") || item.url.endsWith("/v2/quote") || item.url.endsWith("/v2/prepare")), "v2 tools reached an unauthorized path");
   console.log(JSON.stringify({ status: "pass", version: packageMetadata.version, tool_count: listed.tools.length, valid_routes: routeCount, source_only_routes: sourceOnlyCount, upstream_calls_for_matrix: 77, fail_closed_hostiles: failClosed.length, caller_approved_hostiles: badApproval.length, signed: false, submitted: false }));
 } finally {
   globalThis.fetch = originalFetch;

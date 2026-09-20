@@ -5,16 +5,15 @@ import { A2A_PROTOCOL_VERSION, assetFareAgentCard, createAssetFareA2A } from "./
 
 const ok = (value) => new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
 const endpoints=[["solana","SOL"],["solana","USDC"],["solana","USDG"],["base","ETH"],["base","USDC"],["arbitrum","ETH"],["arbitrum","USDC"],["robinhood","ETH"],["robinhood","USDG"],["polygon","USDC"],["optimism","USDC"]];
-const BLOCKED=["optimism:USDC->arbitrum:USDC","optimism:USDC->base:USDC","polygon:USDC->arbitrum:USDC","polygon:USDC->base:USDC"];
+const SOURCE_ONLY=["optimism:USDC->arbitrum:USDC","optimism:USDC->base:USDC","polygon:USDC->arbitrum:USDC","polygon:USDC->base:USDC"];
 const REQUEST_FIELDS=["caller_approved","from_chain","from_token","to_chain","to_token","amount_usd","wallets","event_signer_public"];
 const PREPARE_URL="https://api.assetfare.dev/v2/prepare";const SESSION_URL="https://api.assetfare.dev/v2/session";
-const caps = { status:"capped_public_agent_release",public_api_enabled: true,chains:["arbitrum","base","optimism","polygon","robinhood","solana"],asset_endpoints:endpoints.map(([chain,token])=>({chain,token})),source_only_asset_endpoints:[{chain:"optimism",token:"USDC"},{chain:"polygon",token:"USDC"}],source_only_routes:[...BLOCKED],directed_conversion_routes:76,unsigned_route_plans_ready:76,execution_ready_routes:72,phase_b_blocked_routes:4,server_signing: false, server_submission: false };
+const caps = { status:"capped_public_agent_release",public_api_enabled: true,chains:["arbitrum","base","optimism","polygon","robinhood","solana"],asset_endpoints:endpoints.map(([chain,token])=>({chain,token})),source_only_asset_endpoints:[{chain:"optimism",token:"USDC"},{chain:"polygon",token:"USDC"}],source_only_routes:[...SOURCE_ONLY],directed_conversion_routes:76,unsigned_route_plans_ready:76,execution_ready_routes:76,phase_b_blocked_routes:0,blocked_source_only_routes:[],server_signing: false, server_submission: false };
 const status = { status: "capped_public_agent_release", server_signing: false, server_submission: false };
 const PREPARE_OPTION={kind:"one_shot_first_unsigned_bundle",method:"POST",url:PREPARE_URL,requires_explicit_caller_approval:true,requires_public_wallet_addresses:true,assetfare_never_signs_submits_or_auto_calls:true,note:"stateless first bundle"};
 const SESSION_OPTION={kind:"caller_approved_full_workflow_session",method:"POST",url:SESSION_URL,lifecycle_urls:{create:{method:"POST",url:SESSION_URL},read:{method:"GET",url:`${SESSION_URL}/{session_id}`},observe_source:{method:"POST",url:`${SESSION_URL}/{session_id}/observe-source`},observe_output:{method:"POST",url:`${SESSION_URL}/{session_id}/observe-output`},refresh_action:{method:"POST",url:`${SESSION_URL}/{session_id}/refresh-action`}},requires_explicit_caller_approval:true,requires_public_wallet_addresses:true,assetfare_never_signs_submits_or_auto_calls:true,note:"full lifecycle"};
 const executableHandoff=()=>({kind:"caller_operated_rest_prepare",url:PREPARE_URL,method:"POST",requires_explicit_caller_approval:true,requires_public_wallet_addresses:true,request_fields:[...REQUEST_FIELDS],assetfare_server_signing:false,assetfare_server_submission:false,caller_must_verify_sign_and_submit:true,requires_fresh_requote:true,automatic_prepare_call_forbidden:true,options:[structuredClone(PREPARE_OPTION),structuredClone(SESSION_OPTION)],note:"guidance only",available:true});
-const blockedHandoff=()=>({kind:"caller_operated_rest_prepare",method:"POST",requires_explicit_caller_approval:true,requires_public_wallet_addresses:true,request_fields:[...REQUEST_FIELDS],assetfare_server_signing:false,assetfare_server_submission:false,caller_must_verify_sign_and_submit:true,requires_fresh_requote:true,automatic_prepare_call_forbidden:true,note:"blocked",available:false,blocker:"execution_not_ready_phase_b"});
-const quoteFor = (intent) => { const sourceOnly=["polygon","optimism"].includes(intent.from_chain);const optimism=intent.from_chain==="optimism";const fee=sourceOnly&&optimism?0:1;return { status: "capped_public_agent_release",intent:{from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,amount_usd:intent.amount_usd,estimated_input_base:1},execution: sourceOnly?{ supported: false, first_unsigned_action_supported:false, blocker:"execution_not_ready_phase_b" }:{ supported: true, first_unsigned_action_supported:true, blocker:null }, risk: { server_signing: false, server_submission: false }, offer: {expected_receive_amount:.99,estimated_min_receive_amount:.98,output_symbol:intent.to_token,expected_receive_usd:.99,assetfare_fee_bps:fee,fee_modeled_bps:fee,fee_collectible_now:sourceOnly?false:fee===1,fee_collection_steps:fee===1?[0]:[],fee_collection:"only_on_eligible_successful_executor_step"},route:{route:`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`,steps:[{provider:"fixture"}],server_signing:false,server_submission:false}, caller_action_plan_handoff: sourceOnly?blockedHandoff():executableHandoff() }; };
+const quoteFor = (intent) => ({ status: "capped_public_agent_release",intent:{from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,amount_usd:intent.amount_usd,estimated_input_base:1},execution:{ supported: true, first_unsigned_action_supported:true, blocker:null }, risk: { server_signing: false, server_submission: false }, offer: {expected_receive_amount:.99,estimated_min_receive_amount:.98,output_symbol:intent.to_token,expected_receive_usd:.99,assetfare_fee_bps:1,fee_modeled_bps:1,fee_collectible_now:true,fee_collection_steps:[0],fee_collection:"only_on_eligible_successful_executor_step"},route:{route:`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`,steps:[{provider:"fixture"}],server_signing:false,server_submission:false}, caller_action_plan_handoff: executableHandoff() });
 const data = (value) => ({ content: { $case: "data", value }, metadata: undefined, filename: "", mediaType: "application/json" });
 const text = (value) => ({ content: { $case: "text", value }, metadata: undefined, filename: "", mediaType: "text/plain" });
 const message = (parts) => Message.toJSON({ messageId: "m", contextId: "", taskId: "", role: Role.ROLE_USER, parts, metadata: undefined, extensions: [], referenceTaskIds: [] });
@@ -30,8 +29,8 @@ assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
 assert.match(card.description,/cross-chain.*crypto.*bridge.*same-chain.*swap.*AI agents/);
-assert.match(card.description,/76 directed routes.*72 execution-ready.*\/v2\/prepare.*\/v2\/session/);
-assert.match(card.description,/Polygon and Optimism are source-only/);
+assert.match(card.description,/all 76 directed routes.*\/v2\/prepare.*\/v2\/session/);
+assert.match(card.description,/Polygon and Optimism remain directional source-only/);
 assert.deepEqual(card.skills[0].tags.slice(0,5),["cross-chain","bridge","swap","crypto","quote"]);
 assert.match(card.skills[0].description,/fromChain.*fromToken.*toChain.*toToken.*amountUsd/);
 assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1);
@@ -119,9 +118,9 @@ assert.equal(dataOf(prepareResult).guidance.callerMustVerifySignAndSubmit, true)
 const badPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: false, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets })], "bad-prepare"), context());
 assert.equal(dataOf(badPrepare).error.code, "prepare_intent_invalid");
 
-// source-only prepare is blocked (fail closed) with execution_not_ready_phase_b
+// source-only directional prepare is execution-ready and caller-approved.
 const sourceOnlyPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "polygon", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 25, wallets: { polygon: "0x3333333333333333333333333333333333333333", base: "0x1111111111111111111111111111111111111111" } })], "src-prepare"), context());
-assert.equal(dataOf(sourceOnlyPrepare).error.code, "execution_not_ready_phase_b");
+assert.ok(dataOf(sourceOnlyPrepare).bundle.unsigned_action);
 
 // session_create happy path: sends X-AssetFare-Session-Token and caller_approved:true
 const sessionToken = dataOf(tokenResult).session_capability.session_token;
@@ -130,4 +129,4 @@ assert.equal(dataOf(sessionResult).session.session_id, "00000000-0000-4000-8000-
 assert.equal(execHeaders.get("x-assetfare-session-token"), sessionToken);
 assert.equal(execBody.caller_approved, true);
 
-console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_skills: card.skills.length, quote: true, prepare: true, session_create: true, new_session_capability: true, source_only_blocked: true, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
+console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_skills: card.skills.length, quote: true, prepare: true, session_create: true, new_session_capability: true, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
