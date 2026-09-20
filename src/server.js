@@ -26,6 +26,11 @@ const ORIGINS = new Set((process.env.ASSETFARE_MCP_ALLOWED_ORIGINS || "https://c
 const PUBLIC_HOST = process.env.ASSETFARE_MCP_PUBLIC_HOST || "api.assetfare.dev";
 const A2A_API_BASE = (process.env.ASSETFARE_A2A_API_BASE_URL || "http://127.0.0.1:8791").replace(/\/$/, "");
 const A2A_SERVICE_URL = process.env.ASSETFARE_A2A_SERVICE_URL || "https://api.assetfare.dev/a2a";
+const A2A_DISCOVERY_CHANNELS = Object.freeze({
+  "/discovery/a2aregistry/agent-card.json": "a2aregistry",
+  "/discovery/apis-io/agent-card.json": "apis-io",
+  "/discovery/manual/agent-card.json": "manual",
+});
 const LOCAL_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, "127.0.0.1", "localhost"]);
 const V2_TIMEOUT_MS = 45_000;
 const V2_MAX_RESPONSE_BYTES = 1_048_576;
@@ -555,6 +560,13 @@ function createHttpApp() {
   const guardA2AVersion=a2aVersionGuard(a2a.card.supportedInterfaces.filter((item)=>item.protocolBinding==="JSONRPC").map((item)=>item.protocolVersion));
   app.use(`/${AGENT_CARD_PATH}`,card);
   app.use("/.well-known/agent.json",card);
+  for (const [path, channel] of Object.entries(A2A_DISCOVERY_CHANNELS)) {
+    app.use(path, (req, res, next) => {
+      if (!['GET', 'HEAD'].includes(req.method)) return res.set('Allow', 'GET, HEAD').status(405).json({ error: 'a2a_discovery_card_method_not_allowed' });
+      res.set("X-AssetFare-Discovery-Channel", channel);
+      return card(req, res, next);
+    });
+  }
   app.use("/a2a",(req,res,next)=>{
     if(req.method==="HEAD")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(405).end();
     if(req.method==="OPTIONS")return res.set("allow","POST, OPTIONS").set("cache-control","no-store").status(204).end();

@@ -96,8 +96,18 @@ try {
   const port = listener.address().port;
   const health = await getJson(port, "/healthz");
   const card = await getJson(port, "/.well-known/mcp/server-card.json");
+  const canonicalA2ACard = await getJson(port, "/.well-known/agent-card.json");
+  const discoveryCards = await Promise.all([
+    ["/discovery/a2aregistry/agent-card.json", "a2aregistry"],
+    ["/discovery/apis-io/agent-card.json", "apis-io"],
+    ["/discovery/manual/agent-card.json", "manual"],
+  ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
   if (health.status !== 200 || health.body?.version !== "0.4.3" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
   if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.3" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
+  if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
+  for (const [channel, response] of discoveryCards) {
+    if (response.status !== 200 || response.headers["x-assetfare-discovery-channel"] !== channel || JSON.stringify(response.body) !== JSON.stringify(canonicalA2ACard.body)) throw new Error(`A2A discovery channel mismatch:${channel}`);
+  }
   const legacy = await postJson(port, "0.3", "legacy");
   const missing = await postJson(port, undefined, "missing");
   const current = await postJson(port, "1.0", "current");
@@ -118,6 +128,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.3", server_card_tools: 22, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.3", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();
