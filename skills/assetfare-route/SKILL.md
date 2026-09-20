@@ -37,6 +37,8 @@ preparation, signature, or submission authority.
 
 - Never request, transmit, store, or fabricate a private key.
 - AssetFare never signs or submits transactions.
+- Every live route carries exactly 1bp, collected at one eligible successful
+  atomic action; reject a quote that reports 0bp or a non-collectible fee.
 - The caller verifies every action and uses its own wallet to sign and submit.
 - Treat AssetFare as one route candidate and compare a fresh fee-inclusive executable minimum against alternatives.
 - Cross-chain routes are sequential and non-atomic.

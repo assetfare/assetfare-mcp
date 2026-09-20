@@ -138,6 +138,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "handoff-approval-false") { const value = quote(intent); value.caller_action_plan_handoff.requires_explicit_caller_approval = false; return Response.json(value); }
     if (mode === "handoff-server-signs") { const value = quote(intent); value.caller_action_plan_handoff.assetfare_server_signing = true; return Response.json(value); }
     if (mode === "fee-8bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 8; value.offer.fee_modeled_bps = 1; return Response.json(value); }
+    if (mode === "fee-0bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 0; value.offer.fee_modeled_bps = 0; value.offer.fee_collectible_now = false; value.offer.fee_collection_steps = []; return Response.json(value); }
     if (mode === "fee-2-step") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [0, 0]; return Response.json(value); }
     if (mode === "fee-0-step-for-1bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = []; return Response.json(value); }
     if (mode === "fee-step-out-of-range") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [7]; return Response.json(value); }
@@ -274,7 +275,7 @@ try {
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "fee-8bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;

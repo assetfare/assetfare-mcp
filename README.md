@@ -31,6 +31,8 @@ MCP:
 ## Safety model
 
 - AssetFare MCP never accepts a private key and never signs or submits a transaction.
+- Every one of the 76 live routes models and collects exactly 1bp at one eligible
+  successful atomic action; no live route is fee-free.
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. All 76 are execution-ready; Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
 - `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); the caller generates it with `assetfare_v2_new_session_capability` and supplies it on every session call.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are legacy original-corridor compatibility only.

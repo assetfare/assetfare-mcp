@@ -79,7 +79,7 @@ const Quote = z.object({
   intent: z.object({from:z.string(),to:z.string(),amount_usd:z.number().finite(),estimated_input_base:z.number().int().positive()}).passthrough(),
   execution: z.object({ supported: z.boolean(), first_unsigned_action_supported: z.boolean() }).passthrough(),
   risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
-  offer: z.object({expected_receive_amount:z.number().finite().positive(),estimated_min_receive_amount:z.number().finite().positive(),output_symbol:Token,assetfare_fee_bps:z.number().int().min(0).max(1),fee_modeled_bps:z.number().int().min(0).max(1),fee_collectible_now:z.boolean(),fee_collection_steps:z.array(z.number().int().nonnegative()).max(8),fee_collection:z.literal(FEE_COLLECTION_CONST)}).passthrough(),
+  offer: z.object({expected_receive_amount:z.number().finite().positive(),estimated_min_receive_amount:z.number().finite().positive(),output_symbol:Token,assetfare_fee_bps:z.literal(1),fee_modeled_bps:z.literal(1),fee_collectible_now:z.literal(true),fee_collection_steps:z.array(z.number().int().nonnegative()).length(1),fee_collection:z.literal(FEE_COLLECTION_CONST)}).passthrough(),
   route:z.object({route:z.string(),steps:z.array(z.record(z.unknown())).min(1),server_signing:z.literal(false),server_submission:z.literal(false)}).passthrough(),
   caller_action_plan_handoff:z.object({}).passthrough(),
 }).passthrough();
@@ -110,12 +110,10 @@ function validateHandoff(handoff) {
 }
 
 function validateFee(offer, stepCount) {
-  if (![0, 1].includes(offer.assetfare_fee_bps) || ![0, 1].includes(offer.fee_modeled_bps)) throw new Error("assetfare_safety_boundary_failed");
-  if (offer.fee_modeled_bps !== offer.assetfare_fee_bps || offer.fee_collectible_now !== (offer.assetfare_fee_bps === 1)) throw new Error("assetfare_safety_boundary_failed");
+  if (offer.assetfare_fee_bps !== 1 || offer.fee_modeled_bps !== 1 || offer.fee_collectible_now !== true) throw new Error("assetfare_safety_boundary_failed");
   const steps = offer.fee_collection_steps;
   if (steps.some((index) => !Number.isInteger(index) || index < 0 || index >= stepCount) || new Set(steps).size !== steps.length) throw new Error("assetfare_safety_boundary_failed");
-  if (offer.assetfare_fee_bps === 1 && steps.length !== 1) throw new Error("assetfare_safety_boundary_failed");
-  if (offer.assetfare_fee_bps === 0 && steps.length !== 0) throw new Error("assetfare_safety_boundary_failed");
+  if (steps.length !== 1) throw new Error("assetfare_safety_boundary_failed");
 }
 
 function rejectSecretMaterial(value) {

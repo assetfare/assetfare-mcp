@@ -130,10 +130,10 @@ const v2QuoteResponse = z.object({
     estimated_min_receive_amount: z.number().finite().positive(),
     output_symbol: z.enum(V2_TOKENS),
     estimated_time_seconds: z.number().int().nonnegative().nullable(),
-    assetfare_fee_bps: z.number().int().min(0).max(1),
-    fee_modeled_bps: z.number().int().min(0).max(1),
-    fee_collectible_now: z.boolean(),
-    fee_collection_steps: z.array(z.number().int().nonnegative()).max(8),
+    assetfare_fee_bps: z.literal(1),
+    fee_modeled_bps: z.literal(1),
+    fee_collectible_now: z.literal(true),
+    fee_collection_steps: z.array(z.number().int().nonnegative()).length(1),
     fee_collection: z.literal(V2_FEE_COLLECTION_CONST),
   }).passthrough(),
   route: z.object({
@@ -304,20 +304,15 @@ function validateHandoff(handoff) {
   return handoff;
 }
 
-// Fee representation must be EXACTLY {0,1}bp collected at most once on an eligible step.
+// Every live route must charge EXACTLY 1bp at one eligible successful atomic action.
 function validateFee(offer, stepCount) {
   if (offer.fee_collection !== V2_FEE_COLLECTION_CONST) throw new Error("assetfare_v2_fee_invalid");
-  if (![0, 1].includes(offer.assetfare_fee_bps)) throw new Error("assetfare_v2_fee_invalid");
-  if (![0, 1].includes(offer.fee_modeled_bps)) throw new Error("assetfare_v2_fee_invalid");
-  if (typeof offer.fee_collectible_now !== "boolean") throw new Error("assetfare_v2_fee_invalid");
-  if (offer.fee_modeled_bps !== offer.assetfare_fee_bps) throw new Error("assetfare_v2_fee_invalid");
-  if (offer.fee_collectible_now !== (offer.assetfare_fee_bps === 1)) throw new Error("assetfare_v2_fee_collectibility_mismatch");
+  if (offer.assetfare_fee_bps !== 1 || offer.fee_modeled_bps !== 1 || offer.fee_collectible_now !== true) throw new Error("assetfare_v2_fee_invalid");
   const steps = offer.fee_collection_steps;
   if (!Array.isArray(steps)) throw new Error("assetfare_v2_fee_invalid");
   if (steps.some((index) => !Number.isInteger(index) || index < 0 || index >= stepCount)) throw new Error("assetfare_v2_fee_step_out_of_range");
   if (new Set(steps).size !== steps.length) throw new Error("assetfare_v2_fee_step_duplicate");
-  if (offer.assetfare_fee_bps === 1 && steps.length !== 1) throw new Error("assetfare_v2_fee_step_count_mismatch");
-  if (offer.assetfare_fee_bps === 0 && steps.length !== 0) throw new Error("assetfare_v2_fee_step_count_mismatch");
+  if (steps.length !== 1) throw new Error("assetfare_v2_fee_step_count_mismatch");
 }
 
 function rejectSigningClaims(value) {
