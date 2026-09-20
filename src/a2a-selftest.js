@@ -22,17 +22,17 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.3");
+assert.equal(card.version, "0.1.4");
 assert.equal(card.skills.length, 4);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capability", "prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/cross-chain.*crypto.*bridge.*same-chain.*swap.*AI agents/);
-assert.match(card.description,/all 76 directed routes.*\/v2\/prepare.*\/v2\/session/);
-assert.match(card.description,/Polygon and Optimism remain directional source-only/);
+assert.match(card.description,/non-custodial.*76 execution-ready routes.*flat 1bp/i);
+assert.match(card.description,/Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
+assert.match(card.description,/caller approval.*unsigned action.*server never signs or submits/i);
 assert.deepEqual(card.skills[0].tags.slice(0,5),["cross-chain","bridge","swap","crypto","quote"]);
-assert.match(card.skills[0].description,/fromChain.*fromToken.*toChain.*toToken.*amountUsd/);
+assert.match(card.skills[0].description,/Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
 assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1);
 assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-]?key|api[_-]?key|bearer [A-Za-z0-9]/i), null);
 

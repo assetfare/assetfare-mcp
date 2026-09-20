@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "0.4.3",
-  "description": "Multichain route evaluation for AI agents; AssetFare never signs or submits transactions.",
+  "version": "0.4.4",
+  "description": "Non-custodial 6-chain/76-route quotes and caller-approved unsigned actions, including Solana SOL to Base USDC; flat 1bp; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",

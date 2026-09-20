@@ -1,6 +1,6 @@
 ---
 name: assetfare-route
-description: Use when an agent must quote, compare, or prepare a capped non-custodial AssetFare route across Solana, Base, Arbitrum, Robinhood Chain, or Polygon/Optimism native-USDC source routes. REST/OpenAPI v2 is primary; MCP provides full-v2 read-only quote tools, caller-approved v2 prepare and session-lifecycle tools, and separate legacy workflow tools.
+description: Use for non-custodial flat-1bp AssetFare routes across six chains and 76 execution-ready routes, explicitly including Solana SOL to Base USDC and Optimism USDC to Base USDC. Returns quotes and caller-approved unsigned actions; never signs or submits.
 ---
 
 # AssetFare Route
@@ -17,6 +17,8 @@ Request one fresh AssetFare quote when all of these are true:
 
 Read `/v2/capabilities` to identify the live endpoints. All 76 routes are
 execution-ready through REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool.
+`solana:SOL -> base:USDC`, `solana:USDC -> base:USDC`, and
+`optimism:USDC -> base:USDC` are explicitly supported examples.
 Polygon and Optimism are directional native-USDC source-only origins to Base or
 Arbitrum USDC and use the same caller-approved prepare/session boundary. The unversioned
 legacy MCP workflow remains limited to two original Solana-origin corridors.

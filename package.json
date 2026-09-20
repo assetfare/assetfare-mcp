@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.3",
-  "description": "MCP and A2A adapters for AssetFare's non-custodial six-chain quote and caller-approved execution service.",
+  "version": "0.4.4",
+  "description": "AssetFare: non-custodial 6-chain/76-route agent-native quotes and caller-approved unsigned actions; flat 1bp; supports Solana SOL to Base USDC; never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {

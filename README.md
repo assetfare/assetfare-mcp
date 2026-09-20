@@ -1,15 +1,18 @@
-# AssetFare — agent-first multichain routes with an optional MCP adapter
+# AssetFare — Solana SOL to Base USDC and 75 other agent-native routes
 
 [![Public safety checks](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
-AssetFare's primary product is a capped, non-custodial REST/OpenAPI v2 route
-service for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and
-Polygon/Optimism native-USDC source routes. It exposes eleven source endpoints
-and 76 directed routes, all execution-ready through caller-operated wallets, returns
-bounded unsigned actions, and never receives private keys, signs, or submits.
+AssetFare is a non-custodial, agent-native cross-chain route service. It supports
+six chains, eleven source endpoints, and 76 execution-ready directed routes at
+flat 1bp. **Solana SOL → Base USDC is supported**, as are Solana USDC → Base
+USDC and Optimism USDC → Base USDC. An agent gets a quote and, only after
+explicit caller approval, a bounded unsigned action the caller signs itself;
+AssetFare never receives private keys, signs, or submits.
+
+Interfaces: MCP + A2A + REST/OpenAPI.
 
 This repository contains an optional MCP adapter. Its primary read-only
 tools expose the full six-chain source v2 quote matrix, and dedicated caller-approved
@@ -46,9 +49,12 @@ MCP:
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
-from $1 through $1,000; all 76 are execution-ready. Polygon and Optimism contribute
-exactly four directional source-only routes to Base and Arbitrum USDC. Legacy workflow scope remains
-`solana:SOL → base:ETH` and `solana:SOL → arbitrum:ETH`.
+from $1 through $1,000; all 76 are execution-ready and charge exactly 1bp.
+Canonical examples are `solana:SOL → base:USDC`, `solana:USDC → base:USDC`,
+and `optimism:USDC → base:USDC`. Polygon and Optimism contribute exactly four
+directional native-USDC source-only routes to Base and Arbitrum USDC. The
+unversioned legacy workflow remains limited to `solana:SOL → base:ETH` and
+`solana:SOL → arbitrum:ETH`; it does not limit the v2 route matrix.
 
 For a new evaluation, call `assetfare_v2_capabilities` and then
 `assetfare_v2_quote`. A v2 quote ID is not valid input to
@@ -77,17 +83,17 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.3 assetfare-route-eval \
-  --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token ETH
+npx --yes --package=assetfare-mcp@0.4.4 assetfare-route-eval \
+  --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 
-For `solana:SOL -> base:ETH`, the evaluator also requests same-input Relay and
-Mayan snapshots with placeholder public addresses. Those comparison rows are
-not executable orders; every provider must be requoted with the caller's real
-addresses before selection or signing. Other routes return the AssetFare quote
-without pretending that a generic competitor comparison is available.
+The evaluator defaults to `solana:SOL -> base:USDC` so USDC support is visible
+without extra flags. If `solana:SOL -> base:ETH` is requested explicitly, it
+also requests same-input Relay and Mayan snapshots with placeholder public
+addresses. Those comparison rows are not executable orders; every provider
+must be requoted with the caller's real addresses before selection or signing.
 
 Read-only framework integrations are available for
 [Coinbase AgentKit](./integrations/coinbase-agentkit/) and

@@ -1,4 +1,4 @@
 interface:
   display_name: "AssetFare Route"
-  short_description: "Verify and use capped non-custodial AssetFare routes."
-  default_prompt: "Use $assetfare-route to compare the requested supported route across Solana, Base, Arbitrum, Robinhood Chain, or Polygon native-USDC source routes. Verify live capabilities and the signed manifest, obtain a fresh REST quote, and stop before authentication, preparation, signing, or submission unless the caller explicitly approves continuation."
+  short_description: "Quote 76 non-custodial routes, including Solana SOL to Base USDC."
+  default_prompt: "Use $assetfare-route to compare a flat-1bp AssetFare route across six chains. Solana SOL to Base USDC and Optimism USDC to Base USDC are supported. Verify live capabilities and the signed manifest, obtain a fresh quote, and stop before unsigned preparation, signing, or submission unless the caller explicitly approves continuation."

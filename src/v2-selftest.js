@@ -23,14 +23,21 @@ const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "bridge",
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
-assert.equal(packageMetadata.version, "0.4.3");
-assert.equal(lockMetadata.version, "0.4.3");
-assert.equal(lockMetadata.packages[""].version, "0.4.3");
-assert.equal(registryMetadata.version, "0.4.3");
+const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+assert.equal(packageMetadata.version, "0.4.4");
+assert.equal(lockMetadata.version, "0.4.4");
+assert.equal(lockMetadata.packages[""].version, "0.4.4");
+assert.equal(registryMetadata.version, "0.4.4");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
+assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
+assert.match(packageMetadata.description, /flat 1bp/i);
+assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /Six-chain.*Polygon.*never signs or submits/i);
+assert.match(registryMetadata.description, /76 flat-1bp routes.*Solana SOL to Base USDC.*unsigned actions.*never signs\/submits/i);
 assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
+assert.match(readmeMetadata.slice(0, 2500), /Solana SOL → Base USDC is supported/is);
+assert.match(readmeMetadata.slice(0, 2500), /flat 1bp/i);
+assert.match(readmeMetadata, /--to-chain base --to-token USDC/);
 
 function importedV2Base(extraEnvironment) {
   const result = spawnSync(process.execPath, [
@@ -164,7 +171,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.3");
+  assert.equal(card.serverInfo.version, "0.4.4");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));

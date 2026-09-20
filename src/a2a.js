@@ -203,10 +203,10 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "Non-custodial cross-chain crypto bridge and same-chain swap routes for AI agents across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source routes. Quote and execute all 76 directed routes through the caller-approved /v2/prepare one-shot or the full /v2/session lifecycle. Polygon and Optimism remain directional source-only origins to Base or Arbitrum USDC. No wallet login is required for a quote; AssetFare never receives private keys, signs, or submits.",
+    description: "AssetFare is a non-custodial, agent-native cross-chain route service: six chains, eleven source endpoints, 76 execution-ready routes, and flat 1bp. Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC are explicitly supported. Get a quote and, only after caller approval, an unsigned action the caller signs; the server never signs or submits. MCP, A2A, and OpenAPI are available.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.3",
+    version: "0.1.4",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -216,9 +216,9 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for eleven supported source endpoints and all 76 execution-ready directed routes from USD 1 through 1,000. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Send exactly one application/json DataPart with fromChain, fromToken, toChain, toToken, and numeric amountUsd (operation:\"quote\" or omitted); stop before authentication, preparation, signing, or submission. The quote passes through the caller_action_plan_handoff.",
+      description: "Return one fresh flat-1bp quote for eleven source endpoints and all 76 execution-ready routes from USD 1 through 1,000. Explicit examples include Solana SOL to Base USDC and Optimism USDC to Base USDC. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission; the quote only passes through the caller-approved unsigned-action handoff.",
       tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
-      examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
+      examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":10}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],

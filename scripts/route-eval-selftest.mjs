@@ -49,7 +49,7 @@ const server = createServer(async (request, response) => {
     public_api_enabled: true,
     server_signing: false,
     server_submission: false,
-    asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "base", token: "ETH" }],
+    asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "base", token: "USDC" }],
   });
   if (url.pathname === "/v2/status") return send(200, { status: "capped_public_agent_release", server_signing: false, server_submission: false });
   if (url.pathname === "/v2/quote") return send(200, {
@@ -57,8 +57,8 @@ const server = createServer(async (request, response) => {
     status: "capped_public_agent_release",
     as_of: new Date().toISOString(),
     ttl_seconds: 20,
-    intent: { from: "solana:SOL", to: "base:ETH", amount_usd: 1, estimated_input_base: 10000000 },
-    offer: { expected_receive_amount: 0.00034, estimated_min_receive_amount: 0.00033, output_symbol: "ETH", expected_receive_usd: 0.99, estimated_min_receive_usd: 0.96, estimated_time_seconds: 21, assetfare_fee_bps: 1 },
+    intent: { from: "solana:SOL", to: "base:USDC", amount_usd: 1, estimated_input_base: 10000000 },
+    offer: { expected_receive_amount: 0.9999, estimated_min_receive_amount: 0.9949, output_symbol: "USDC", expected_receive_usd: 0.9999, estimated_min_receive_usd: 0.9949, estimated_time_seconds: 21, assetfare_fee_bps: 1 },
     route: { steps: [{ provider: "selftest" }] },
     risk: { non_atomic: true, server_signing: false, server_submission: false },
     execution: { supported: true },
@@ -97,10 +97,9 @@ const checks = {
   status_pass: result.status === "pass",
   manifest_verified: result.manifest?.valid === true,
   quote_read_only: result.safety?.wallet_authentication_performed === false && result.safety?.session_created === false && result.safety?.action_prepared === false && result.safety?.transaction_signed === false && result.safety?.transaction_submitted === false,
-  assetfare_quote_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).amount_usd === 1,
-  relay_same_input: JSON.parse(relayRequest?.body || "{}").amount === "10000000",
-  mayan_same_input: mayanRequest?.query?.amountIn === "0.01",
-  winner_computed: result.alternatives?.highest_expected_receive_snapshot === "assetfare",
+  assetfare_quote_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 1,
+  usdc_default_is_assetfare_only: result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested",
+  no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));
 console.log(JSON.stringify({ status: "pass", checks }));

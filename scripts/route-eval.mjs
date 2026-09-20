@@ -6,7 +6,7 @@ const DEFAULTS = {
   fromChain: "solana",
   fromToken: "SOL",
   toChain: "base",
-  toToken: "ETH",
+  toToken: "USDC",
 };
 
 function usage() {
@@ -18,7 +18,7 @@ Usage:
 
 Options:
   --amount <USD>          Whole or decimal USD amount from 1 through 1000
-  --from-chain <chain>    solana | base | arbitrum | robinhood
+  --from-chain <chain>    solana | base | arbitrum | robinhood | polygon | optimism
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
   --to-token <token>      SOL | ETH | USDC | USDG
@@ -26,7 +26,7 @@ Options:
   --compact               Emit compact JSON
   --help                  Show this message
 
-Defaults: $1 solana:SOL -> base:ETH. The evaluator never authenticates a
+Defaults: $1 solana:SOL -> base:USDC. The evaluator never authenticates a
 wallet, creates a session, prepares an action, signs, or submits a transaction.`;
 }
 

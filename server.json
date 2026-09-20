@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.odaiin/assetfare",
   "title": "AssetFare",
-  "description": "Six-chain source quotes incl. Polygon/Optimism USDC; AssetFare never signs or submits.",
-  "version": "0.4.3",
+  "description": "76 flat-1bp routes; Solana SOL to Base USDC; caller-approved unsigned actions; never signs/submits.",
+  "version": "0.4.4",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
     "source": "github"
