@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.4";
+const VERSION = "0.4.5";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -290,8 +290,15 @@ function validateHandoff(handoff) {
   if (handoff.caller_must_verify_sign_and_submit !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.requires_fresh_requote !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.automatic_prepare_call_forbidden !== true) throw new Error("assetfare_v2_handoff_invalid");
+  // Mutual-exclusivity machine fields: the two options are one-of. Fail closed if any is missing or wrong so the two
+  // modes can never be presented as safe-to-run-both.
+  if (handoff.selection !== "choose_exactly_one") throw new Error("assetfare_v2_handoff_invalid");
+  if (handoff.mutually_exclusive !== true) throw new Error("assetfare_v2_handoff_invalid");
+  if (handoff.do_not_call_both !== true) throw new Error("assetfare_v2_handoff_invalid");
+  if (handoff.selection_before_signing !== true) throw new Error("assetfare_v2_handoff_invalid");
+  if (handoff.once_any_action_submitted_do_not_start_other_mode !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_v2_handoff_invalid");
-  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "options", "note", "available", "blocker"]);
+  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_v2_handoff_extra_field");
   if (handoff.available !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.url !== V2_PREPARE_URL) throw new Error("assetfare_v2_handoff_invalid");

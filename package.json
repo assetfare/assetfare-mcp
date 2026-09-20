@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "AssetFare: non-custodial 6-chain/76-route agent-native quotes and caller-approved unsigned actions; flat 1bp; supports Solana SOL to Base USDC; never signs or submits.",
   "type": "module",
   "main": "src/server.js",

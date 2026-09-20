@@ -3,7 +3,7 @@
   "name": "io.github.odaiin/assetfare",
   "title": "AssetFare",
   "description": "76 flat-1bp routes; Solana SOL to Base USDC; caller-approved unsigned actions; never signs/submits.",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
     "source": "github"

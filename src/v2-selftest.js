@@ -24,10 +24,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.4");
-assert.equal(lockMetadata.version, "0.4.4");
-assert.equal(lockMetadata.packages[""].version, "0.4.4");
-assert.equal(registryMetadata.version, "0.4.4");
+assert.equal(packageMetadata.version, "0.4.5");
+assert.equal(lockMetadata.version, "0.4.5");
+assert.equal(lockMetadata.packages[""].version, "0.4.5");
+assert.equal(registryMetadata.version, "0.4.5");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
 assert.match(packageMetadata.description, /flat 1bp/i);
@@ -83,7 +83,7 @@ function capabilities(overrides = {}) {
 
 const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Stateless: returns only the first unsigned bundle." };
 const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Idempotent multi-step lifecycle." };
-function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
+function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, selection: "choose_exactly_one", mutually_exclusive: true, do_not_call_both: true, selection_before_signing: true, once_any_action_submitted_do_not_start_other_mode: true, options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
 function quote(intent, overrides = {}) {
   const sourceOnly = SOURCE_ONLY.has(intent.from_chain);
   const fee = 1;
@@ -144,6 +144,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "handoff-request-fields-short") { const value = quote(intent); value.caller_action_plan_handoff.request_fields = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]; return Response.json(value); }
     if (mode === "handoff-approval-false") { const value = quote(intent); value.caller_action_plan_handoff.requires_explicit_caller_approval = false; return Response.json(value); }
     if (mode === "handoff-server-signs") { const value = quote(intent); value.caller_action_plan_handoff.assetfare_server_signing = true; return Response.json(value); }
+    if (mode === "handoff-not-mutually-exclusive") { const value = quote(intent); delete value.caller_action_plan_handoff.do_not_call_both; return Response.json(value); }
     if (mode === "fee-8bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 8; value.offer.fee_modeled_bps = 1; return Response.json(value); }
     if (mode === "fee-0bp") { const value = quote(intent); value.offer.assetfare_fee_bps = 0; value.offer.fee_modeled_bps = 0; value.offer.fee_collectible_now = false; value.offer.fee_collection_steps = []; return Response.json(value); }
     if (mode === "fee-2-step") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [0, 0]; return Response.json(value); }
@@ -171,7 +172,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.4");
+  assert.equal(card.serverInfo.version, "0.4.5");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
@@ -282,7 +283,7 @@ try {
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-not-mutually-exclusive", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;

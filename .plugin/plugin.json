@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Non-custodial 6-chain/76-route quotes and caller-approved unsigned actions, including Solana SOL to Base USDC; flat 1bp; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
