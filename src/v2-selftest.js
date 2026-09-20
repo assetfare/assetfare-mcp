@@ -24,10 +24,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.5");
-assert.equal(lockMetadata.version, "0.4.5");
-assert.equal(lockMetadata.packages[""].version, "0.4.5");
-assert.equal(registryMetadata.version, "0.4.5");
+assert.equal(packageMetadata.version, "0.4.6");
+assert.equal(lockMetadata.version, "0.4.6");
+assert.equal(lockMetadata.packages[""].version, "0.4.6");
+assert.equal(registryMetadata.version, "0.4.6");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
 assert.match(packageMetadata.description, /flat 1bp/i);
@@ -81,9 +81,9 @@ function capabilities(overrides = {}) {
   };
 }
 
-const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Stateless: returns only the first unsigned bundle." };
-const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, note: "Idempotent multi-step lifecycle." };
-function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, selection: "choose_exactly_one", mutually_exclusive: true, do_not_call_both: true, selection_before_signing: true, once_any_action_submitted_do_not_start_other_mode: true, options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
+const PREPARE_OPTION = { kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, preview_or_manual_first_action_only: true, not_a_session: true, do_not_start_session_after_submission: true, note: "Stateless: returns only the first unsigned bundle." };
+const SESSION_OPTION = { kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL, lifecycle_urls: { create: { method: "POST", url: SESSION_URL }, read: { method: "GET", url: `${SESSION_URL}/{session_id}` }, observe_source: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-source` }, observe_output: { method: "POST", url: `${SESSION_URL}/{session_id}/observe-output` }, refresh_action: { method: "POST", url: `${SESSION_URL}/{session_id}/refresh-action` } }, requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, assetfare_never_signs_submits_or_auto_calls: true, recommended_for_multistep: true, note: "Idempotent multi-step lifecycle." };
+function executableHandoff() { return { kind: "caller_operated_rest_prepare", url: PREPARE_URL, method: "POST", requires_explicit_caller_approval: true, requires_public_wallet_addresses: true, request_fields: [...REQUEST_FIELDS], assetfare_server_signing: false, assetfare_server_submission: false, caller_must_verify_sign_and_submit: true, requires_fresh_requote: true, automatic_prepare_call_forbidden: true, selection: "choose_exactly_one", mutually_exclusive: true, do_not_call_both: true, selection_before_signing: true, once_any_action_submitted_do_not_start_other_mode: true, enforcement: "advisory_caller_side", options: [structuredClone(PREPARE_OPTION), structuredClone(SESSION_OPTION)], note: "Guidance only.", available: true }; }
 function quote(intent, overrides = {}) {
   const sourceOnly = SOURCE_ONLY.has(intent.from_chain);
   const fee = 1;
@@ -172,7 +172,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.5");
+  assert.equal(card.serverInfo.version, "0.4.6");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));

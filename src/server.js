@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.5";
+const VERSION = "0.4.6";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -297,15 +297,18 @@ function validateHandoff(handoff) {
   if (handoff.do_not_call_both !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.selection_before_signing !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.once_any_action_submitted_do_not_start_other_mode !== true) throw new Error("assetfare_v2_handoff_invalid");
+  // Honest boundary: the mutual-exclusivity fields are ADVISORY caller-side (no server selection token). Require the
+  // marker so a caller cannot be told it is server-enforced.
+  if (handoff.enforcement !== "advisory_caller_side") throw new Error("assetfare_v2_handoff_invalid");
   if (typeof handoff.note !== "string" || !handoff.note.length) throw new Error("assetfare_v2_handoff_invalid");
-  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "options", "note", "available", "blocker"]);
+  const allowed = new Set(["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available", "blocker"]);
   for (const key of Object.keys(handoff)) if (!allowed.has(key)) throw new Error("assetfare_v2_handoff_extra_field");
   if (handoff.available !== true) throw new Error("assetfare_v2_handoff_invalid");
   if (handoff.url !== V2_PREPARE_URL) throw new Error("assetfare_v2_handoff_invalid");
   if (!Array.isArray(handoff.options) || handoff.options.length !== 2) throw new Error("assetfare_v2_handoff_options_invalid");
   const [prepareOption, sessionOption] = handoff.options;
-  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== V2_PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_v2_handoff_prepare_option_invalid");
-  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== V2_SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true) throw new Error("assetfare_v2_handoff_session_option_invalid");
+  if (!prepareOption || prepareOption.kind !== "one_shot_first_unsigned_bundle" || prepareOption.method !== "POST" || prepareOption.url !== V2_PREPARE_URL || prepareOption.requires_explicit_caller_approval !== true || prepareOption.requires_public_wallet_addresses !== true || prepareOption.assetfare_never_signs_submits_or_auto_calls !== true || prepareOption.preview_or_manual_first_action_only !== true || prepareOption.not_a_session !== true || prepareOption.do_not_start_session_after_submission !== true) throw new Error("assetfare_v2_handoff_prepare_option_invalid");
+  if (!sessionOption || sessionOption.kind !== "caller_approved_full_workflow_session" || sessionOption.method !== "POST" || sessionOption.url !== V2_SESSION_URL || sessionOption.requires_explicit_caller_approval !== true || sessionOption.requires_public_wallet_addresses !== true || sessionOption.assetfare_never_signs_submits_or_auto_calls !== true || sessionOption.recommended_for_multistep !== true) throw new Error("assetfare_v2_handoff_session_option_invalid");
   const lifecycle = sessionOption.lifecycle_urls;
   if (!lifecycle || typeof lifecycle !== "object" || lifecycle.create?.url !== V2_SESSION_URL || lifecycle.read?.url !== `${V2_SESSION_URL}/{session_id}` || lifecycle.observe_source?.url !== `${V2_SESSION_URL}/{session_id}/observe-source` || lifecycle.observe_output?.url !== `${V2_SESSION_URL}/{session_id}/observe-output` || lifecycle.refresh_action?.url !== `${V2_SESSION_URL}/{session_id}/refresh-action`) throw new Error("assetfare_v2_handoff_session_lifecycle_invalid");
   return handoff;
