@@ -139,7 +139,7 @@ The public endpoint was checked with official `a2aproject/a2a-tck` commit
 `263b9cfa`: all 55 applicable MUST checks passed. Five generic TCK SUT fixture
 tests send fixed TextPart payloads with magic messageId prefixes and require
 unrelated text/file/data artifacts. They are deliberately not implemented by
-this structured quote-only agent; the exception is disclosed rather than
+this structured non-custodial agent; the exception is disclosed rather than
 presented as a full 100% pass.
 
 Connect a remote MCP client directly—no package installation or AssetFare API

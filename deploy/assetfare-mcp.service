@@ -1,5 +1,5 @@
 [Unit]
-Description=AssetFare public MCP and quote-only A2A adapters
+Description=AssetFare public non-custodial MCP and A2A adapters
 After=network-online.target routeagent-quote.service assetfare-multichain-staging.service
 Wants=network-online.target assetfare-multichain-staging.service
 
