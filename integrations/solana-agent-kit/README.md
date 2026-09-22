@@ -1,6 +1,6 @@
 # AssetFare read-only plugin for Solana Agent Kit
 
-Independently reviewed reference implementation for the SendAI Solana Agent
+Project-reviewed reference implementation for the SendAI Solana Agent
 Kit v2 plugin interface. It adds two actions:
 
 - `ASSETFARE_GET_CAPABILITIES`
@@ -27,6 +27,6 @@ const agent = new SolanaAgentKit(wallet, rpcUrl, {}).use(
 
 The package is a public reference and is not yet published to npm. From this
 directory, `npm ci`, `npm run check`, `npm test`, and `npm run build` reproduce
-the compatibility checks. The [independent review](./CLAUDE_REVIEW_20260916.md)
+the compatibility checks. The [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance)
 returned final GO with no Critical, High, Medium, or Low findings after the
 response-size, response-schema, and error-wrapping hardening was verified.

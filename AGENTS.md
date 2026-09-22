@@ -8,7 +8,7 @@ These instructions apply to the entire public MCP wrapper repository.
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
 - AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools cover eleven
-  source endpoints and 76 execution-ready directed routes across Solana, Base,
+  source endpoints and 76 directed routes (live availability per capabilities/quote; AssetFare service fee 1bp; Circle/provider/network fees additional) across Solana, Base,
   Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only
   corridors. Polygon and Optimism are directional source-only origins to Base
   or Arbitrum USDC and use the same caller-approved prepare/session boundary.

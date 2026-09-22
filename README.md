@@ -5,11 +5,12 @@
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
-AssetFare provides a **Solana to Base USDC bridge**, non-custodial bridge quotes,
-and cross-chain swap routes for AI agents. It supports six chains, eleven source
-endpoints, and 76 execution-ready directed routes at flat 1bp. **Solana SOL →
-Base USDC and Solana USDC → Base USDC are supported**, as is Optimism USDC →
-Base USDC. An agent gets a quote and, only after
+AssetFare is a non-custodial, agent-native cross-chain route service. It provides
+non-custodial bridge and cross-chain swap routes: six chains, eleven source
+endpoints, and 76 directed routes. AssetFare service fee 1bp;
+Circle/provider/network fees additional; quote exposes total token-path cost and
+live availability; server never signs/submits. **Solana SOL → Base USDC is supported**, as are Solana USDC → Base
+USDC and Optimism USDC → Base USDC. An agent gets a quote and, only after
 explicit caller approval, a bounded unsigned action the caller signs itself;
 AssetFare never receives private keys, signs, or submits.
 
@@ -18,15 +19,15 @@ Verify before trusting: [public source](https://github.com/odaiin/assetfare-mcp)
 [public key](https://assetfare.dev/.well-known/assetfare-manifest.pub),
 [security.txt](https://assetfare.dev/.well-known/security.txt), and
 [on-chain execution evidence](https://assetfare.dev/evidence/). Quotes are
-estimates, not a claim of universal best price; compare fresh executable routes.
+estimates; compare fresh executable route outputs.
 
 Interfaces: MCP + A2A + REST/OpenAPI.
 
 This repository contains an optional MCP adapter. Its primary read-only
 tools expose the full six-chain source v2 quote matrix, and dedicated caller-approved
 v2 tools (`assetfare_v2_prepare` plus the `assetfare_v2_session_*` lifecycle) operate
-the non-custodial `/v2/prepare` and `/v2/session` endpoints for all 76 execution-ready
-routes. The unversioned wallet authentication, session, preparation, and observation
+the non-custodial `/v2/prepare` and `/v2/session` endpoints for any route the live
+capabilities/quote response reports available. The unversioned wallet authentication, session, preparation, and observation
 tools remain compatibility surfaces for the two original Solana SOL → Base ETH and
 Solana SOL → Arbitrum ETH workflows and must never be mixed with the v2 session tools.
 Agents can also evaluate any current v2 route without installing or connecting
@@ -42,9 +43,11 @@ MCP:
 ## Safety model
 
 - AssetFare MCP never accepts a private key and never signs or submits a transaction.
-- Every one of the 76 live routes models and collects exactly 1bp at one eligible
-  successful atomic action; no live route is fee-free.
-- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. All 76 are execution-ready; Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
+- Every one of the 76 routes models and collects an AssetFare service fee of exactly
+  1bp at one eligible successful atomic action; no route is fee-free. The 1bp is
+  not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
+  and network fees are additional and appear in the quote's total token-path cost.
+- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
 - `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); the caller generates it with `assetfare_v2_new_session_capability` and supplies it on every session call.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are legacy original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
@@ -57,7 +60,9 @@ MCP:
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
-from $1 through $1,000; all 76 are execution-ready and charge exactly 1bp.
+from $1 through $1,000. Each charges an AssetFare service fee of exactly 1bp;
+Circle/provider/network fees are additional, and each quote exposes total
+token-path cost and live availability.
 Canonical examples are `solana:SOL → base:USDC`, `solana:USDC → base:USDC`,
 and `optimism:USDC → base:USDC`. Polygon and Optimism contribute exactly four
 directional native-USDC source-only routes to Base and Arbitrum USDC. The
@@ -105,7 +110,7 @@ must be requoted with the caller's real addresses before selection or signing.
 
 Read-only framework integrations are available for
 [Coinbase AgentKit](./integrations/coinbase-agentkit/) and
-[GOAT](./integrations/goat-sdk/), plus an independently reviewed
+[GOAT](./integrations/goat-sdk/), plus project-reviewed (a project-authored repository review, not independent third-party assurance)
 [SendAI Solana Agent Kit plugin](./integrations/solana-agent-kit/) and
 [elizaOS plugin](./integrations/elizaos/), plus quote tools for
 [Agenti](./integrations/agenti/). None of these integrations exposes preparation,

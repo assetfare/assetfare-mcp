@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
   "version": "0.4.7",
-  "description": "AssetFare — non-custodial bridge and cross-chain swap for AI agents: Solana to Base USDC bridge plus 75 routes, flat 1bp; server never signs or submits.",
+  "description": "AssetFare: non-custodial bridge and cross-chain swap quotes for agents, e.g. Solana SOL to Base USDC. 1bp service fee plus Circle/provider/network fees; unsigned txs, never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -29,9 +29,10 @@
     "cross-chain",
     "cross-chain-swap",
     "bridge",
-    "usdc",
     "usdc-bridge",
+    "cctp",
     "solana-to-base",
+    "usdc",
     "swap",
     "solana",
     "base",

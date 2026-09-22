@@ -31,7 +31,8 @@ assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capa
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*76 execution-ready routes.*flat 1bp/i);
+assert.match(card.description,/non-custodial.*76 directed bridge and cross-chain swap routes.*AssetFare service fee 1bp; Circle\/provider\/network fees additional.*live availability/i);
+assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
 assert.match(card.description,/Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
 assert.match(card.description,/caller approval.*unsigned action.*server never signs or submits/i);
 assert.deepEqual(card.skills[0].tags.slice(0,5),["cross-chain","bridge","swap","crypto","quote"]);

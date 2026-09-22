@@ -1,6 +1,6 @@
 # AssetFare read-only route plugin for elizaOS
 
-Independently reviewed reference for the current Solana↔EVM gap in
+Project-reviewed reference for the current Solana↔EVM gap in
 `@elizaos/plugin-squid-router`. That plugin's README says Solana support is
 planned, while its execution path obtains an EVM signer. AssetFare currently
 quotes Solana SOL/USDC/USDG routes to Base and Arbitrum without receiving a
@@ -26,6 +26,6 @@ export const character = {
 
 Every quote must be compared with other fresh executable routes. Installation
 never implies preference. The package is a public reference and is not yet
-published to npm. The [independent review](./CLAUDE_REVIEW_20260916.md) returned
+published to npm. The [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned
 GO with no Critical, High, Medium, or Low findings. Maintainer scope
 confirmation remains required before any upstream PR.

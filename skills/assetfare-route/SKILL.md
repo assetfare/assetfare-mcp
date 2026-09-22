@@ -1,6 +1,6 @@
 ---
 name: assetfare-route
-description: Use for non-custodial flat-1bp AssetFare routes across six chains and 76 execution-ready routes, explicitly including Solana SOL to Base USDC and Optimism USDC to Base USDC. Returns quotes and caller-approved unsigned actions; never signs or submits.
+description: Use for non-custodial AssetFare bridge and cross-chain swap routes across six chains and 76 directed routes (1bp service fee plus Circle/provider/network fees), explicitly including Solana SOL to Base USDC and Optimism USDC to Base USDC. Returns quotes and caller-approved unsigned actions; never signs or submits.
 ---
 
 # AssetFare Route
@@ -15,8 +15,8 @@ Request one fresh AssetFare quote when all of these are true:
 - The route amount is from $1 through $1,000.
 - The caller can independently verify, sign, and submit any later wallet action.
 
-Read `/v2/capabilities` to identify the live endpoints. All 76 routes are
-execution-ready through REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool.
+Read `/v2/capabilities` to identify the live endpoints. Routes are available
+only as the live capabilities/quote response reports, through REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool.
 `solana:SOL -> base:USDC`, `solana:USDC -> base:USDC`, and
 `optimism:USDC -> base:USDC` are explicitly supported examples.
 Polygon and Optimism are directional native-USDC source-only origins to Base or
@@ -30,7 +30,7 @@ preparation, signature, or submission authority.
 
 ## Interface scope
 
-- REST/OpenAPI v2: eleven source endpoints and 76 execution-ready directed routes across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
+- REST/OpenAPI v2: eleven source endpoints and 76 directed routes (live availability per capabilities/quote) across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
 - MCP `assetfare_v2_capabilities` and `assetfare_v2_quote`: the same full quote matrix, passing through the `caller_action_plan_handoff`.
 - MCP caller-approved v2 execution tools for all 76 routes: `assetfare_v2_new_session_capability` (local token generation), `assetfare_v2_prepare` (one-shot first unsigned bundle), and the `assetfare_v2_session_create`/`_get`/`_observe_source`/`_observe_output`/`_refresh_action` lifecycle. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and rejects any private key/seed/signed transaction. Never mix these with the legacy v1 session tools.
 - Unversioned MCP workflow tools: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
@@ -39,8 +39,9 @@ preparation, signature, or submission authority.
 
 - Never request, transmit, store, or fabricate a private key.
 - AssetFare never signs or submits transactions.
-- Every live route carries exactly 1bp, collected at one eligible successful
-  atomic action; reject a quote that reports 0bp or a non-collectible fee.
+- Every live route carries an AssetFare service fee of exactly 1bp, collected at
+  one eligible successful atomic action; Circle/provider/network fees are
+  additional, so compare the quote's total token-path cost, not the 1bp; reject a quote that reports 0bp or a non-collectible fee.
 - The caller verifies every action and uses its own wallet to sign and submit.
 - Treat AssetFare as one route candidate and compare a fresh fee-inclusive executable minimum against alternatives.
 - Cross-chain routes are sequential and non-atomic.

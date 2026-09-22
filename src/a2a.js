@@ -241,7 +241,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "AssetFare is a non-custodial bridge and cross-chain swap service for AI agents: 76 execution-ready routes at flat 1bp across six chains, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. Get a quote and, only after caller approval, an unsigned action the caller signs; the server never signs or submits. Public source, signed manifest, security.txt, and on-chain evidence are published at assetfare.dev.",
+    description: "AssetFare is a non-custodial, agent-native cross-chain route service: six chains, eleven source endpoints, 76 directed bridge and cross-chain swap routes. AssetFare service fee 1bp; Circle/provider/network fees additional; each quote exposes total token-path cost and live availability. Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC are explicitly supported. Get a quote and, only after caller approval, an unsigned action the caller signs; the server never signs or submits. MCP, A2A, and OpenAPI are available.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
     version: "0.1.5",
@@ -254,7 +254,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh non-custodial bridge or cross-chain swap quote for all 76 routes from USD 1 through 1,000, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission; the quote only passes through the caller-approved unsigned-action handoff.",
+      description: "Return one fresh quote for eleven source endpoints and 76 routes from USD 1 through 1,000, with total token-path cost and live availability (AssetFare service fee 1bp; Circle/provider/network fees additional). Explicit examples include Solana SOL to Base USDC and Optimism USDC to Base USDC. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission; the quote only passes through the caller-approved unsigned-action handoff.",
       tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":10}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
       inputModes: ["application/json"],
@@ -281,7 +281,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     }, {
       id: "session-lifecycle",
       name: "Run the caller-approved session lifecycle",
-      description: "Full receipt-driven /v2/session lifecycle for an execution-ready route. Requires callerApproved:true on create and the caller's session capability token (X-AssetFare-Session-Token) on every call. Operations: session_create (+wallets, idempotencyKey), session_get, observe_source (caller-submitted transactionHashes), observe_output, refresh_action. Never auto-chains, signs, or submits; only the caller's submitted tx hashes are observed.",
+      description: "Full receipt-driven /v2/session lifecycle for a route the live quote reports available. Requires callerApproved:true on create and the caller's session capability token (X-AssetFare-Session-Token) on every call. Operations: session_create (+wallets, idempotencyKey), session_get, observe_source (caller-submitted transactionHashes), observe_output, refresh_action. Never auto-chains, signs, or submits; only the caller's submitted tx hashes are observed.",
       tags: ["session", "lifecycle", "observe", "receipts", "non-custodial", "caller-approved"],
       examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
       inputModes: ["application/json"],

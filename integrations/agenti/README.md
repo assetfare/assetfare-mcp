@@ -1,6 +1,6 @@
 # AssetFare quote tools for Agenti
 
-Independently reviewed concierge reference for Agenti's public roadmap item:
+Project-reviewed concierge reference for Agenti's public roadmap item:
 
 > `@agenti/plugin-bridge` — cross-chain: hold SOL, pay USDC on Base transparently
 
@@ -23,6 +23,6 @@ An AssetFare installation never implies preference. Phase 2 execution mapping
 must remain separately approved and caller-signed.
 
 The package is a public reference and is not yet published to npm. The
-[independent review](./CLAUDE_REVIEW_20260916.md) returned GO with no Critical,
+[project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned GO with no Critical,
 High, Medium, or Low findings. Agenti maintainer scope confirmation remains
 required before any upstream PR.
