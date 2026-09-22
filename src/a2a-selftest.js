@@ -25,7 +25,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.4");
+assert.equal(card.version, "0.1.5");
 assert.equal(card.skills.length, 4);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capability", "prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");

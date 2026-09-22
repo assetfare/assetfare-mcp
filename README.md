@@ -1,16 +1,24 @@
-# AssetFare — Solana SOL to Base USDC and 75 other agent-native routes
+# AssetFare — non-custodial bridge and cross-chain swap for AI agents
 
 [![Public safety checks](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
 
-AssetFare is a non-custodial, agent-native cross-chain route service. It supports
-six chains, eleven source endpoints, and 76 execution-ready directed routes at
-flat 1bp. **Solana SOL → Base USDC is supported**, as are Solana USDC → Base
-USDC and Optimism USDC → Base USDC. An agent gets a quote and, only after
+AssetFare provides a **Solana to Base USDC bridge**, non-custodial bridge quotes,
+and cross-chain swap routes for AI agents. It supports six chains, eleven source
+endpoints, and 76 execution-ready directed routes at flat 1bp. **Solana SOL →
+Base USDC and Solana USDC → Base USDC are supported**, as is Optimism USDC →
+Base USDC. An agent gets a quote and, only after
 explicit caller approval, a bounded unsigned action the caller signs itself;
 AssetFare never receives private keys, signs, or submits.
+
+Verify before trusting: [public source](https://github.com/odaiin/assetfare-mcp),
+[Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
+[public key](https://assetfare.dev/.well-known/assetfare-manifest.pub),
+[security.txt](https://assetfare.dev/.well-known/security.txt), and
+[on-chain execution evidence](https://assetfare.dev/evidence/). Quotes are
+estimates, not a claim of universal best price; compare fresh executable routes.
 
 Interfaces: MCP + A2A + REST/OpenAPI.
 
@@ -83,7 +91,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.6 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.7 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 

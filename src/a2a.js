@@ -241,10 +241,10 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "AssetFare is a non-custodial, agent-native cross-chain route service: six chains, eleven source endpoints, 76 execution-ready routes, and flat 1bp. Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC are explicitly supported. Get a quote and, only after caller approval, an unsigned action the caller signs; the server never signs or submits. MCP, A2A, and OpenAPI are available.",
+    description: "AssetFare is a non-custodial bridge and cross-chain swap service for AI agents: 76 execution-ready routes at flat 1bp across six chains, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. Get a quote and, only after caller approval, an unsigned action the caller signs; the server never signs or submits. Public source, signed manifest, security.txt, and on-chain evidence are published at assetfare.dev.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.4",
+    version: "0.1.5",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -254,7 +254,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh flat-1bp quote for eleven source endpoints and all 76 execution-ready routes from USD 1 through 1,000. Explicit examples include Solana SOL to Base USDC and Optimism USDC to Base USDC. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission; the quote only passes through the caller-approved unsigned-action handoff.",
+      description: "Return one fresh non-custodial bridge or cross-chain swap quote for all 76 routes from USD 1 through 1,000, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission; the quote only passes through the caller-approved unsigned-action handoff.",
       tags: ["cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":10}', '{"fromChain":"polygon","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":10}'],
       inputModes: ["application/json"],

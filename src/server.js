@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.6";
+const VERSION = "0.4.7";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -57,8 +57,8 @@ const V2_FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const V2_SESSION_TOKEN_HEADER = "x-assetfare-session-token";
 const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use assetfare_v2_capabilities for the primary six-chain source quote and execution surface.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote for Solana SOL to Base or Arbitrum ETH. Use only with the legacy wallet-auth/session workflow; prefer assetfare_v2_quote for new evaluations.";
-const V2_CAPABILITIES_DESCRIPTION = "AssetFare supports Solana SOL to Base USDC and 75 other execution-ready routes: six chains, eleven source endpoints, flat 1bp, with Polygon/Optimism native-USDC source-only routes. Read the live matrix and no-sign/no-submit boundary before quoting.";
-const V2_QUOTE_DESCRIPTION = "Get one fresh AssetFare quote for any of 76 execution-ready routes, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. Flat 1bp. Returns a caller-approved unsigned-action handoff; never signs, submits, authenticates, creates a session, or prepares an action from the quote call.";
+const V2_CAPABILITIES_DESCRIPTION = "Discover AssetFare's non-custodial bridge and cross-chain swap matrix for AI agents: Solana to Base USDC bridge plus 75 execution-ready routes across six chains. Read the live route, fee, and no-sign/no-submit boundary before quoting.";
+const V2_QUOTE_DESCRIPTION = "Get one fresh non-custodial bridge or cross-chain swap quote across 76 routes, including Solana SOL/USDC to Base USDC and Optimism USDC to Base USDC. Returns a caller-approved unsigned-action handoff; the server never signs, submits, authenticates, creates a session, or prepares an action from this quote call.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local-only: generate one caller-owned high-entropy session capability token (>=256-bit CSPRNG, url-safe, 43-128 chars). Makes NO network call. Store it as a SENSITIVE capability (never a private key); pass it into assetfare_v2_session_create and every session read/observe/refresh.";
 const V2_PREPARE_DESCRIPTION = "Explicit caller-approved one-shot: POST the fixed-origin /v2/prepare to obtain the fresh re-quoted bounded FIRST unsigned action bundle for any of the 76 execution-ready routes. Requires caller_approved:true and the route's exact public wallet map. Never auto-called from a quote; rejects any private key/seed/signed transaction. AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Explicit caller-approved: create one idempotent receipt-driven /v2/session for an execution-ready route and return its first unsigned action. Requires caller_approved:true, a caller-generated session capability token (X-AssetFare-Session-Token), and the route's exact public wallet map. Never auto-chains, signs, or submits.";
