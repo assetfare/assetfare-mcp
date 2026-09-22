@@ -67,8 +67,8 @@ const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote for Solana S
 const V2_CAPABILITIES_DESCRIPTION = "Non-custodial cross-chain bridge and swap capabilities: Solana SOL to Base USDC and 75 other routes across six chains and eleven source endpoints, with Polygon/Optimism native-USDC source-only routes. Read live availability, the fee model (AssetFare service fee 1bp; Circle/provider/network fees additional), and the no-sign/no-submit boundary before quoting.";
 const V2_QUOTE_DESCRIPTION = "Get one fresh AssetFare cross-chain bridge/swap quote for any of 76 routes, including Solana SOL to Base USDC, Solana USDC to Base USDC, and Optimism USDC to Base USDC. AssetFare service fee 1bp; Circle/provider/network fees additional; judge the route by the quote's total token-path cost and live availability, not the 1bp alone. Returns a caller-approved unsigned-action handoff; never signs, submits, authenticates, creates a session, or prepares an action from the quote call.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local-only: generate one caller-owned high-entropy session capability token (>=256-bit CSPRNG, url-safe, 43-128 chars). Makes NO network call. Store it as a SENSITIVE capability (never a private key); pass it into assetfare_v2_session_create and every session read/observe/refresh.";
-const V2_PREPARE_DESCRIPTION = "Explicit caller-approved one-shot: POST the fixed-origin /v2/prepare to obtain the fresh re-quoted bounded FIRST unsigned action bundle for any route the live quote reports available. Requires caller_approved:true and the route's exact public wallet map. Never auto-called from a quote; rejects any private key/seed/signed transaction. AssetFare never signs or submits.";
-const V2_SESSION_CREATE_DESCRIPTION = "Explicit caller-approved: create one idempotent receipt-driven /v2/session for a route the live quote reports available and return its first unsigned action. Requires caller_approved:true, a caller-generated session capability token (X-AssetFare-Session-Token), and the route's exact public wallet map. Never auto-chains, signs, or submits.";
+const V2_PREPARE_DESCRIPTION = "Explicit caller-approved one-shot: POST /v2/prepare for a route the live quote reports available. Solana-CCTP routes require event_signer_public: generate a fresh ephemeral Solana keypair locally, pass only its public key, keep its private key client-side, and co-sign the returned unsigned event-account transaction. Never auto-called; AssetFare never signs or submits.";
+const V2_SESSION_CREATE_DESCRIPTION = "Explicit caller-approved receipt-driven /v2/session create. Solana-CCTP routes require event_signer_public from a fresh caller-generated ephemeral keypair; only its public key is sent and the private key stays client-side. Also requires a caller-generated session capability token and exact public wallet map. Never auto-chains, signs, or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read a v2 session's current workflow state and current unsigned action. Requires the caller's session capability token. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Observe the caller's already-submitted source transaction hashes for a v2 session and advance the workflow. Requires the caller's session capability token. Never submits a transaction.";
 const V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION = "Observe the caller's already-produced bridge/destination output for a v2 session and advance the workflow. Requires the caller's session capability token. Never submits a transaction.";
@@ -93,6 +93,7 @@ const v2QuoteIntent = z.object(v2QuoteFields).strict();
 const v2SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
 // Public wallet address: EVM 0x-40-hex or Solana base58 (32-44). Never a private key/seed.
 const v2PublicAddress = z.string().refine((value) => /^0x[0-9a-fA-F]{40}$/.test(value) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), "assetfare_v2_wallet_not_public_address");
+const v2EventSignerPublic = v2PublicAddress.describe("Solana CCTP only: caller-generated ephemeral public key. Keep the matching private key client-side and use it to co-sign the returned unsigned event-account transaction; never send the private key.");
 const v2WalletMap = z.record(z.enum(V2_SOURCE_CHAINS), v2PublicAddress).refine((value) => Object.keys(value).length >= 1 && Object.keys(value).length <= 6, "assetfare_v2_wallets_out_of_range");
 const v2PrepareFields = {
   caller_approved: z.literal(true),
@@ -102,7 +103,7 @@ const v2PrepareFields = {
   to_token: z.enum(V2_TOKENS),
   amount_usd: z.number().finite().min(1).max(1000),
   wallets: v2WalletMap,
-  event_signer_public: v2PublicAddress.optional(),
+  event_signer_public: v2EventSignerPublic.optional(),
 };
 const v2PrepareIntent = z.object(v2PrepareFields).strict();
 const v2SessionCreateIntent = z.object({ ...v2PrepareFields, session_token: v2SessionToken, idempotency_key: idempotencyKey }).strict();
@@ -482,6 +483,7 @@ function serverCard() {
   const signature = { type: "string", minLength: 64, maxLength: 128 };
   const sessionCapability = { type: "string", pattern: "^[A-Za-z0-9_-]{43,128}$" };
   const publicAddress = { type: "string" };
+  const eventSignerPublic = { type: "string", description: "Solana CCTP only: caller-generated ephemeral public key. Keep the matching private key client-side and co-sign the returned unsigned event-account transaction; never send the private key." };
   const walletMap = { type: "object", additionalProperties: publicAddress };
   const callerApproved = { type: "boolean", const: true };
   const amountUsd = { type: "number", minimum: 1, maximum: 1000 };
@@ -507,8 +509,8 @@ function serverCard() {
       { name: "assetfare_prepare_destination_action", description: "Prepare an unsigned ERC-4337 settlement plan with bounded permit and deadline.", inputSchema: object({ access_token: token, session_id: uuid, idempotency_key: idempotency }) },
       { name: "assetfare_observe_destination", description: "Verify an already-submitted destination UserOperation receipt; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, transaction_hash: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$" }, idempotency_key: idempotency }) },
       { name: "assetfare_v2_new_session_capability", description: V2_NEW_SESSION_CAPABILITY_DESCRIPTION, inputSchema: object({}) },
-      { name: "assetfare_v2_prepare", description: V2_PREPARE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: publicAddress }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]) },
-      { name: "assetfare_v2_session_create", description: V2_SESSION_CREATE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: publicAddress, session_token: sessionCapability, idempotency_key: idempotency }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "session_token", "idempotency_key"]) },
+      { name: "assetfare_v2_prepare", description: V2_PREPARE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]) },
+      { name: "assetfare_v2_session_create", description: V2_SESSION_CREATE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic, session_token: sessionCapability, idempotency_key: idempotency }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "session_token", "idempotency_key"]) },
       { name: "assetfare_v2_session_get", description: V2_SESSION_GET_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid }) },
       { name: "assetfare_v2_session_observe_source", description: V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hashes: { type: "array", items: { type: "string", minLength: 16, maxLength: 128 }, minItems: 1, maxItems: 8 } }) },
       { name: "assetfare_v2_session_observe_output", description: V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hash: { type: "string", minLength: 16, maxLength: 128 } }, ["session_token", "session_id", "idempotency_key"]) },

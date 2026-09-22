@@ -66,7 +66,7 @@ const PrepareIntent = z.object({
   toToken: Token,
   amountUsd: z.number().finite().min(1).max(1000),
   wallets: WalletMap,
-  eventSignerPublic: PublicAddress.optional(),
+  eventSignerPublic: PublicAddress.describe("Solana CCTP only: caller-generated ephemeral public key. Keep its private key client-side and co-sign the returned unsigned event-account transaction.").optional(),
 }).strict();
 const SessionCreateIntent = PrepareIntent.extend({ sessionToken: SessionToken, idempotencyKey: IdempotencyKey }).strict();
 const SessionReadIntent = z.object({ sessionToken: SessionToken, sessionId: SessionId }).strict();
@@ -282,7 +282,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     }, {
       id: "prepare-first-unsigned-action",
       name: "Prepare the first unsigned action (caller-approved)",
-      description: "Caller-approved one-shot POST /v2/prepare for any supported route: returns the fresh re-quoted bounded first unsigned action bundle. Send {\"operation\":\"prepare\",\"callerApproved\":true, fromChain, fromToken, toChain, toToken, amountUsd, wallets:{chain:publicAddress}, eventSignerPublic?}. Requires an explicit callerApproved:true; rejects any private key/seed/signed transaction. Never auto-called from a quote. AssetFare never signs or submits.",
+      description: "Caller-approved one-shot POST /v2/prepare for a route the live quote reports available. Solana-CCTP requires eventSignerPublic from a fresh caller-generated ephemeral keypair: send only the public key, keep the private key client-side, and co-sign the returned unsigned event-account transaction. Never auto-called; AssetFare never signs or submits.",
       tags: ["prepare", "unsigned-action", "cross-chain", "non-custodial", "caller-approved"],
       examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
       inputModes: ["application/json"],
