@@ -24,10 +24,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.7");
-assert.equal(lockMetadata.version, "0.4.7");
-assert.equal(lockMetadata.packages[""].version, "0.4.7");
-assert.equal(registryMetadata.version, "0.4.7");
+assert.equal(packageMetadata.version, "0.4.8");
+assert.equal(lockMetadata.version, "0.4.8");
+assert.equal(lockMetadata.packages[""].version, "0.4.8");
+assert.equal(registryMetadata.version, "0.4.8");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
@@ -102,6 +102,7 @@ function quote(intent, overrides = {}) {
   const minimumReceive = Math.max(.000001, intent.amount_usd - .05);
   const expectedCost = intent.amount_usd - expectedReceive;
   const maximumCost = intent.amount_usd - minimumReceive;
+  const smallWarning=maximumCost/intent.amount_usd>=.01;
   return {
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
@@ -109,7 +110,7 @@ function quote(intent, overrides = {}) {
     as_of: "2026-09-19T00:00:00Z",
     ttl_seconds: 60,
     intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 2_500_000 },
-    cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:maximumCost/intent.amount_usd>=.01,warning:"fixed provider fee"},
+    cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:smallWarning,warning:smallWarning?"fixed provider fee":null},
     eta:{estimated_time_seconds:23,estimated_time_range_seconds:[8,23],complete_route_estimate:true,sources:["https://github.com/circlefin/cctp-go/blob/main/transfer.go"],note:"estimate"},
     offer: { expected_receive_amount: expectedReceive, estimated_min_receive_amount: minimumReceive, expected_receive_usd:expectedReceive, estimated_min_receive_usd:minimumReceive, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [0], fee_collection: "only_on_eligible_successful_executor_step" },
     route: { steps: [{ index: 0, provider: "fixture" }], server_signing: false, server_submission: false },
@@ -151,7 +152,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (mode === "invalid-json") return new Response("<secret>", { status: 200, headers: { "content-type": "text/html" } });
   if (mode === "wrong-content-type") return new Response(JSON.stringify(quote(validIntent)), { status: 200, headers: { "content-type": "text/plain" } });
   if (mode === "unsafe-error") return new Response(JSON.stringify({ error: "SECRET leak\n", reason_class: "unsafe detail!", retry_after_seconds: 99999 }), { status: 502, headers: { "content-type": "application/json" } });
-  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : capabilities());
+  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : mode === "fake-unavailable-route" ? capabilities({currently_prepare_ready_routes:75,temporarily_unavailable_routes:["evil:USDC->base:USDC"],temporarily_unavailable_route_count:1,execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:false,guarantees_future_availability:false}}) : mode === "availability-status-inconsistent" ? capabilities({execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false}}) : capabilities());
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
@@ -193,6 +194,13 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "cost-service-fee-mismatch") { const value = quote(intent); value.cost_summary.assetfare_service_fee.estimated_usd += .1; return Response.json(value); }
     if (mode === "cost-provider-negative") { const value = quote(intent); value.cost_summary.provider_fee_components=[{provider:"circle_cctp",kind:"forward",expected_usd:-1,maximum_usd:0,included_in_receive_amount:true}]; return Response.json(value); }
     if (mode === "eta-mismatch") { const value = quote(intent); value.eta.estimated_time_seconds = 99; return Response.json(value); }
+    if (mode === "cost-component-sum") { const value=quote(intent);value.cost_summary.provider_fee_components=[{provider:"circle",kind:"forward",expected_usd:1,maximum_usd:1,included_in_receive_amount:true}];return Response.json(value); }
+    if (mode === "cost-component-inverted") { const value=quote(intent);value.cost_summary.provider_fee_components=[{provider:"circle",kind:"forward",expected_usd:.02,maximum_usd:.01,included_in_receive_amount:true}];return Response.json(value); }
+    if (mode === "cost-warning-false") { const value=quote(intent);value.cost_summary.small_amount_warning=true;value.cost_summary.warning="incorrect warning";return Response.json(value); }
+    if (mode === "cost-unpriced-empty") { const value=quote(intent);value.cost_summary.unpriced_costs=[];return Response.json(value); }
+    if (mode === "eta-inverted") { const value=quote(intent);value.eta.estimated_time_range_seconds=[30,23];return Response.json(value); }
+    if (mode === "eta-incomplete-with-time") { const value=quote(intent);value.eta.complete_route_estimate=false;return Response.json(value); }
+    if (mode === "ttl-too-long") { const value=quote(intent);value.ttl_seconds=61;return Response.json(value); }
     if (mode === "rollback-core-no-cost") { const value = quote(intent); delete value.cost_summary;delete value.eta;return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
@@ -214,7 +222,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.7");
+  assert.equal(card.serverInfo.version, "0.4.8");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
@@ -325,7 +333,7 @@ try {
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "eta-mismatch"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
@@ -347,9 +355,9 @@ try {
   assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:false was not rejected");
 
   mode = "success";
-  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
-    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability"].includes(failureMode);
+    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent"].includes(failureMode);
     const result = await call(client, capabilityFailure ? "assetfare_v2_capabilities" : "assetfare_v2_quote", capabilityFailure ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
     const value = parse(result);

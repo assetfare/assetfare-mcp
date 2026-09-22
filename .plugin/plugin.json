@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Non-custodial bridge and cross-chain swap quotes for agents, including Solana to Base USDC; 1bp service fee plus Circle/provider/network fees; unsigned actions; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
