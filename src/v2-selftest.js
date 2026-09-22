@@ -202,6 +202,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "eta-incomplete-with-time") { const value=quote(intent);value.eta.complete_route_estimate=false;return Response.json(value); }
     if (mode === "ttl-too-long") { const value=quote(intent);value.ttl_seconds=61;return Response.json(value); }
     if (mode === "rollback-core-no-cost") { const value = quote(intent); delete value.cost_summary;delete value.eta;return Response.json(value); }
+    if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
   if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "wf-source-only", step_index: 0, unsigned_action: { transaction: "0xUNSIGNED" }, server_signing: false, server_submission: false, signed: false, submitted: false });
@@ -348,6 +349,9 @@ try {
   const rollbackCost = parse(await call(client, "assetfare_v2_quote", executableIntent));
   assert.equal(rollbackCost.cost_summary.scope, "token_path_only_network_gas_excluded");
   assert.ok(rollbackCost.cost_summary.unpriced_costs.includes("provider_fee_breakdown_unavailable_legacy_core"));
+  mode = "submicro-rounding";
+  const roundedQuote=await call(client,"assetfare_v2_quote",executableIntent);
+  assert.equal(roundedQuote.isError??false,false,"sub-micro USD rounding alignment was rejected");
   mode = "success";
   // An audited 1bp source-only route claiming the fee is not collectible must fail closed.
   mode = "source-only-fee-uncollectible";
