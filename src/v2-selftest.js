@@ -76,6 +76,11 @@ function capabilities(overrides = {}) {
     directed_conversion_routes: 76,
     unsigned_route_plans_ready: 76,
     execution_ready_routes: 76,
+    execution_implemented_routes: 76,
+    currently_prepare_ready_routes: 76,
+    temporarily_unavailable_routes: [],
+    temporarily_unavailable_route_count: 0,
+    execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -93,14 +98,20 @@ function executableHandoffV2() { return { kind: "caller_operated_rest_prepare", 
 function quote(intent, overrides = {}) {
   const sourceOnly = SOURCE_ONLY.has(intent.from_chain);
   const fee = 1;
+  const expectedReceive = Math.max(.000001, intent.amount_usd - .01);
+  const minimumReceive = Math.max(.000001, intent.amount_usd - .05);
+  const expectedCost = intent.amount_usd - expectedReceive;
+  const maximumCost = intent.amount_usd - minimumReceive;
   return {
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
     version: "assetfare-direct-multichain-api-quote-v2",
     as_of: "2026-09-19T00:00:00Z",
-    ttl_seconds: 20,
+    ttl_seconds: 60,
     intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 2_500_000 },
-    offer: { expected_receive_amount: 2.49, estimated_min_receive_amount: 2.45, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [0], fee_collection: "only_on_eligible_successful_executor_step" },
+    cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:maximumCost/intent.amount_usd>=.01,warning:"fixed provider fee"},
+    eta:{estimated_time_seconds:23,estimated_time_range_seconds:[8,23],complete_route_estimate:true,sources:["https://github.com/circlefin/cctp-go/blob/main/transfer.go"],note:"estimate"},
+    offer: { expected_receive_amount: expectedReceive, estimated_min_receive_amount: minimumReceive, expected_receive_usd:expectedReceive, estimated_min_receive_usd:minimumReceive, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [0], fee_collection: "only_on_eligible_successful_executor_step" },
     route: { steps: [{ index: 0, provider: "fixture" }], server_signing: false, server_submission: false },
     risk: { non_atomic: true, server_signing: false, server_submission: false },
     execution: { supported: true, first_unsigned_action_supported: true, blocker: null },
@@ -140,7 +151,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (mode === "invalid-json") return new Response("<secret>", { status: 200, headers: { "content-type": "text/html" } });
   if (mode === "wrong-content-type") return new Response(JSON.stringify(quote(validIntent)), { status: 200, headers: { "content-type": "text/plain" } });
   if (mode === "unsafe-error") return new Response(JSON.stringify({ error: "SECRET leak\n", reason_class: "unsafe detail!", retry_after_seconds: 99999 }), { status: 502, headers: { "content-type": "application/json" } });
-  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : capabilities());
+  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : capabilities());
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
@@ -178,6 +189,11 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "fee-step-out-of-range") { const value = quote(intent); value.offer.assetfare_fee_bps = 1; value.offer.fee_collection_steps = [7]; return Response.json(value); }
     if (mode === "execution-false-on-executable") { const value = quote(intent); value.execution = { supported: false, first_unsigned_action_supported: false, blocker: "execution_not_ready_phase_b" }; return Response.json(value); }
     if (mode === "source-only-fee-uncollectible") { const value = quote(intent); value.offer.fee_collectible_now = false; return Response.json(value); }
+    if (mode === "cost-total-mismatch") { const value = quote(intent); value.cost_summary.maximum_total_cost_usd += .5; return Response.json(value); }
+    if (mode === "cost-service-fee-mismatch") { const value = quote(intent); value.cost_summary.assetfare_service_fee.estimated_usd += .1; return Response.json(value); }
+    if (mode === "cost-provider-negative") { const value = quote(intent); value.cost_summary.provider_fee_components=[{provider:"circle_cctp",kind:"forward",expected_usd:-1,maximum_usd:0,included_in_receive_amount:true}]; return Response.json(value); }
+    if (mode === "eta-mismatch") { const value = quote(intent); value.eta.estimated_time_seconds = 99; return Response.json(value); }
+    if (mode === "rollback-core-no-cost") { const value = quote(intent); delete value.cost_summary;delete value.eta;return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
   if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "wf-source-only", step_index: 0, unsigned_action: { transaction: "0xUNSIGNED" }, server_signing: false, server_submission: false, signed: false, submitted: false });
@@ -309,7 +325,7 @@ try {
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "eta-mismatch"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
@@ -320,6 +336,10 @@ try {
   mode = "rollback-core-no-v2";
   const rollbackQuote = await call(client, "assetfare_v2_quote", executableIntent);
   assert.equal(rollbackQuote.isError ?? false, false, "rollback core (v1-only, no v2 sibling) failed to quote");
+  mode = "rollback-core-no-cost";
+  const rollbackCost = parse(await call(client, "assetfare_v2_quote", executableIntent));
+  assert.equal(rollbackCost.cost_summary.scope, "token_path_only_network_gas_excluded");
+  assert.ok(rollbackCost.cost_summary.unpriced_costs.includes("provider_fee_breakdown_unavailable_legacy_core"));
   mode = "success";
   // An audited 1bp source-only route claiming the fee is not collectible must fail closed.
   mode = "source-only-fee-uncollectible";
@@ -327,9 +347,9 @@ try {
   assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:false was not rejected");
 
   mode = "success";
-  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
-    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only"].includes(failureMode);
+    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability"].includes(failureMode);
     const result = await call(client, capabilityFailure ? "assetfare_v2_capabilities" : "assetfare_v2_quote", capabilityFailure ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
     const value = parse(result);

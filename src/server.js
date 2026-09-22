@@ -114,11 +114,23 @@ const v2CapabilitiesResponse = z.object({
   directed_conversion_routes: z.literal(76),
   unsigned_route_plans_ready: z.literal(76),
   execution_ready_routes: z.literal(76),
+  execution_implemented_routes: z.literal(76).optional(),
+  currently_prepare_ready_routes: z.number().int().min(0).max(76).optional(),
+  temporarily_unavailable_routes: z.array(z.string().min(1)).max(76).optional(),
+  temporarily_unavailable_route_count: z.number().int().min(0).max(76).optional(),
+  execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(76), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
   phase_b_blocked_routes: z.literal(0),
   blocked_source_only_routes: z.array(z.never()).length(0),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
+const v2CostSummary = z.object({
+  scope:z.literal("token_path_only_network_gas_excluded"), input_value_usd:z.number().finite().nonnegative(), expected_receive_value_usd:z.number().finite().nonnegative(), minimum_receive_value_usd:z.number().finite().nonnegative(), expected_total_cost_usd:z.number().finite().nonnegative(), maximum_total_cost_usd:z.number().finite().nonnegative(), expected_total_cost_percent:z.number().finite().nonnegative(), maximum_total_cost_percent:z.number().finite().nonnegative(),
+  assetfare_service_fee:z.object({bps:z.literal(1),estimated_usd:z.number().finite().nonnegative(),included_in_receive_amount:z.literal(true),note:z.string().min(1)}).strict(),
+  provider_fee_components:z.array(z.object({provider:z.string().min(1),kind:z.string().min(1),expected_usd:z.number().finite().nonnegative(),maximum_usd:z.number().finite().nonnegative(),included_in_receive_amount:z.literal(true)}).passthrough()),
+  unpriced_costs:z.array(z.string().min(1)), rankable_all_in:z.literal(false), small_amount_warning:z.boolean(), warning:z.string().min(1).nullable(),
+}).strict();
+const v2Eta = z.object({estimated_time_seconds:z.number().int().positive().nullable(),estimated_time_range_seconds:z.tuple([z.number().int().nonnegative(),z.number().int().positive()]).nullable(),complete_route_estimate:z.boolean(),sources:z.array(z.string().url()),note:z.string().min(1)}).strict();
 const v2QuoteResponse = z.object({
   quote_id: z.string().uuid(),
   status: z.literal("capped_public_agent_release"),
@@ -128,6 +140,8 @@ const v2QuoteResponse = z.object({
   offer: z.object({
     expected_receive_amount: z.number().finite().positive(),
     estimated_min_receive_amount: z.number().finite().positive(),
+    expected_receive_usd: z.number().finite().nonnegative(),
+    estimated_min_receive_usd: z.number().finite().nonnegative(),
     output_symbol: z.enum(V2_TOKENS),
     estimated_time_seconds: z.number().int().nonnegative().nullable(),
     assetfare_fee_bps: z.literal(1),
@@ -136,6 +150,8 @@ const v2QuoteResponse = z.object({
     fee_collection_steps: z.array(z.number().int().nonnegative()).length(1),
     fee_collection: z.literal(V2_FEE_COLLECTION_CONST),
   }).passthrough(),
+  cost_summary: v2CostSummary.optional(),
+  eta: v2Eta.optional(),
   route: z.object({
     steps: z.array(z.record(z.unknown())).min(1).max(8),
     server_signing: z.literal(false),
@@ -365,6 +381,10 @@ function parseV2Capabilities(payload) {
   if (endpoints.size !== V2_ENDPOINTS.size || [...V2_ENDPOINTS].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
   if(new Set(value.source_only_routes).size!==4)throw new Error("assetfare_v2_safety_boundary_failed");
   if(value.blocked_source_only_routes.length!==0)throw new Error("assetfare_v2_safety_boundary_failed");
+  const availabilityKeys=["execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"];
+  const availabilityPresent=availabilityKeys.filter((key)=>Object.prototype.hasOwnProperty.call(value,key));
+  if(availabilityPresent.length!==0&&availabilityPresent.length!==availabilityKeys.length)throw new Error("assetfare_v2_current_availability_invalid");
+  if(availabilityPresent.length===availabilityKeys.length&&(value.temporarily_unavailable_route_count!==value.temporarily_unavailable_routes.length || value.currently_prepare_ready_routes!==value.execution_implemented_routes-value.temporarily_unavailable_route_count || new Set(value.temporarily_unavailable_routes).size!==value.temporarily_unavailable_routes.length))throw new Error("assetfare_v2_current_availability_invalid");
   return value;
 }
 
@@ -411,6 +431,16 @@ function parseV2Quote(payload, intent) {
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
   if (value.intent.from !== `${intent.from_chain}:${intent.from_token}` || value.intent.to !== `${intent.to_chain}:${intent.to_token}` || value.intent.amount_usd !== intent.amount_usd) throw new Error("assetfare_v2_quote_binding_failed");
   if (value.offer.output_symbol !== intent.to_token || value.offer.estimated_min_receive_amount > value.offer.expected_receive_amount) throw new Error("assetfare_v2_quote_binding_failed");
+  if (value.cost_summary) {
+    const expectedCost=Math.max(0,intent.amount_usd-value.offer.expected_receive_usd),maximumCost=Math.max(0,intent.amount_usd-value.offer.estimated_min_receive_usd),close=(a,b,t=.000001)=>Math.abs(a-b)<=t;
+    if (value.cost_summary.input_value_usd !== intent.amount_usd || value.cost_summary.expected_receive_value_usd !== value.offer.expected_receive_usd || value.cost_summary.minimum_receive_value_usd !== value.offer.estimated_min_receive_usd || value.cost_summary.maximum_total_cost_usd < value.cost_summary.expected_total_cost_usd || value.cost_summary.assetfare_service_fee.bps !== value.offer.assetfare_fee_bps || !close(value.cost_summary.expected_total_cost_usd,expectedCost) || !close(value.cost_summary.maximum_total_cost_usd,maximumCost) || !close(value.cost_summary.expected_total_cost_percent,expectedCost/intent.amount_usd*100,.0001) || !close(value.cost_summary.maximum_total_cost_percent,maximumCost/intent.amount_usd*100,.0001) || !close(value.cost_summary.assetfare_service_fee.estimated_usd,Math.min(intent.amount_usd/10000,5))) throw new Error("assetfare_v2_cost_summary_binding_failed");
+  }
+  if (value.eta && (value.eta.estimated_time_seconds !== value.offer.estimated_time_seconds || (value.eta.complete_route_estimate && (!value.eta.estimated_time_range_seconds || value.eta.estimated_time_seconds !== value.eta.estimated_time_range_seconds[1])))) throw new Error("assetfare_v2_eta_binding_failed");
+  if (!value.cost_summary) {
+    const expected=Math.max(0,intent.amount_usd-value.offer.expected_receive_usd), maximum=Math.max(0,intent.amount_usd-value.offer.estimated_min_receive_usd);
+    value.cost_summary={scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:value.offer.expected_receive_usd,minimum_receive_value_usd:value.offer.estimated_min_receive_usd,expected_total_cost_usd:expected,maximum_total_cost_usd:maximum,expected_total_cost_percent:expected/intent.amount_usd*100,maximum_total_cost_percent:maximum/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not the total route cost"},provider_fee_components:[],unpriced_costs:["provider_fee_breakdown_unavailable_legacy_core","source_chain_network_fee"],rankable_all_in:false,small_amount_warning:maximum/intent.amount_usd>=.01,warning:"Legacy-core fallback: total is derived from receive value; provider component detail is unavailable."};
+  }
+  if (!value.eta) value.eta={estimated_time_seconds:value.offer.estimated_time_seconds,estimated_time_range_seconds:null,complete_route_estimate:false,sources:[],note:"Legacy-core fallback; full ETA provenance unavailable"};
   if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true || ("blocker" in value.execution && value.execution.blocker !== null)) throw new Error("assetfare_v2_execution_boundary_failed");
   validateFee(value.offer, value.route.steps.length);
   validateHandoff(value.caller_action_plan_handoff);
