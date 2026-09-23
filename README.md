@@ -334,6 +334,21 @@ The repository also contains a stdio-compatible wrapper for self-hosting. The
 public Registry entry uses the remote Streamable HTTP endpoint. Package and
 Registry releases remain separately reviewed from remote deployment.
 
+## npm release publishing
+
+npm releases use GitHub Actions OIDC trusted publishing through
+`.github/workflows/publish-npm.yml`. The workflow is manually dispatched with
+an existing immutable `v<package-version>` GitHub release tag, verifies that
+the exact tag is on `main` and matches `package.json`, runs the complete package
+checks and production audit, refuses an already-published version, and publishes
+with short-lived OIDC credentials. No npm write token is stored in GitHub or
+this repository.
+
+The npm trusted-publisher record is pinned to GitHub organization `assetfare`,
+repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
+`npm publish` is allowed only for that workflow. Package settings should require
+2FA and disallow traditional tokens after the OIDC connection is verified.
+
 ## Trust material
 
 - Security contact: `security@assetfare.dev`

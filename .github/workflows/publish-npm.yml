@@ -1,0 +1,60 @@
+name: Publish npm with OIDC
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag (for example v0.4.15)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Pin npm CLI with trusted-publishing support
+        run: npm install --global npm@12.1.0
+      - name: Verify immutable tag and package version
+        run: |
+          test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "$RELEASE_TAG")"
+          git merge-base --is-ancestor HEAD origin/main
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          test "$(npm --version)" = "12.1.0"
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Verify package
+        run: |
+          npm run check
+          npm test
+          npm run route-eval-selftest
+          npm audit --omit=dev --audit-level=high
+          npm pack --dry-run
+      - name: Refuse an existing registry version
+        run: |
+          package_name="$(node -p 'require("./package.json").name')"
+          package_version="$(node -p 'require("./package.json").version')"
+          if npm view "$package_name@$package_version" version >/dev/null 2>&1; then
+            echo "Refusing to republish existing $package_name@$package_version" >&2
+            exit 1
+          fi
+      - name: Publish with short-lived npm OIDC credentials
+        run: npm publish --access public
