@@ -4,7 +4,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
       root-runtime:
         dependency-type: production
@@ -25,7 +25,10 @@ updates:
     directory: /integrations/agenti
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-agenti-dependencies:
         patterns:
@@ -38,7 +41,10 @@ updates:
     directory: /integrations/coinbase-agentkit
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-agentkit-dependencies:
         patterns:
@@ -51,7 +57,10 @@ updates:
     directory: /integrations/elizaos
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-elizaos-dependencies:
         patterns:
@@ -64,7 +73,10 @@ updates:
     directory: /integrations/goat-sdk
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-goat-dependencies:
         patterns:
@@ -77,7 +89,10 @@ updates:
     directory: /integrations/solana-agent-kit
     schedule:
       interval: monthly
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-solana-agent-kit-dependencies:
         patterns:
