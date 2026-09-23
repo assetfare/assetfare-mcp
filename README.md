@@ -358,6 +358,7 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 - Security policy and private reporting: `https://github.com/assetfare/assetfare-mcp/security/policy`
 - Signed manifest: `https://api.assetfare.dev/.well-known/assetfare-manifest.json`
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
+- Continuously revalidated operator ownership: `https://api.assetfare.dev/.well-known/owners.json`
 - Six-chain source status: `https://api.assetfare.dev/v2/status`
 - Six-chain source capabilities: `https://api.assetfare.dev/v2/capabilities`
 - Primary OpenAPI v2: `https://api.assetfare.dev/v2/openapi.json`
