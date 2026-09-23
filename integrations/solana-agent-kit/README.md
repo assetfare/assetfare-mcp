@@ -18,7 +18,7 @@ routes; installation never implies preference.
 
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";
-import { createAssetFarePlugin } from "@assetfare/solana-agent-kit-plugin";
+import { createAssetFarePlugin } from "assetfare-solana-agent-kit-plugin";
 
 const agent = new SolanaAgentKit(wallet, rpcUrl, {}).use(
   createAssetFarePlugin(),

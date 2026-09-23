@@ -20,7 +20,7 @@ then register the provider:
 
 ```ts
 import { AgentKit } from "@coinbase/agentkit";
-import { assetFareActionProvider } from "@assetfare/agentkit-action-provider";
+import { assetFareActionProvider } from "assetfare-agentkit-action-provider";
 
 const agentKit = await AgentKit.from({
   walletProvider,

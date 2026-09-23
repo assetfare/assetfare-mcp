@@ -17,7 +17,7 @@ stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 
 ```ts
-import { assetFareElizaPlugin } from "@assetfare/elizaos-route-plugin";
+import { assetFareElizaPlugin } from "assetfare-elizaos-route-plugin";
 
 export const character = {
   plugins: [assetFareElizaPlugin],
