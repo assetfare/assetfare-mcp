@@ -21,7 +21,10 @@
     "@types/node": "^22.0.0",
     "solana-agent-kit": "2.0.7",
     "typescript": "^5.7.0",
-    "zod": "3.24.1"
+    "zod": "3.25.76"
+  },
+  "overrides": {
+    "jsondiffpatch": "0.7.6"
   },
   "engines": {"node": ">=20"},
   "license": "MIT",
