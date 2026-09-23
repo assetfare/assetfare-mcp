@@ -57,8 +57,8 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs",
-    "test": "node src/selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/agent-plugin-selftest.mjs",
+    "check": "node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs",
+    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/agent-plugin-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",
     "route-eval": "node scripts/route-eval.mjs",
