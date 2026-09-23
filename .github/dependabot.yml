@@ -4,7 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 2
+    # Routine version churn is reviewed in scheduled maintenance batches.
+    # GitHub Dependabot security updates remain enabled at repository level.
+    open-pull-requests-limit: 0
     groups:
       root-runtime:
         dependency-type: production
@@ -15,7 +17,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     groups:
       all-actions:
         patterns:
@@ -25,7 +27,7 @@ updates:
     directory: /integrations/agenti
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -41,7 +43,7 @@ updates:
     directory: /integrations/coinbase-agentkit
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -57,7 +59,7 @@ updates:
     directory: /integrations/elizaos
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -73,7 +75,7 @@ updates:
     directory: /integrations/goat-sdk
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -89,7 +91,7 @@ updates:
     directory: /integrations/solana-agent-kit
     schedule:
       interval: monthly
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
