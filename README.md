@@ -21,6 +21,12 @@ Verify before trusting: [public source](https://github.com/odaiin/assetfare-mcp)
 [on-chain execution evidence](https://assetfare.dev/evidence/). Quotes are
 estimates; compare fresh executable route outputs.
 
+AssetFare is maintained by a distributed project team using one public release
+namespace during the pilot. Roles, release controls, and the current public
+owner are documented in [GOVERNANCE.md](GOVERNANCE.md) and
+[MAINTAINERS.md](MAINTAINERS.md); this is not a claim of incorporation or
+independent third-party audit.
+
 Interfaces: MCP + A2A + REST/OpenAPI.
 
 This repository contains an optional MCP adapter. Its primary read-only

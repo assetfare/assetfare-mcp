@@ -1,0 +1,4 @@
+# The pilot currently uses one public release namespace. Review roles and
+# release controls are documented in GOVERNANCE.md.
+* @odaiin
+
