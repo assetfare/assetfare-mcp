@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@elizaos/core": "1.7.2",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.2",
     "typescript": "5.9.3",
     "zod": "4.3.5"
   },
