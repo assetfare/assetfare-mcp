@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.12",
+  "version": "0.4.13",
   "description": "AssetFare: non-custodial bridge and cross-chain swap quotes for agents, e.g. Solana SOL to Base USDC. 1bp service fee plus Circle/provider/network fees; unsigned txs, never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -22,7 +22,7 @@
   "mcpName": "io.github.assetfare/assetfare",
   "repository": {
     "type": "git",
-    "url": "https://github.com/assetfare/assetfare-mcp.git"
+    "url": "git+https://github.com/assetfare/assetfare-mcp.git"
   },
   "keywords": [
     "ai-agents",
