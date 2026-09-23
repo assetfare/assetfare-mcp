@@ -2,7 +2,7 @@
 
 [![Public safety checks](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
-[![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.assetfare/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.assetfare/assetfare)
+[![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/assetfare/assetfare-mcp)
 
 AssetFare is a non-custodial, agent-native cross-chain route service. It provides
@@ -106,7 +106,7 @@ MCP:
 
 `https://api.assetfare.dev/mcp`
 
-Official MCP Registry server: `io.github.assetfare/assetfare`.
+Official MCP Registry server: `io.github.odaiin/assetfare` (legacy registry namespace; the canonical source owner is the `assetfare` GitHub organization).
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
 with a $1 minimum and no adapter-enforced maximum; live upstream availability
@@ -358,10 +358,10 @@ Registry releases remain separately reviewed from remote deployment.
 
 ## Discovery
 
-- Official MCP Registry: `io.github.assetfare/assetfare`
+- Official MCP Registry: `io.github.odaiin/assetfare` (legacy namespace pending Registry migration)
 - MCP Servers: `https://mcpservers.org/servers/assetfare/assetfare-mcp`
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
-- Glama: `https://glama.ai/mcp/connectors/io.github.assetfare/assetfare`
+- Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/assetfare/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
 - Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `401ecf835a3e0c95807c245a208eeda81b0d9b81`)

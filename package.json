@@ -19,7 +19,7 @@
     "LICENSE",
     "server.json"
   ],
-  "mcpName": "io.github.assetfare/assetfare",
+  "mcpName": "io.github.odaiin/assetfare",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/assetfare/assetfare-mcp.git"
