@@ -51,7 +51,7 @@ const MANIFEST_KEYS = ["endpoints", "execution", "issued_at", "limits", "mainnet
 const SIGNATURE_KEYS = ["algorithm", "canonicalization", "key_id", "public_key_url", "value"];
 const MANIFEST_BUNDLE_KEYS = ["canonicalization", "schema", "sha256", "url"];
 const BUNDLE_KEYS = ["bundle_version", "claims", "evidence", "known_limitations", "operational_disclosures", "release", "schema", "service", "verifier_rules"];
-const RELEASE_KEYS = ["bundle_url", "canonicalization", "commit", "commit_url", "repository_url"];
+const RELEASE_KEYS = ["bundle_url", "canonicalization", "commit", "public_evidence_commit", "public_evidence_repository", "public_evidence_tree_url"];
 const CLAIM_KEYS = ["administration_policy", "amount_policy", "fee_policy", "noncustody_policy", "scope"];
 const SCOPE_KEYS = ["chains", "evm_deployments", "unique_solidity_sources"];
 const FEE_KEYS = ["assetfare_service_fee_bps", "formula", "maximum_stable_base", "provider_and_network_fees_additional", "zero_fee_routes_allowed"];
@@ -62,9 +62,9 @@ const EVIDENCE_KEYS = ["build", "deployments", "public_urls", "sources"];
 const SOURCE_KEYS = ["artifact_path", "artifact_sha256", "artifact_url", "contract", "path", "sha256", "source_url"];
 const BUILD_KEYS = ["build_script_paths", "compiler", "compiler_version", "evm_version", "language", "metadata_bytecode_hash", "optimizer", "package_lock_path", "package_lock_sha256"];
 const OPTIMIZER_KEYS = ["enabled", "runs"];
-const DEPLOYMENT_KEYS = ["address", "block_hash", "block_number", "chain", "chain_id", "config_path", "config_sha256", "configuration", "explorer_transaction_url", "id", "kind", "runtime_code", "runtime_code_keccak256", "runtime_code_sha256", "source_contract", "transaction_hash"];
+const DEPLOYMENT_KEYS = ["address", "block_hash", "block_number", "chain", "chain_id", "configuration", "explorer_transaction_url", "id", "kind", "runtime_code", "runtime_code_keccak256", "runtime_code_sha256", "source_contract", "transaction_hash"];
 const PUBLIC_URL_KEYS = ["incidents", "manifest", "onchain_evidence", "reproducible_invariants", "security_reviews", "source_repository", "source_tree", "status", "uptime", "verifier"];
-const VERIFIER_RULE_KEYS = ["artifact_sha256", "bundle_sha256", "config_sha256", "deployment_receipt", "runtime_code", "source_sha256"];
+const VERIFIER_RULE_KEYS = ["artifact_sha256", "bundle_sha256", "deployment_receipt", "runtime_code", "source_sha256"];
 const OPERATIONAL_KEYS = ["last_updated_at", "public_incident_count_claimed", "public_incident_log_url", "status_url", "third_party_uptime_monitor_url", "uptime_percentage_claimed", "uptime_slo_published"];
 const SUBJECTIVE_KEYS = new Set(["audit_passed", "audited", "risk_score", "safe", "safety_rating", "secure", "trust_score", "verdict"]);
 const DEPLOYMENTS = Object.freeze({
@@ -240,7 +240,8 @@ function validateBundle(bundle, manifest) {
 
   exactKeys(bundle.release, RELEASE_KEYS, "bundle.release");
   expectString(bundle.release.commit, "bundle.release.commit", /^[0-9a-f]{40}$/);
-  if (bundle.release.repository_url !== "https://github.com/odaiin/assetfare" || bundle.release.commit_url !== `https://github.com/odaiin/assetfare/tree/${bundle.release.commit}` || bundle.release.bundle_url !== BUNDLE_URL || bundle.release.canonicalization !== CANONICALIZATION) fail("bundle release provenance is invalid");
+  expectString(bundle.release.public_evidence_commit, "bundle.release.public_evidence_commit", /^[0-9a-f]{40}$/);
+  if (bundle.release.public_evidence_repository !== "https://github.com/odaiin/assetfare-mcp" || bundle.release.public_evidence_tree_url !== `https://github.com/odaiin/assetfare-mcp/tree/${bundle.release.public_evidence_commit}/verification/core` || bundle.release.bundle_url !== BUNDLE_URL || bundle.release.canonicalization !== CANONICALIZATION) fail("bundle release provenance is invalid");
   if (manifest.release_commit !== bundle.release.commit) fail("bundle release commit does not match the signed manifest");
 
   exactKeys(bundle.claims, CLAIM_KEYS, "bundle.claims");
@@ -271,7 +272,7 @@ function validateBundle(bundle, manifest) {
     for (const key of ["sha256", "artifact_sha256"]) expectString(source[key], `source ${key}`, /^[0-9a-f]{64}$/);
     for (const key of ["source_url", "artifact_url"]) {
       expectString(source[key], `source ${key}`);
-      if (!source[key].startsWith(`https://github.com/odaiin/assetfare/blob/${bundle.release.commit}/`)) fail(`source ${key} is not pinned to the release commit`);
+      if (!source[key].startsWith(`https://raw.githubusercontent.com/odaiin/assetfare-mcp/${bundle.release.public_evidence_commit}/verification/core/`)) fail(`source ${key} is not pinned to the public evidence commit`);
     }
   }
 
@@ -284,7 +285,7 @@ function validateBundle(bundle, manifest) {
   expectString(build.package_lock_path, "build package_lock_path", /^(?!\/)(?!.*\.\.)(?!.*\\).+$/);
   expectString(build.package_lock_sha256, "build package_lock_sha256", /^[0-9a-f]{64}$/);
   if (!Array.isArray(build.build_script_paths) || build.build_script_paths.length === 0 || build.build_script_paths.some((path) => typeof path !== "string" || !/^(?!\/)(?!.*\.\.)(?!.*\\).+$/.test(path))) fail("bundle build script paths are invalid");
-  if (!build.build_script_paths.includes("gasless_validator/agent_safety_invariants_preflight.mjs")) fail("bundle omits the reproducible invariant script");
+  if (!build.build_script_paths.includes("verification/core/agent_safety_invariants_preflight.mjs")) fail("bundle omits the reproducible invariant script");
 
   if (!Array.isArray(bundle.evidence.deployments) || bundle.evidence.deployments.length !== Object.keys(DEPLOYMENTS).length) fail("bundle must include every deployment exactly once");
   if (canonical(bundle.evidence.deployments.map(({ id }) => id)) !== canonical(Object.keys(DEPLOYMENTS))) fail("bundle deployments must use the complete sorted id set");
@@ -306,8 +307,6 @@ function validateBundle(bundle, manifest) {
     expectString(deployment.runtime_code_keccak256, "deployment runtime code Keccak-256", /^0x[0-9a-f]{64}$/);
     const rawCode = Buffer.from(deployment.runtime_code.slice(2), "hex");
     if (sha256Hex(rawCode) !== deployment.runtime_code_sha256 || `0x${keccak256Hex(rawCode)}` !== deployment.runtime_code_keccak256) fail(`bundle runtime code hashes mismatch for ${deployment.id}`);
-    expectString(deployment.config_path, "deployment config_path", /^(?!\/)(?!.*\.\.)(?!.*\\).+$/);
-    expectString(deployment.config_sha256, "deployment config_sha256", /^[0-9a-f]{64}$/);
     exactKeys(deployment.configuration, expected.configuration, `bundle deployment ${deployment.id} configuration`);
     for (const [key, value] of Object.entries(deployment.configuration)) {
       if (key === "source_domain") {
@@ -329,7 +328,7 @@ function validateBundle(bundle, manifest) {
     if (value === null && ["incidents", "uptime"].includes(key)) continue;
     expectString(value, `bundle public URL ${key}`, /^https:\/\//);
   }
-  if (bundle.evidence.public_urls.manifest !== MANIFEST_URL || bundle.evidence.public_urls.source_repository !== bundle.release.repository_url || bundle.evidence.public_urls.verifier !== "https://github.com/odaiin/assetfare-mcp/blob/main/scripts/assetfare-verify.mjs") fail("bundle required public URLs are invalid");
+  if (bundle.evidence.public_urls.manifest !== MANIFEST_URL || bundle.evidence.public_urls.source_repository !== bundle.release.public_evidence_repository || bundle.evidence.public_urls.source_tree !== bundle.release.public_evidence_tree_url || bundle.evidence.public_urls.verifier !== `https://github.com/odaiin/assetfare-mcp/blob/${bundle.release.public_evidence_commit}/scripts/assetfare-verify.mjs`) fail("bundle required public URLs are invalid");
 
   exactKeys(bundle.verifier_rules, VERIFIER_RULE_KEYS, "bundle.verifier_rules");
   for (const [key, value] of Object.entries(bundle.verifier_rules)) expectString(value, `bundle verifier rule ${key}`, /^.{8,500}$/);
@@ -378,6 +377,44 @@ async function fetchCanonicalJson(url, maximumBytes, label, fetchImpl = fetch) {
   if (!response.ok) fail(`${label} fetch failed with HTTP ${response.status}`);
   requireJsonMime(response, label);
   return parseCanonicalJson(await readBoundedBody(response, maximumBytes, label), label);
+}
+
+async function fetchEvidenceBytes(url, maximumBytes, label, fetchImpl = fetch) {
+  let response;
+  try {
+    response = await fetchImpl(url, { method: "GET", redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS), headers: { accept: "application/octet-stream, text/plain, application/json" } });
+  } catch (error) {
+    fail(`${label} fetch failed: ${error instanceof Error ? error.message : "network error"}`);
+  }
+  if (response.status >= 300 && response.status < 400) fail(`${label} redirect is forbidden`);
+  if (!response.ok) fail(`${label} fetch failed with HTTP ${response.status}`);
+  const contentType = (response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+  if (!["application/json", "application/octet-stream", "text/plain", "text/x-solidity", "text/javascript"].includes(contentType)) fail(`${label} has invalid MIME type`);
+  return readBoundedBody(response, maximumBytes, label);
+}
+
+async function verifyPublicEvidence(bundle, fetchImpl = fetch) {
+  const commit = bundle.release.public_evidence_commit;
+  const rawRoot = `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${commit}/`;
+  const expected = [];
+  for (const source of bundle.evidence.sources) {
+    expected.push({ url: source.source_url, sha256: source.sha256, label: `source ${source.contract}` });
+    expected.push({ url: source.artifact_url, sha256: source.artifact_sha256, label: `artifact ${source.contract}` });
+  }
+  expected.push({ url: rawRoot + bundle.evidence.build.package_lock_path, sha256: bundle.evidence.build.package_lock_sha256, label: "build lockfile" });
+  const hashes = await Promise.all(expected.map(async (item) => {
+    if (!item.url.startsWith(rawRoot)) fail(`${item.label} is not pinned to the public evidence commit`);
+    const bytes = await fetchEvidenceBytes(item.url, 1024 * 1024, item.label, fetchImpl);
+    const observed = sha256Hex(bytes);
+    if (observed !== item.sha256) fail(`${item.label} SHA-256 mismatch`);
+    return { label: item.label, sha256: observed };
+  }));
+  const scripts = await Promise.all(bundle.evidence.build.build_script_paths.map(async (path) => {
+    if (!path.startsWith("verification/core/") || path.includes("..") || path.includes("\\")) fail("build script path is invalid");
+    const bytes = await fetchEvidenceBytes(rawRoot + path, 256 * 1024, `build script ${path}`, fetchImpl);
+    return { path, sha256: sha256Hex(bytes) };
+  }));
+  return { repository: bundle.release.public_evidence_repository, commit, hashed_files: hashes, build_scripts: scripts };
 }
 
 async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
@@ -509,12 +546,14 @@ async function run(args, options = {}) {
   const validity = validateManifest(manifest, publicKey, expectedKeyId, now);
   if (args.mode === "live") bundle = await fetchCanonicalJson(manifest.safety_bundle.url, MAX_BUNDLE_BYTES, "safety bundle", options.fetchImpl);
   const chains = validateBundle(bundle, manifest);
+  const publicEvidence = args.mode === "live" ? await verifyPublicEvidence(bundle, options.fetchImpl) : null;
   const rpc = args.mode === "live" ? await verifyRpcQuorum(chains, options.fetchImpl) : [];
   return {
     status: args.mode === "live" ? "live_verified" : "offline_evidence_verified",
     mode: args.mode,
     manifest: { key_id: manifest.signature.key_id, release_commit: manifest.release_commit, valid_until: new Date(validity.validUntil).toISOString() },
     safety_bundle: { sha256: manifest.safety_bundle.sha256, chains_verified: [...chains.keys()], raw_runtime_code_hashes_verified: [...chains.values()].reduce((sum, chain) => sum + chain.contracts.size, 0) },
+    public_evidence: { performed: args.mode === "live", details: publicEvidence },
     rpc_quorum: { performed: args.mode === "live", chains: rpc },
     limitations: bundle.known_limitations,
     signing_or_submission_performed: false,
@@ -543,6 +582,7 @@ export {
   RPC_PROVIDERS,
   canonical,
   fetchCanonicalJson,
+  fetchEvidenceBytes,
   keccak256Hex,
   parseArgs,
   parseCanonicalJson,
@@ -550,6 +590,7 @@ export {
   sha256Hex,
   validateBundle,
   validateManifest,
+  verifyPublicEvidence,
   verifyRpcQuorum,
 };
 

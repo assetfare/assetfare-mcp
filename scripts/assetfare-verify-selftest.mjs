@@ -18,12 +18,14 @@ import {
   sha256Hex,
   validateBundle,
   validateManifest,
+  verifyPublicEvidence,
   verifyRpcQuorum,
 } from "./assetfare-verify.mjs";
 
 const { privateKey: PRIVATE_KEY, publicKey: publicKeyObject } = generateKeyPairSync("ed25519");
 const PUBLIC_KEY = publicKeyObject.export({ type: "spki", format: "pem" });
 const RELEASE = "96cc132896cc132896cc132896cc132896cc1328";
+const PUBLIC_EVIDENCE_COMMIT = "8fbc3a475406203525c752d1b628ad8ea3ca51d8";
 const NOW = Date.parse("2026-09-23T00:00:00Z");
 const ADDRESS = (number) => `0x${number.toString(16).padStart(40, "0")}`;
 const HASH = (number) => `0x${number.toString(16).padStart(64, "0")}`;
@@ -55,14 +57,14 @@ function fixtureBundle() {
     },
     evidence: {
       build: {
-        build_script_paths: ["gasless_validator/agent_safety_invariants_preflight.mjs"],
+        build_script_paths: ["verification/core/agent_safety_invariants_preflight.mjs"],
         compiler: "solc-js",
         compiler_version: "0.8.30+commit.73712a01",
         evm_version: "compiler_default",
         language: "Solidity",
         metadata_bytecode_hash: "ipfs",
         optimizer: { enabled: true, runs: 200 },
-        package_lock_path: "package-lock.json",
+        package_lock_path: "verification/core/package-lock.json",
         package_lock_sha256: SHA("lock"),
       },
       deployments: deployments.map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
@@ -74,8 +76,6 @@ function fixtureBundle() {
           block_number: String(index + 1),
           chain,
           chain_id: chainId,
-          config_path: `config/${id.replace(":", "-")}.json`,
-          config_sha256: SHA(`config-${id}`),
           configuration,
           explorer_transaction_url: `https://example.com/${chain}/tx/${index}`,
           id,
@@ -91,22 +91,22 @@ function fixtureBundle() {
         incidents: null,
         manifest: "https://api.assetfare.dev/.well-known/assetfare-manifest.json",
         onchain_evidence: "https://assetfare.dev/evidence/",
-        reproducible_invariants: `https://github.com/odaiin/assetfare/blob/${RELEASE}/gasless_validator/agent_safety_invariants_preflight.mjs`,
+        reproducible_invariants: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/agent_safety_invariants_preflight.mjs`,
         security_reviews: "https://assetfare.dev/security-reviews/",
-        source_repository: "https://github.com/odaiin/assetfare",
-        source_tree: `https://github.com/odaiin/assetfare/tree/${RELEASE}`,
+        source_repository: "https://github.com/odaiin/assetfare-mcp",
+        source_tree: `https://github.com/odaiin/assetfare-mcp/tree/${PUBLIC_EVIDENCE_COMMIT}/verification/core`,
         status: "https://api.assetfare.dev/v2/status",
         uptime: null,
-        verifier: "https://github.com/odaiin/assetfare-mcp/blob/main/scripts/assetfare-verify.mjs",
+        verifier: `https://github.com/odaiin/assetfare-mcp/blob/${PUBLIC_EVIDENCE_COMMIT}/scripts/assetfare-verify.mjs`,
       },
       sources: sourceNames.map((contract) => ({
-        artifact_path: `gasless_validator/artifacts/${contract}.json`,
+        artifact_path: `verification/core/artifacts/${contract}.json`,
         artifact_sha256: SHA(`artifact-${contract}`),
-        artifact_url: `https://github.com/odaiin/assetfare/blob/${RELEASE}/gasless_validator/artifacts/${contract}.json`,
+        artifact_url: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/artifacts/${contract}.json`,
         contract,
-        path: `gasless_validator/contracts/${contract}.sol`,
+        path: `verification/core/contracts/${contract}.sol`,
         sha256: SHA(`source-${contract}`),
-        source_url: `https://github.com/odaiin/assetfare/blob/${RELEASE}/gasless_validator/contracts/${contract}.sol`,
+        source_url: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/contracts/${contract}.sol`,
       })),
     },
     known_limitations: ["This proves published bytecode identity and factual invariants, not the absence of unknown defects."],
@@ -123,15 +123,15 @@ function fixtureBundle() {
       bundle_url: BUNDLE_URL,
       canonicalization: CANONICALIZATION,
       commit: RELEASE,
-      commit_url: `https://github.com/odaiin/assetfare/tree/${RELEASE}`,
-      repository_url: "https://github.com/odaiin/assetfare",
+      public_evidence_commit: PUBLIC_EVIDENCE_COMMIT,
+      public_evidence_repository: "https://github.com/odaiin/assetfare-mcp",
+      public_evidence_tree_url: `https://github.com/odaiin/assetfare-mcp/tree/${PUBLIC_EVIDENCE_COMMIT}/verification/core`,
     },
     schema: BUNDLE_SCHEMA,
     service: "AssetFare",
     verifier_rules: {
       artifact_sha256: "Hash every published artifact byte-for-byte.",
       bundle_sha256: "Hash the recursively canonicalized complete bundle.",
-      config_sha256: "Hash every exact deployment configuration file.",
       deployment_receipt: "Check the transaction and canonical block receipt.",
       runtime_code: "Check raw bytes with two RPCs, SHA-256, and Keccak-256.",
       source_sha256: "Hash every published Solidity source byte-for-byte.",
@@ -180,6 +180,20 @@ const chains = validateBundle(bundle, manifest);
 assert.equal(chains.size, 5);
 assert.equal(keccak256Hex(Buffer.alloc(0)), "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 assert.equal(keccak256Hex(Buffer.from("abc")), "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45");
+
+async function publicEvidenceFixture(url) {
+  const source = bundle.evidence.sources.find((row) => row.source_url === url);
+  if (source) return new Response(`source-${source.contract}`, { status: 200, headers: { "content-type": "text/plain" } });
+  const artifact = bundle.evidence.sources.find((row) => row.artifact_url === url);
+  if (artifact) return new Response(`artifact-${artifact.contract}`, { status: 200, headers: { "content-type": "application/json" } });
+  if (url.endsWith("/package-lock.json")) return new Response("lock", { status: 200, headers: { "content-type": "application/json" } });
+  if (bundle.evidence.build.build_script_paths.some((path) => url.endsWith(`/${path}`))) return new Response("script", { status: 200, headers: { "content-type": "text/javascript" } });
+  throw new Error(`unexpected public evidence URL ${url}`);
+}
+const publicEvidence = await verifyPublicEvidence(bundle, publicEvidenceFixture);
+assert.equal(publicEvidence.hashed_files.length, 11);
+assert.equal(publicEvidence.build_scripts.length, 1);
+await expectReject(() => verifyPublicEvidence(bundle, async (url) => url.includes("/contracts/") ? new Response("mutated", { status: 200, headers: { "content-type": "text/plain" } }) : publicEvidenceFixture(url)), /SHA-256 mismatch/);
 
 const fixtureDirectory = await mkdtemp(join(tmpdir(), "assetfare-verify-"));
 try {
