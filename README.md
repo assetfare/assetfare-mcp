@@ -21,6 +21,49 @@ Verify before trusting: [public source](https://github.com/odaiin/assetfare-mcp)
 [on-chain execution evidence](https://assetfare.dev/evidence/). Quotes are
 estimates; compare fresh executable route outputs.
 
+### Independent agent verifier
+
+The dependency-free `assetfare-verify` CLI verifies evidence instead of
+accepting an AssetFare `pass`, `safe`, score, or verdict field. From this
+checkout, live verification is explicit:
+
+```bash
+node scripts/assetfare-verify.mjs --live
+```
+
+A package release that contains the `assetfare-verify` bin entry can be invoked
+with `npx --yes --package=assetfare-mcp assetfare-verify --live`. Do not pin an
+older package version that predates this command.
+
+Live mode uses the public Ed25519 key and key id embedded in the verifier. It
+fetches only the pinned manifest and its hash-bound safety bundle, rejects
+redirects, unexpected MIME types, non-canonical JSON, unknown/missing schema
+keys, oversized responses, expired manifests, and subjective safety claims. It
+then obtains `eth_chainId` and exact `eth_getCode` bytes from two independently
+pinned public RPC providers on every supported EVM chain. The raw bytes must
+agree with one another and with both the bundle's SHA-256 and Ethereum
+Keccak-256 evidence. These are read-only calls; the command has no signing or
+transaction-submission path.
+
+For deterministic or air-gapped checking, pass all three trust-material files
+explicitly:
+
+```bash
+node scripts/assetfare-verify.mjs --offline \
+  --manifest ./fixtures/manifest.json \
+  --bundle ./fixtures/safety-bundle.json \
+  --pubkey ./fixtures/assetfare-manifest.pub
+```
+
+Offline mode makes no network requests. It verifies the supplied manifest
+signature, the signed bundle hash, exact schemas and claims, release/build/
+deployment provenance, all five EVM chains, and every embedded raw runtime-code
+hash. Its successful status is `offline_evidence_verified`, not a live RPC
+quorum result. `npm run verify-selftest` creates deterministic local fixtures
+and exercises bad signatures, bad bundle hashes and schemas, redirects, MIME
+confusion, chain/code disagreements, incomplete RPC evidence, and forbidden
+subjective claims.
+
 AssetFare is maintained by a distributed project team using one public release
 namespace during the pilot. Roles, release controls, and the current public
 owner are documented in [GOVERNANCE.md](GOVERNANCE.md) and
@@ -103,7 +146,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.11 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.12 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 

@@ -1,12 +1,13 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "AssetFare: non-custodial bridge and cross-chain swap quotes for agents, e.g. Solana SOL to Base USDC. 1bp service fee plus Circle/provider/network fees; unsigned txs, never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
     "assetfare-mcp": "src/server.js",
-    "assetfare-route-eval": "scripts/route-eval.mjs"
+    "assetfare-route-eval": "scripts/route-eval.mjs",
+    "assetfare-verify": "scripts/assetfare-verify.mjs"
   },
   "files": [
     "src",
@@ -57,8 +58,9 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs",
-    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/agent-plugin-selftest.mjs",
+    "check": "node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs",
+    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/agent-plugin-selftest.mjs && node scripts/assetfare-verify-selftest.mjs",
+    "verify-selftest": "node scripts/assetfare-verify-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",
     "route-eval": "node scripts/route-eval.mjs",
