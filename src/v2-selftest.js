@@ -24,10 +24,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.9");
-assert.equal(lockMetadata.version, "0.4.9");
-assert.equal(lockMetadata.packages[""].version, "0.4.9");
-assert.equal(registryMetadata.version, "0.4.9");
+assert.equal(packageMetadata.version, "0.4.10");
+assert.equal(lockMetadata.version, "0.4.10");
+assert.equal(lockMetadata.packages[""].version, "0.4.10");
+assert.equal(registryMetadata.version, "0.4.10");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
@@ -223,7 +223,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.9");
+  assert.equal(card.serverInfo.version, "0.4.10");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));

@@ -96,7 +96,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.9 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.10 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 

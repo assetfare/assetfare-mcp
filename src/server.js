@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.9";
+const VERSION = "0.4.10";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -646,22 +646,24 @@ function createHttpApp() {
   });
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
   app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
-  app.head("/mcp", (req, res) => {
-    if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
-    return res.set("allow", "GET, HEAD, POST, OPTIONS").set("cache-control", "no-store").status(200).end();
-  });
-  app.all("/mcp", async (req, res) => {
-    if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
-    try {
-      const server = createServer(provenanceFromHeaders(req.headers));
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-      res.on("close", () => transport.close().catch(() => {}));
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    } catch (_error) {
-      if (!res.headersSent) res.status(500).json({ error: "assetfare_mcp_internal_error" });
-    }
-  });
+  for (const mcpPath of ["/mcp", "/mcp/bridge"]) {
+    app.head(mcpPath, (req, res) => {
+      if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
+      return res.set("allow", "GET, HEAD, POST, OPTIONS").set("cache-control", "no-store").status(200).end();
+    });
+    app.all(mcpPath, async (req, res) => {
+      if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
+      try {
+        const server = createServer(provenanceFromHeaders(req.headers));
+        const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+        res.on("close", () => transport.close().catch(() => {}));
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+      } catch (_error) {
+        if (!res.headersSent) res.status(500).json({ error: "assetfare_mcp_internal_error" });
+      }
+    });
+  }
   app.use((error,_req,res,_next)=>{
     if(error?.type==="entity.too.large")return res.status(413).json({error:"request_body_too_large"});
     if(error instanceof SyntaxError)return res.status(400).json({error:"invalid_json"});

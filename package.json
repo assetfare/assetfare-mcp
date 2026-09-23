@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "AssetFare: non-custodial bridge and cross-chain swap quotes for agents, e.g. Solana SOL to Base USDC. 1bp service fee plus Circle/provider/network fees; unsigned txs, never signs or submits.",
   "type": "module",
   "main": "src/server.js",
