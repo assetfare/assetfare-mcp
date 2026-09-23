@@ -117,8 +117,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "0.4.13" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.13" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.14" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.14" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow) throw new Error("MCP bridge discovery alias mismatch");
   for (const [channel, response] of discoveryCards) {
@@ -144,6 +144,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.13", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.14", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();
