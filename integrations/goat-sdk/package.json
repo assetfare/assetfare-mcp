@@ -19,7 +19,7 @@
     "@goat-sdk/core": "0.5.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
-    "zod": "3.25.76"
+    "zod": "4.6.5"
   },
   "engines": {"node": ">=20"},
   "license": "MIT",
