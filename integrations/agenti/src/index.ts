@@ -10,9 +10,11 @@ const TOKENS_BY_CHAIN = {
   base: ["ETH", "USDC"],
   arbitrum: ["ETH", "USDC"],
   robinhood: ["ETH", "USDG"],
+  polygon: ["USDC"],
+  optimism: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 
 export const AssetFareQuoteSchema = z.object({
@@ -31,10 +33,14 @@ export const AssetFareQuoteSchema = z.object({
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
   }
+  if (value.toChain === "polygon" || value.toChain === "optimism") context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "Polygon and Optimism are source-only" });
+  if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
 });
 
 const CapabilitiesSchema = z.object({
   public_api_enabled: z.literal(true),
+  directed_conversion_routes: z.literal(76),
+  execution_implemented_routes: z.literal(76),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -131,7 +137,7 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh fee-inclusive AssetFare quote and stop. Compare it with other executable routes; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes and stop. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       parameters: AssetFareQuoteSchema,
       execute: async (input) => ({
         success: true,

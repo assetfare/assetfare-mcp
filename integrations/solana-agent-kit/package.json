@@ -1,7 +1,9 @@
 {
   "name": "@assetfare/solana-agent-kit-plugin",
   "version": "0.1.0",
-  "description": "Read-only AssetFare route quotes for Solana Agent Kit",
+  "description": "Read-only AssetFare bridge and cross-chain swap quotes for Solana Agent Kit across 6 chains and 76 routes",
+  "keywords": ["solana-agent-kit", "solana", "bridge", "cross-chain", "usdc", "base", "ai-agents", "non-custodial"],
+  "homepage": "https://assetfare.dev/agents/",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,5 +24,7 @@
     "zod": "3.24.1"
   },
   "engines": {"node": ">=20"},
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {"type":"git","url":"https://github.com/odaiin/assetfare-mcp.git","directory":"integrations/solana-agent-kit"},
+  "publishConfig": {"access":"public"}
 }

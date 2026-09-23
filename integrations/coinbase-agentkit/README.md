@@ -5,8 +5,8 @@ This integration exposes two read-only AgentKit actions:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It uses AssetFare REST/OpenAPI v2 across Solana, Base, Arbitrum, and Robinhood
-Chain. It never accepts a private key and never authenticates a wallet, creates
+It uses AssetFare REST/OpenAPI v2 across six chains and 76 routes, including
+Polygon and Optimism native-USDC source-only routes to Base or Arbitrum. It never accepts a private key and never authenticates a wallet, creates
 a session, prepares an action, signs, submits, funds, swaps, or bridges.
 
 ## Install from this repository
@@ -48,4 +48,3 @@ Public contract:
 - `https://api.assetfare.dev/v2/status`
 - `https://api.assetfare.dev/v2/openapi.json`
 - `POST https://api.assetfare.dev/v2/quote`
-

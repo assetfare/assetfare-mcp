@@ -4,8 +4,8 @@ Project-reviewed concierge reference for Agenti's public roadmap item:
 
 > `@agenti/plugin-bridge` — cross-chain: hold SOL, pay USDC on Base transparently
 
-This Phase 1 package adds only two Vercel AI SDK tools: live capabilities and a
-fresh route quote. It never receives or reads an Agenti wallet, private key, or
+This Phase 1 package adds only two Vercel AI SDK tools: live six-chain/76-route
+capabilities and a fresh route quote, including Polygon and Optimism native-USDC source-only routes. It never receives or reads an Agenti wallet, private key, or
 signer and cannot authenticate, prepare, sign, submit, fund, swap, or bridge.
 
 ```ts

@@ -5,8 +5,8 @@ This plugin exposes two read-only GOAT tools:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It calls AssetFare REST/OpenAPI v2 across Solana, Base, Arbitrum, and Robinhood
-Chain. It never accepts a private key and cannot authenticate, create a
+It calls AssetFare REST/OpenAPI v2 across six chains and 76 routes, including
+Polygon and Optimism native-USDC source-only routes to Base or Arbitrum. It never accepts a private key and cannot authenticate, create a
 session, prepare an action, sign, submit, fund, swap, or bridge.
 
 ```ts

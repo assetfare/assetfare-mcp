@@ -10,9 +10,9 @@ Both actions are read-only. They do not read the Solana Agent Kit wallet,
 authenticate, create an AssetFare session, prepare an action, create a bridge
 order, sign, submit, swap, bridge, or fund anything.
 
-The quote action is a legacy four-chain reference and does not include Polygon.
-Use AssetFare REST/OpenAPI or the main MCP v2 quote tool for the current 74 directed
-routes across Solana, Base, Arbitrum, and Robinhood Chain. It requires the agent
+The quote action covers the current six-chain, 76-route REST v2 surface,
+including Polygon and Optimism native-USDC source-only routes to Base or
+Arbitrum. It requires the agent
 to compare AssetFare with deBridge, Wormhole, and other fresh executable
 routes; installation never implies preference.
 

@@ -10,12 +10,16 @@ const TOKENS_BY_CHAIN = {
   base: ["ETH", "USDC"],
   arbitrum: ["ETH", "USDC"],
   robinhood: ["ETH", "USDG"],
+  polygon: ["USDC"],
+  optimism: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const CapabilitiesResponseSchema = z.object({
   public_api_enabled: z.literal(true),
+  directed_conversion_routes: z.literal(76),
+  execution_implemented_routes: z.literal(76),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -53,6 +57,8 @@ export const AssetFareQuoteSchema = z
     if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
     }
+    if (value.toChain === "polygon" || value.toChain === "optimism") context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "Polygon and Optimism are source-only" });
+    if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
   });
 
 export interface AssetFarePluginConfig {
@@ -107,7 +113,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live capabilities. This legacy reference plugin quotes only the four pre-Polygon chains; use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon. It never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's live six-chain, 76-route capabilities, including Polygon and Optimism native-USDC source-only routes. It never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},
@@ -135,7 +141,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh fee-inclusive AssetFare quote across the four pre-Polygon chains supported by this legacy reference plugin. Use REST/OpenAPI or the main MCP v2 quote tool for Polygon. Compare it with other fresh executable routes. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability with other executable routes. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 },

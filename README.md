@@ -96,7 +96,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.8 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.9 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 
@@ -302,6 +302,7 @@ Registry releases remain separately reviewed from remote deployment.
 - Paired route evidence: [`evidence/solana-base-paired-quotes-20260916.md`](./evidence/solana-base-paired-quotes-20260916.md)
 - Agent-payment route evidence: [`evidence/solana-base-usdc-paired-quotes-20260916.md`](./evidence/solana-base-usdc-paired-quotes-20260916.md)
 - Live same-input comparison: `https://assetfare.dev/compare/solana-to-base/`
+- Dated Solana USDC → Base USDC comparison ($250, 2026-09-23; explicit non-all-in and non-identical-lane caveats): `https://assetfare.dev/compare/solana-usdc-to-base-usdc/`
 
 ## Discovery
 

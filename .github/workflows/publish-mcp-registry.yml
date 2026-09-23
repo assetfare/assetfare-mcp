@@ -11,6 +11,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        metadata: [server.json, server.bridge.json]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned MCP publisher
@@ -22,8 +26,8 @@ jobs:
           tar -xzf mcp-publisher.tar.gz mcp-publisher
           chmod 0755 mcp-publisher
       - name: Validate registry metadata
-        run: ./mcp-publisher validate server.json
+        run: ./mcp-publisher validate "${{ matrix.metadata }}"
       - name: Authenticate with GitHub OIDC
         run: ./mcp-publisher login github-oidc
       - name: Publish remote MCP metadata
-        run: ./mcp-publisher publish server.json
+        run: ./mcp-publisher publish "${{ matrix.metadata }}"

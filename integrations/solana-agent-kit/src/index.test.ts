@@ -13,6 +13,8 @@ test("schema accepts the one-dollar route and rejects unsafe bounds", () => {
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1000.01 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "SOL", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "optimism", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "polygon", toToken: "USDC", amountUsd: 250 }).success, false);
 });
 
 test("plugin exposes only capability and quote actions", () => {
@@ -45,7 +47,7 @@ test("quote posts exactly five public fields without reading the wallet", async 
 test("capabilities fail closed if the server can submit", async () => {
   const plugin = createAssetFarePlugin({
     fetch: async (input) => String(input).endsWith("/v2/capabilities")
-      ? Response.json({ public_api_enabled: true, server_signing: false, server_submission: false })
+      ? Response.json({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 76, execution_implemented_routes: 76 })
       : Response.json({ status: "capped_public_agent_release", server_signing: false, server_submission: true }),
   });
   await assert.rejects(plugin.actions[0].handler(inaccessibleAgent, {}), /safety boundary/);

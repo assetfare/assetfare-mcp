@@ -20,9 +20,11 @@ const TOKENS_BY_CHAIN = {
   base: ["ETH", "USDC"],
   arbitrum: ["ETH", "USDC"],
   robinhood: ["ETH", "USDG"],
+  polygon: ["USDC"],
+  optimism: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 export const AssetFareQuoteIntentSchema = z.object({
   fromChain: ChainSchema,
@@ -40,10 +42,14 @@ export const AssetFareQuoteIntentSchema = z.object({
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
     context.addIssue({ code: "custom", path: ["toToken"], message: "identity route does not require a quote" });
   }
+  if (value.toChain === "polygon" || value.toChain === "optimism") context.addIssue({ code: "custom", path: ["toChain"], message: "Polygon and Optimism are source-only" });
+  if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
 });
 
 const CapabilitiesSchema = z.object({
   public_api_enabled: z.literal(true),
+  directed_conversion_routes: z.literal(76),
+  execution_implemented_routes: z.literal(76),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).loose();
@@ -73,7 +79,7 @@ const intentJsonSchema = {
 };
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
-Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG.
+Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG; polygon USDC and optimism USDC as source-only to Base/Arbitrum USDC.
 The USD amount must be 1 through 1000. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
@@ -151,7 +157,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh fee-inclusive AssetFare route quote across Solana, Base, Arbitrum, or Robinhood Chain, compare it with other executable routes, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {

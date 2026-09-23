@@ -44,7 +44,7 @@ export class AssetFareActionProvider extends ActionProvider {
 
   @CreateAction({
     name: "get_capabilities",
-    description: `Read AssetFare's current public capabilities. This legacy reference provider's quote schema remains limited to the four pre-Polygon chains; use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon.
+    description: `Read AssetFare's current six-chain, 76-route public capabilities, including Polygon and Optimism native-USDC source-only routes.
 
 Use this before requesting a quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
     schema: EmptySchema,
@@ -58,6 +58,8 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
       capabilities.public_api_enabled !== true ||
       capabilities.server_signing !== false ||
       capabilities.server_submission !== false ||
+      capabilities.directed_conversion_routes !== 76 ||
+      capabilities.execution_implemented_routes !== 76 ||
       status.status !== "capped_public_agent_release" ||
       status.server_signing !== false ||
       status.server_submission !== false
@@ -69,9 +71,9 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
 
   @CreateAction({
     name: "quote_route",
-    description: `Request one fresh, fee-inclusive AssetFare REST v2 quote across the four pre-Polygon chains supported by this legacy reference provider. Use AssetFare REST/OpenAPI or the main MCP v2 quote tool for Polygon.
+    description: `Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, including Solana to Base USDC and Polygon/Optimism native-USDC source-only routes.
 
-This action is read-only: it does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Compare the returned expected receive, conservative minimum receive, fees, ETA, step count, and non-atomic risk against other fresh executable routes. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
+This action is read-only: it does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Compare total token-path cost, expected and minimum receive, ETA, current availability, step count, source gas exclusions, and non-atomic risk against other fresh executable routes. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
     schema: AssetFareQuoteSchema,
   })
   async quoteRoute(args: z.infer<typeof AssetFareQuoteSchema>): Promise<string> {

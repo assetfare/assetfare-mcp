@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.odaiin/assetfare",
-  "title": "AssetFare",
+  "name": "io.github.odaiin/assetfare-bridge",
+  "title": "AssetFare USDC Bridge",
   "version": "0.4.9",
-  "description": "Non-custodial cross-chain bridge quotes for agents: Solana to Base USDC; unsigned txs, never signs",
+  "description": "Non-custodial USDC bridge and cross-chain swap quotes: Solana to Base; unsigned, never signs/submits",
   "repository": {
     "url": "https://github.com/odaiin/assetfare-mcp",
     "source": "github"
