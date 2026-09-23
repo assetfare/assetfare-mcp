@@ -15,34 +15,73 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    groups:
+      all-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /integrations/agenti
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      all-agenti-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /integrations/coinbase-agentkit
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      all-agentkit-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /integrations/elizaos
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      all-elizaos-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /integrations/goat-sdk
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      all-goat-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /integrations/solana-agent-kit
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      all-solana-agent-kit-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
