@@ -5,14 +5,16 @@
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/assetfare/assetfare-mcp)
 
-AssetFare is a non-custodial, agent-native cross-chain route service. It provides
-non-custodial bridge and cross-chain swap routes: six chains, eleven source
+AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain
+route service. **Solana native USDC → Base native USDC** is the canonical route:
+an agent gets a fresh quote and, only after explicit caller approval, a bounded
+unsigned transaction plan the caller verifies and signs. AssetFare also provides
+bridge and cross-chain swap routes across six chains and eleven source
 endpoints, and 76 directed routes. AssetFare service fee 1bp;
 Circle/provider/network fees additional; quote exposes total token-path cost and
-live availability; server never signs/submits. **Solana SOL → Base USDC is supported**, as are Solana USDC → Base
-USDC and Optimism USDC → Base USDC. An agent gets a quote and, only after
-explicit caller approval, a bounded unsigned action the caller signs itself;
-AssetFare never receives private keys, signs, or submits.
+live availability; server never signs/submits. Solana SOL → Base USDC and
+Optimism USDC → Base USDC are also supported. AssetFare never receives private
+keys, signs, or submits.
 
 Verify before trusting: [public source](https://github.com/assetfare/assetfare-mcp),
 [Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
@@ -146,7 +148,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.15 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.16 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "0.4.15",
-  "description": "Non-custodial bridge and cross-chain swap quotes for agents, including Solana to Base USDC; 1bp service fee plus Circle/provider/network fees; unsigned actions; never signs or submits transactions.",
+  "version": "0.4.16",
+  "description": "Agent-native, non-custodial native-USDC bridge quotes, including Solana USDC to Base USDC; caller-approved unsigned plans; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",
@@ -19,6 +19,11 @@
     "bridge",
     "usdc",
     "usdc-bridge",
+    "native-usdc",
+    "solana-usdc",
+    "base-usdc",
+    "unsigned-transaction-plan",
+    "caller-signed",
     "solana-to-base",
     "swap",
     "solana",

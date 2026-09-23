@@ -25,19 +25,21 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.6");
+assert.equal(card.version, "0.1.7");
 assert.equal(card.skills.length, 4);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capability", "prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*76 directed bridge and cross-chain swap routes.*AssetFare service fee 1bp; Circle\/provider\/network fees additional.*live availability/i);
+assert.match(card.description,/non-custodial native-USDC bridge.*76 directed routes.*AssetFare service fee 1bp; Circle\/provider\/network fees additional.*live availability/i);
 assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
-assert.match(card.description,/Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
-assert.match(card.description,/caller approval.*unsigned action.*server never signs or submits/i);
-assert.deepEqual(card.skills[0].tags.slice(0,5),["cross-chain","bridge","swap","crypto","quote"]);
-assert.match(card.skills[0].description,/Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
-assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1);
+assert.match(card.description,/Solana native USDC to Base native USDC.*Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
+assert.match(card.description,/caller approval.*unsigned plan.*server never signs or submits/i);
+assert.deepEqual(card.skills[0].tags.slice(0,5),["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]);
+assert.match(card.skills[0].description,/Solana native USDC to Base native USDC.*caller-approved unsigned transaction-plan/i);
+assert.deepEqual(card.skills[0].examples[0],'{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":250}');
+for (const tag of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(card.skills[0].tags.includes(tag));
+assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,250);
 assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-]?key|api[_-]?key|bearer [A-Za-z0-9]/i), null);
 
 let observedBody;let observedHeaders;

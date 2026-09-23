@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.15",
-  "description": "AssetFare: non-custodial bridge and cross-chain swap quotes for agents, e.g. Solana SOL to Base USDC. 1bp service fee plus Circle/provider/network fees; unsigned txs, never signs or submits.",
+  "version": "0.4.16",
+  "description": "AssetFare: agent-native, non-custodial native-USDC bridge quotes, e.g. Solana USDC to Base USDC; caller-approved unsigned plans; 1bp service fee plus Circle/provider/network fees; never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -31,6 +31,11 @@
     "cross-chain-swap",
     "bridge",
     "usdc-bridge",
+    "native-usdc",
+    "solana-usdc",
+    "base-usdc",
+    "unsigned-transaction-plan",
+    "caller-signed",
     "cctp",
     "solana-to-base",
     "usdc",

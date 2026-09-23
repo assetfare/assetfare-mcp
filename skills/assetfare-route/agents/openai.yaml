@@ -1,4 +1,4 @@
 interface:
   display_name: "AssetFare Route"
-  short_description: "Quote 76 non-custodial routes, including Solana SOL to Base USDC."
-  default_prompt: "Use $assetfare-route to compare an AssetFare route's total cost across six chains. Solana SOL to Base USDC and Optimism USDC to Base USDC are supported. Verify live capabilities and the signed manifest, obtain a fresh quote, and stop before unsigned preparation, signing, or submission unless the caller explicitly approves continuation."
+  short_description: "Native-USDC bridge quotes and caller-approved unsigned plans."
+  default_prompt: "Use $assetfare-route to compare an AssetFare route's total cost across six chains. Solana native USDC to Base native USDC is the canonical example; Solana SOL to Base USDC and Optimism USDC to Base USDC are also supported. Verify live capabilities and the signed manifest, obtain a fresh quote, and stop before unsigned preparation, signing, or submission unless the caller explicitly approves continuation."

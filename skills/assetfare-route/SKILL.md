@@ -1,6 +1,6 @@
 ---
 name: assetfare-route
-description: Use for non-custodial AssetFare bridge and cross-chain swap routes across six chains and 76 directed routes (1bp service fee plus Circle/provider/network fees), explicitly including Solana SOL to Base USDC and Optimism USDC to Base USDC. Returns quotes and caller-approved unsigned actions; never signs or submits.
+description: Use for agent-native, non-custodial native-USDC bridge and cross-chain routes across six chains and 76 directed routes (1bp service fee plus Circle/provider/network fees), led by Solana native USDC to Base native USDC. Returns quotes and caller-approved unsigned plans; never signs or submits.
 ---
 
 # AssetFare Route
@@ -18,7 +18,7 @@ Request one fresh AssetFare quote when all of these are true:
 
 Read `/v2/capabilities` to identify the live endpoints. Routes are available
 only as the live capabilities/quote response reports, through REST/OpenAPI v2 and the MCP `assetfare_v2_quote` tool.
-`solana:SOL -> base:USDC`, `solana:USDC -> base:USDC`, and
+`solana:USDC -> base:USDC`, `solana:SOL -> base:USDC`, and
 `optimism:USDC -> base:USDC` are explicitly supported examples.
 Polygon and Optimism are directional native-USDC source-only origins to Base or
 Arbitrum USDC and use the same caller-approved prepare/session boundary. The unversioned
