@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "0.4.16",
+  "version": "0.4.17",
   "description": "Agent-native, non-custodial native-USDC bridge quotes, including Solana USDC to Base USDC; caller-approved unsigned plans; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",

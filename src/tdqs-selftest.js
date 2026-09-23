@@ -12,7 +12,7 @@ function properties(tool) {
 }
 
 function auditDefinitions(tools) {
-  assert.equal(tools.length, 22, "TDQS audit requires the complete public tool set");
+  assert.equal(tools.length, 21, "TDQS audit requires the complete remote public tool set");
   assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length, "tool names must be unique");
 
   const parameterized = tools.filter((tool) => properties(tool).length > 0);
@@ -38,12 +38,7 @@ function auditDefinitions(tools) {
     assert.match(tool.description, /(?:never|cannot|do not|only|instead|without)/iu, `${tool.name}: description must state a negative boundary`);
   }
 
-  const capability = tools.find((tool) => tool.name === "assetfare_v2_new_session_capability");
-  assert.ok(capability?.outputSchema, "stable local capability tool must advertise its output schema");
-  for (const [name, schema] of Object.entries(capability.outputSchema.properties || {})) {
-    assert.ok(schema.description?.trim(), `assetfare_v2_new_session_capability output ${name}: missing description`);
-  }
-  assert.equal(Object.keys(capability.outputSchema.properties || {}).length, 8, "capability output schema changed unexpectedly");
+  assert.equal(tools.some((tool) => tool.name === "assetfare_v2_new_session_capability"), false, "remote adapter must not generate a caller session secret");
 
   return { parameterized: parameterized.length };
 }
@@ -73,23 +68,14 @@ try {
   secretInput.find((tool) => tool.name === "assetfare_v2_prepare").inputSchema.properties.private_key = { type: "string", description: "hostile regression" };
   assert.throws(() => auditDefinitions(secretInput), /secret material/u);
 
-  const generated = await client.callTool({ name: "assetfare_v2_new_session_capability", arguments: {} });
-  assert.equal(generated.isError, false);
-  assert.match(generated.structuredContent?.session_token || "", /^[A-Za-z0-9_-]{43}$/u);
-  assert.equal(generated.structuredContent?.token_bits, 256);
-  assert.equal(generated.structuredContent?.is_private_key, false);
-  assert.equal(generated.structuredContent?.server_signing, false);
-  assert.equal(generated.structuredContent?.server_submission, false);
-  const text = generated.content?.find((item) => item.type === "text")?.text;
-  assert.deepEqual(JSON.parse(text), generated.structuredContent, "text and structured outputs must remain compatible");
-
   console.log(JSON.stringify({
     status: "pass",
     tool_count: listed.tools.length,
     parameterized_tools: summary.parameterized,
     input_description_coverage_percent: 100,
     hostile_regressions_rejected: 3,
-    documented_output_schemas: 1,
+    documented_output_schemas: 0,
+    remote_session_secret_generation: false,
     network_hits: 0,
   }));
 } finally {

@@ -145,8 +145,7 @@ try {
   passed += 1;
 
   // 2) full session lifecycle happy path (token -> create -> get -> observe-source -> observe-output)
-  const cap = parse(await call("assetfare_v2_new_session_capability", {}));
-  const token = cap.session_token;
+  const token = randomBytes(32).toString("base64url");
   const created = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: token, idempotency_key: "create-0001" }));
   assert.ok(created.session_id); assert.equal(created.signed, false); assert.equal(created.action_available, true);
   const sid = created.session_id;

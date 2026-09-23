@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { request as httpRequest } from "node:http";
-import { a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders } from "./server.js";
+import { a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders, serverCard } from "./server.js";
 
 function postJson(port, version, id = "test") {
   const body = JSON.stringify({ jsonrpc: "2.0", id, method: "UnknownMethod", params: {} });
@@ -56,9 +56,10 @@ await server.connect(serverTransport);
 await client.connect(clientTransport);
 const result = await client.listTools();
 const names = result.tools.map((tool) => tool.name).sort();
-const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session", "assetfare_observe_destination", "assetfare_v2_new_session_capability", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
+const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session", "assetfare_observe_destination", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
 if (!required.every((name) => names.includes(name))) throw new Error("required MCP tools missing");
-if (names.length !== 22 || new Set(names).size !== 22) throw new Error("MCP tool count mismatch");
+if (names.length !== 21 || new Set(names).size !== 21) throw new Error("remote MCP tool count mismatch");
+if (names.includes("assetfare_v2_new_session_capability")) throw new Error("remote MCP must not generate caller session secrets");
 const quoteTool = result.tools.find((tool) => tool.name === "assetfare_quote");
 if (JSON.stringify(quoteTool?.inputSchema?.properties?.destination_chain?.enum) !== JSON.stringify(["base", "arbitrum"])) throw new Error("quote destination schema mismatch");
 if (quoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || "maximum" in quoteTool.inputSchema.properties.amount_usd) throw new Error("quote amount schema mismatch");
@@ -80,8 +81,11 @@ if (v2PrepareTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" 
 const v2SessionCreateTool = result.tools.find((tool) => tool.name === "assetfare_v2_session_create");
 if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || !v2SessionCreateTool?.inputSchema?.required?.includes("session_token")) throw new Error("v2 session_create must require caller_approved and session_token");
 if (v2SessionCreateTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2SessionCreateTool.inputSchema.properties.amount_usd) throw new Error("v2 session_create amount schema mismatch");
-const v2NewTokenTool = result.tools.find((tool) => tool.name === "assetfare_v2_new_session_capability");
-if (Object.keys(v2NewTokenTool?.inputSchema?.properties || {}).length !== 0) throw new Error("v2 new_session_capability must take no arguments");
+const priorTransport = process.env.ASSETFARE_MCP_TRANSPORT;
+process.env.ASSETFARE_MCP_TRANSPORT = "stdio";
+const stdioCard = serverCard();
+if (!stdioCard.tools.some((tool) => tool.name === "assetfare_v2_new_session_capability") || stdioCard.tools.length !== 22) throw new Error("stdio local capability helper missing");
+if (priorTransport === undefined) delete process.env.ASSETFARE_MCP_TRANSPORT; else process.env.ASSETFARE_MCP_TRANSPORT = priorTransport;
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
 const spoofedProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10, 198.51.100.2", "user-agent": "agent-test/1" });
 if (validProvenance.requestIdentity !== "203.0.113.10" || spoofedProvenance.requestIdentity) throw new Error("MCP provenance validation failed");
@@ -117,8 +121,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "0.4.16" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.16" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.17" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.17" || card.body?.tools?.length !== 21) throw new Error("remote server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow) throw new Error("MCP bridge discovery alias mismatch");
   for (const [channel, response] of discoveryCards) {
@@ -144,6 +148,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.16", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.17", remote_server_card_tools: 21, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

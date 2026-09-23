@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -24,10 +25,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.16");
-assert.equal(lockMetadata.version, "0.4.16");
-assert.equal(lockMetadata.packages[""].version, "0.4.16");
-assert.equal(registryMetadata.version, "0.4.16");
+assert.equal(packageMetadata.version, "0.4.17");
+assert.equal(lockMetadata.version, "0.4.17");
+assert.equal(lockMetadata.packages[""].version, "0.4.17");
+assert.equal(registryMetadata.version, "0.4.17");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -223,15 +224,15 @@ try {
   const card = serverCard();
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
-  assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.16");
-  assert.equal(card.tools.length, 22);
+  assert.equal(listed.tools.length, 21);
+  assert.equal(card.serverInfo.version, "0.4.17");
+  assert.equal(card.tools.length, 21);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
   const staticNames = new Set(card.tools.map((tool) => tool.name));
-  assert.equal(dynamicNames.size, 22);
+  assert.equal(dynamicNames.size, 21);
   assert.deepEqual([...dynamicNames].sort(), [...staticNames].sort());
-  const newTools = ["assetfare_v2_new_session_capability", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
+  const newTools = ["assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
   for (const name of newTools) assert.ok(dynamicNames.has(name), `missing new tool ${name}`);
   // The v2 tool descriptions must be identical between the live tool list and the static server card.
   for (const name of ["assetfare_v2_capabilities", "assetfare_v2_quote", ...newTools]) assert.equal(listed.tools.find((tool) => tool.name === name).description, card.tools.find((item) => item.name === name).description, `description drift for ${name}`);
@@ -418,15 +419,15 @@ try {
   assert.equal(secretPrepare.isError, true, "prepare accepted a non-public-address (private-key-shaped) wallet value");
   assert.equal(calls.length, beforeSecret, "secret-material hostile reached upstream");
 
-  // Local token generator makes no network call and returns a sensitive, non-private-key capability.
+  // The remote adapter never generates a caller session secret. The client
+  // generates 32 CSPRNG bytes locally and supplies the token only on session calls.
   const beforeToken = calls.length;
-  const token = parse(await call(client, "assetfare_v2_new_session_capability", {}));
-  assert.equal(calls.length, beforeToken, "token generation made a network call");
-  assert.match(token.session_token, /^[A-Za-z0-9_-]{43,128}$/);
-  assert.equal(token.is_private_key, false);
-  assert.equal(token.sensitivity, "sensitive_capability");
-  const token2 = parse(await call(client, "assetfare_v2_new_session_capability", {}));
-  assert.notEqual(token.session_token, token2.session_token, "token generator must be non-deterministic");
+  assert.equal(dynamicNames.has("assetfare_v2_new_session_capability"), false);
+  const token = randomBytes(32).toString("base64url");
+  const token2 = randomBytes(32).toString("base64url");
+  assert.equal(calls.length, beforeToken, "client token generation changed upstream calls");
+  assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+  assert.notEqual(token, token2, "client token generator must be non-deterministic");
 
   assert.ok(calls.every((item) => item.url.endsWith("/v2/capabilities") || item.url.endsWith("/v2/quote") || item.url.endsWith("/v2/prepare")), "v2 tools reached an unauthorized path");
   console.log(JSON.stringify({ status: "pass", version: packageMetadata.version, tool_count: listed.tools.length, valid_routes: routeCount, source_only_routes: sourceOnlyCount, upstream_calls_for_matrix: 77, fail_closed_hostiles: failClosed.length, caller_approved_hostiles: badApproval.length, signed: false, submitted: false }));

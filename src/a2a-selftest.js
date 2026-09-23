@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { Message, Role, canonicalizeAgentCard } from "@a2a-js/sdk";
 import { JsonRpcTransportHandler, defaultServerCallContextBuilder } from "@a2a-js/sdk/server";
 import { A2A_PROTOCOL_VERSION, assetFareAgentCard, createAssetFareA2A } from "./a2a.js";
@@ -25,9 +26,9 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.7");
-assert.equal(card.skills.length, 4);
-assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capability", "prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
+assert.equal(card.version, "0.1.8");
+assert.equal(card.skills.length, 3);
+assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
@@ -118,10 +119,10 @@ const execFetch = async (url, init = {}) => {
 const execHandler = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: execFetch }).requestHandler);
 const dataOf = (r) => r.result.message.parts[0].data;
 
-// new_session_capability is local (no network) and returns a sensitive non-private-key token
-const tokenResult = await execHandler.handle(request([data({ operation: "new_session_capability" })], "token"), context());
-assert.match(dataOf(tokenResult).session_capability.session_token, /^[A-Za-z0-9_-]{43,128}$/);
-assert.equal(dataOf(tokenResult).session_capability.is_private_key, false);
+// Remote A2A never generates the caller's session secret. The client creates it locally.
+const sessionToken = randomBytes(32).toString("base64url");
+assert.match(sessionToken, /^[A-Za-z0-9_-]{43}$/);
+assert.equal(card.skills.some((skill) => skill.id === "new-session-capability"), false);
 
 // prepare happy path: caller_approved:true + exact wallets -> POST /v2/prepare, returns bundle
 const prepareResult = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets })], "prepare"), context());
@@ -146,10 +147,9 @@ const sourceOnlyPrepare = await execHandler.handle(request([data({ operation: "p
 assert.ok(dataOf(sourceOnlyPrepare).bundle.unsigned_action);
 
 // session_create happy path: sends X-AssetFare-Session-Token and caller_approved:true
-const sessionToken = dataOf(tokenResult).session_capability.session_token;
 const sessionResult = await execHandler.handle(request([data({ operation: "session_create", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets, sessionToken, idempotencyKey: "a2a-create-0001" })], "session"), context());
 assert.equal(dataOf(sessionResult).session.session_id, "00000000-0000-4000-8000-000000000001");
 assert.equal(execHeaders.get("x-assetfare-session-token"), sessionToken);
 assert.equal(execBody.caller_approved, true);
 
-console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_skills: card.skills.length, quote: true, prepare: true, session_create: true, new_session_capability: true, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
+console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_skills: card.skills.length, quote: true, prepare: true, session_create: true, remote_session_secret_generation: false, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));

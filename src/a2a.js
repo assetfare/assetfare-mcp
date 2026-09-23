@@ -1,8 +1,7 @@
-// Read-only A2A v1 quote adapter. It never authenticates a wallet, creates an
-// AssetFare session, prepares an action, signs, approves, funds, or submits.
+// A2A v1 adapter for quotes and explicitly caller-approved unsigned workflows.
+// It never receives a private key, signs, approves, funds, or submits.
 
 import { isIP } from "node:net";
-import { randomBytes } from "node:crypto";
 import {
   A2A_CONTENT_TYPE,
   A2A_PROTOCOL_VERSION,
@@ -196,11 +195,6 @@ function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
   if (source === destination) throw new Error("assetfare_identity_route");
   if (SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
 }
-function newSessionCapability() {
-  const token = randomBytes(32).toString("base64url");
-  return { session_token: token, token_bits: 256, token_length: token.length, sensitivity: "sensitive_capability", is_private_key: false, usage: "Send as sessionToken to session_create and every session read/observe/refresh; delivered in the X-AssetFare-Session-Token header. The server stores only its hash. Never a private key.", server_signing: false, server_submission: false };
-}
-
 function rejectSigningClaims(value) {
   const stack=[[value,0]];let seen=0;
   while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>512||depth>12)throw new Error("assetfare_safety_boundary_failed");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of ["server_signing","server_submission"])if(key in node&&node[key]!==false)throw new Error("assetfare_safety_boundary_failed");for(const child of Object.values(node))stack.push([child,depth+1]);}}
@@ -254,7 +248,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     description: "AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain route service: six chains, eleven source endpoints, and 76 directed routes. Solana native USDC to Base native USDC is the canonical example. AssetFare service fee 1bp; Circle/provider/network fees additional; each quote exposes total token-path cost and live availability. Only after caller approval, AssetFare returns an unsigned plan the caller verifies and signs; the server never signs or submits. Solana SOL to Base USDC and Optimism USDC to Base USDC are also supported. MCP, A2A, and OpenAPI are available.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.7",
+    version: "0.1.8",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -271,15 +265,6 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
       outputModes: ["application/json"],
       securityRequirements: [],
     }, {
-      id: "new-session-capability",
-      name: "Generate a session capability token",
-      description: "Locally generate one caller-owned high-entropy session capability token (>=256-bit CSPRNG, url-safe). No network call. Send {\"operation\":\"new_session_capability\"}. The token is a SENSITIVE capability credential (never a private key); store it and pass it as sessionToken to session_create and every session read/observe/refresh.",
-      tags: ["session", "capability-token", "non-custodial", "security"],
-      examples: ['{"operation":"new_session_capability"}'],
-      inputModes: ["application/json"],
-      outputModes: ["application/json"],
-      securityRequirements: [],
-    }, {
       id: "prepare-first-unsigned-action",
       name: "Prepare the first unsigned action (caller-approved)",
       description: "Caller-approved one-shot POST /v2/prepare for a route the live quote reports available. Solana-CCTP requires eventSignerPublic from a fresh caller-generated ephemeral Ed25519 keypair: send only its on-curve public key, keep the private key client-side, and co-sign the returned unsigned event-account transaction. Never auto-called; AssetFare never signs or submits.",
@@ -291,7 +276,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     }, {
       id: "session-lifecycle",
       name: "Run the caller-approved session lifecycle",
-      description: "Full receipt-driven /v2/session lifecycle for a route the live quote reports available. Requires callerApproved:true on create and the caller's session capability token (X-AssetFare-Session-Token) on every call. Operations: session_create (+wallets, idempotencyKey), session_get, observe_source (caller-submitted transactionHashes), observe_output, refresh_action. Never auto-chains, signs, or submits; only the caller's submitted tx hashes are observed.",
+      description: "Full receipt-driven /v2/session lifecycle for a route the live quote reports available. Before calling A2A, the caller locally generates 32 CSPRNG bytes encoded as base64url; the remote adapter never generates that secret. Requires callerApproved:true and sessionToken on create/read/observe/refresh. Operations: session_create, session_get, observe_source, observe_output, refresh_action. Never auto-chains, signs, or submits.",
       tags: ["session", "lifecycle", "observe", "receipts", "non-custodial", "caller-approved"],
       examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
       inputModes: ["application/json"],
@@ -341,7 +326,6 @@ class QuoteExecutor {
     const withoutOp = (input) => { const { operation: _op, ...rest } = input || {}; return rest; };
     const parseIntent = (schema, input) => { try { return schema.parse(input); } catch { throw Object.assign(new Error("intent_invalid"), { intentInvalid: true }); } };
     try {
-      if (operation === "new_session_capability") { this.publish(context, bus, { session_capability: newSessionCapability() }); return; }
       if (operation === "quote") {
         const intent = parseIntent(QuoteIntent, withoutOp(value));
         const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);

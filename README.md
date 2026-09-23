@@ -99,7 +99,7 @@ MCP:
   not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
   and network fees are additional and appear in the quote's total token-path cost.
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
-- `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); the caller generates it with `assetfare_v2_new_session_capability` and supplies it on every session call.
+- `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply the result on every session call. The remote MCP/A2A service never generates that secret. The optional local stdio server retains `assetfare_v2_new_session_capability` as an offline convenience.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are legacy original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
@@ -148,7 +148,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.16 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.17 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 
@@ -198,11 +198,12 @@ The read-only quote skill accepts one structured DataPart containing
 public v2 capabilities, status, and quote endpoints and returns one quote with
 its passed-through `caller_action_plan_handoff`. `amountUsd` must be finite and
 at least 1; the adapter imposes no maximum, while live upstream availability
-and liquidity still apply. Additional caller-approved A2A
-skills mirror the MCP execution tools: a local `new_session_capability` token
-generator, a one-shot `prepare` operation, and the full `session` lifecycle
+and liquidity still apply. Two additional caller-approved A2A
+skills mirror the MCP execution tools: a one-shot `prepare` operation and the full `session` lifecycle
 (`session_create`, `session_get`, `observe_source`, `observe_output`,
-`refresh_action`). Each execution operation requires an explicit
+`refresh_action`). Before calling `session_create`, the A2A client generates
+its session token locally; the remote A2A endpoint deliberately exposes no
+token-generation operation. Each execution operation requires an explicit
 `callerApproved:true` and the caller's public wallet addresses; AssetFare never
 signs or submits, and only the caller's own submitted transaction hashes are
 observed.

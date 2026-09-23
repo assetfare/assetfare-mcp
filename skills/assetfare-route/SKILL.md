@@ -33,7 +33,7 @@ preparation, signature, or submission authority.
 
 - REST/OpenAPI v2: eleven source endpoints and 76 directed routes (live availability per capabilities/quote) across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
 - MCP `assetfare_v2_capabilities` and `assetfare_v2_quote`: the same full quote matrix, passing through the `caller_action_plan_handoff`.
-- MCP caller-approved v2 execution tools for all 76 routes: `assetfare_v2_new_session_capability` (local token generation), `assetfare_v2_prepare` (one-shot first unsigned bundle), and the `assetfare_v2_session_create`/`_get`/`_observe_source`/`_observe_output`/`_refresh_action` lifecycle. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and rejects any private key/seed/signed transaction. Never mix these with the legacy v1 session tools.
+- MCP caller-approved v2 execution tools for all 76 routes: `assetfare_v2_prepare` (one-shot first unsigned bundle) and the `assetfare_v2_session_create`/`_get`/`_observe_source`/`_observe_output`/`_refresh_action` lifecycle. Remote clients generate the session capability locally from 32 CSPRNG bytes encoded as base64url; the remote adapter never generates that secret. The optional self-hosted stdio adapter additionally exposes `assetfare_v2_new_session_capability` as an offline helper. Each execution tool requires explicit caller approval and the caller's public wallet addresses, is never auto-called from a quote, and rejects private key/seed/signed transaction material. Never mix these with the legacy v1 session tools.
 - Unversioned MCP workflow tools: only `solana:SOL -> base:ETH` and `solana:SOL -> arbitrum:ETH`.
 
 ## Safety boundary
