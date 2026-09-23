@@ -21,7 +21,7 @@
     "@elizaos/core": "1.7.2",
     "@types/node": "^22.0.0",
     "typescript": "5.9.3",
-    "zod": "4.3.5"
+    "zod": "4.6.5"
   },
   "engines": {"node": ">=20"},
   "license": "MIT",
