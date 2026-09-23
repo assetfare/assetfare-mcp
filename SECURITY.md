@@ -14,7 +14,7 @@ current version and immutable release commit through the signed manifest.
 Email `security@assetfare.dev` or use GitHub's private vulnerability reporting
 form:
 
-https://github.com/odaiin/assetfare-mcp/security/advisories/new
+https://github.com/assetfare/assetfare-mcp/security/advisories/new
 
 Do not open a public issue for an unpatched vulnerability. Include affected
 URLs or versions, impact, reproduction steps, and a minimal proof of concept.
@@ -39,4 +39,4 @@ operational capacity permits.
 Use public GitHub issues only for non-sensitive product defects and
 documentation questions:
 
-https://github.com/odaiin/assetfare-mcp/issues
+https://github.com/assetfare/assetfare-mcp/issues

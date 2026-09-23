@@ -3,7 +3,7 @@
   "maintainers": ["odaiin"],
   "name": "AssetFare USDC Bridge",
   "description": "Non-custodial bridge and cross-chain swap quotes for AI agents across six chains and 76 routes, including Solana to Base USDC. Returns caller-approved unsigned actions; never receives private keys, signs, or submits.",
-  "repository": "https://github.com/odaiin/assetfare-mcp",
+  "repository": "https://github.com/assetfare/assetfare-mcp",
   "homepage": "https://assetfare.dev/agents/",
   "license": "MIT",
   "keywords": [

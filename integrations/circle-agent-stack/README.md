@@ -5,7 +5,7 @@ from disk. AssetFare therefore does not need a privileged wallet plugin or an
 MCP connection for the first evaluation. Install the public quote skill:
 
 ```bash
-npx --yes skills add odaiin/assetfare-mcp --skill assetfare-route -g -y
+npx --yes skills add assetfare/assetfare-mcp --skill assetfare-route -g -y
 ```
 
 Then give the agent a concrete route intent, for example:

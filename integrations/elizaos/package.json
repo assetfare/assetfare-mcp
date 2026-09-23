@@ -25,6 +25,6 @@
   },
   "engines": {"node": ">=20"},
   "license": "MIT",
-  "repository": {"type":"git","url":"https://github.com/odaiin/assetfare-mcp.git","directory":"integrations/elizaos"},
+  "repository": {"type":"git","url":"https://github.com/assetfare/assetfare-mcp.git","directory":"integrations/elizaos"},
   "publishConfig": {"access":"public"}
 }

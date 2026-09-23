@@ -1,11 +1,11 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.odaiin/assetfare",
+  "name": "io.github.assetfare/assetfare",
   "title": "AssetFare",
   "version": "0.4.12",
   "description": "Non-custodial cross-chain bridge quotes for agents: Solana to Base USDC; unsigned txs, never signs",
   "repository": {
-    "url": "https://github.com/odaiin/assetfare-mcp",
+    "url": "https://github.com/assetfare/assetfare-mcp",
     "source": "github"
   },
   "remotes": [

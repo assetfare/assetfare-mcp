@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/odaiin/assetfare-mcp.git",
+    "url": "https://github.com/assetfare/assetfare-mcp.git",
     "directory": "integrations/coinbase-agentkit"
   },
   "publishConfig": {

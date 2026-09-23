@@ -69,7 +69,7 @@ assert.deepEqual(compatibilityMcp.mcpServers.assetfare, {
 });
 
 assert.match(skill, /^name:\s*assetfare-route\s*$/m);
-assert.match(readme, /npx plugins add odaiin\/assetfare-mcp/);
+assert.match(readme, /npx plugins add assetfare\/assetfare-mcp/);
 assert.match(readme, /two primary v2 tools are read-only/i);
 assert.match(
   readme,

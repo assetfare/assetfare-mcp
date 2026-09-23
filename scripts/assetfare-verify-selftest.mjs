@@ -25,7 +25,8 @@ import {
 const { privateKey: PRIVATE_KEY, publicKey: publicKeyObject } = generateKeyPairSync("ed25519");
 const PUBLIC_KEY = publicKeyObject.export({ type: "spki", format: "pem" });
 const RELEASE = "96cc132896cc132896cc132896cc132896cc1328";
-const PUBLIC_EVIDENCE_COMMIT = "8fbc3a475406203525c752d1b628ad8ea3ca51d8";
+const PUBLIC_EVIDENCE_COMMIT = "ed7fddcd956d5850bffacad9e2a76b6f866a2379";
+const VERIFIER_COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const NOW = Date.parse("2026-09-23T00:00:00Z");
 const ADDRESS = (number) => `0x${number.toString(16).padStart(40, "0")}`;
 const HASH = (number) => `0x${number.toString(16).padStart(64, "0")}`;
@@ -57,14 +58,14 @@ function fixtureBundle() {
     },
     evidence: {
       build: {
-        build_script_paths: ["verification/core/agent_safety_invariants_preflight.mjs"],
+        build_script_paths: ["agent_safety_invariants_preflight.mjs"],
         compiler: "solc-js",
         compiler_version: "0.8.30+commit.73712a01",
         evm_version: "compiler_default",
         language: "Solidity",
         metadata_bytecode_hash: "ipfs",
         optimizer: { enabled: true, runs: 200 },
-        package_lock_path: "verification/core/package-lock.json",
+        package_lock_path: "package-lock.json",
         package_lock_sha256: SHA("lock"),
       },
       deployments: deployments.map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
@@ -91,22 +92,22 @@ function fixtureBundle() {
         incidents: null,
         manifest: "https://api.assetfare.dev/.well-known/assetfare-manifest.json",
         onchain_evidence: "https://assetfare.dev/evidence/",
-        reproducible_invariants: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/agent_safety_invariants_preflight.mjs`,
+        reproducible_invariants: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/agent_safety_invariants_preflight.mjs`,
         security_reviews: "https://assetfare.dev/security-reviews/",
-        source_repository: "https://github.com/odaiin/assetfare-mcp",
-        source_tree: `https://github.com/odaiin/assetfare-mcp/tree/${PUBLIC_EVIDENCE_COMMIT}/verification/core`,
+        source_repository: "https://github.com/assetfare/assetfare-core-evidence",
+        source_tree: `https://github.com/assetfare/assetfare-core-evidence/tree/${PUBLIC_EVIDENCE_COMMIT}`,
         status: "https://api.assetfare.dev/v2/status",
         uptime: null,
-        verifier: `https://github.com/odaiin/assetfare-mcp/blob/${PUBLIC_EVIDENCE_COMMIT}/scripts/assetfare-verify.mjs`,
+        verifier: `https://github.com/assetfare/assetfare-mcp/blob/${VERIFIER_COMMIT}/scripts/assetfare-verify.mjs`,
       },
       sources: sourceNames.map((contract) => ({
-        artifact_path: `verification/core/artifacts/${contract}.json`,
+        artifact_path: `artifacts/${contract}.json`,
         artifact_sha256: SHA(`artifact-${contract}`),
-        artifact_url: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/artifacts/${contract}.json`,
+        artifact_url: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/artifacts/${contract}.json`,
         contract,
-        path: `verification/core/contracts/${contract}.sol`,
+        path: `contracts/${contract}.sol`,
         sha256: SHA(`source-${contract}`),
-        source_url: `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${PUBLIC_EVIDENCE_COMMIT}/verification/core/contracts/${contract}.sol`,
+        source_url: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/contracts/${contract}.sol`,
       })),
     },
     known_limitations: ["This proves published bytecode identity and factual invariants, not the absence of unknown defects."],
@@ -124,8 +125,8 @@ function fixtureBundle() {
       canonicalization: CANONICALIZATION,
       commit: RELEASE,
       public_evidence_commit: PUBLIC_EVIDENCE_COMMIT,
-      public_evidence_repository: "https://github.com/odaiin/assetfare-mcp",
-      public_evidence_tree_url: `https://github.com/odaiin/assetfare-mcp/tree/${PUBLIC_EVIDENCE_COMMIT}/verification/core`,
+      public_evidence_repository: "https://github.com/assetfare/assetfare-core-evidence",
+      public_evidence_tree_url: `https://github.com/assetfare/assetfare-core-evidence/tree/${PUBLIC_EVIDENCE_COMMIT}`,
     },
     schema: BUNDLE_SCHEMA,
     service: "AssetFare",

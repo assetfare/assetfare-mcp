@@ -241,7 +241,7 @@ function validateBundle(bundle, manifest) {
   exactKeys(bundle.release, RELEASE_KEYS, "bundle.release");
   expectString(bundle.release.commit, "bundle.release.commit", /^[0-9a-f]{40}$/);
   expectString(bundle.release.public_evidence_commit, "bundle.release.public_evidence_commit", /^[0-9a-f]{40}$/);
-  if (bundle.release.public_evidence_repository !== "https://github.com/odaiin/assetfare-mcp" || bundle.release.public_evidence_tree_url !== `https://github.com/odaiin/assetfare-mcp/tree/${bundle.release.public_evidence_commit}/verification/core` || bundle.release.bundle_url !== BUNDLE_URL || bundle.release.canonicalization !== CANONICALIZATION) fail("bundle release provenance is invalid");
+  if (bundle.release.public_evidence_repository !== "https://github.com/assetfare/assetfare-core-evidence" || bundle.release.public_evidence_tree_url !== `https://github.com/assetfare/assetfare-core-evidence/tree/${bundle.release.public_evidence_commit}` || bundle.release.bundle_url !== BUNDLE_URL || bundle.release.canonicalization !== CANONICALIZATION) fail("bundle release provenance is invalid");
   if (manifest.release_commit !== bundle.release.commit) fail("bundle release commit does not match the signed manifest");
 
   exactKeys(bundle.claims, CLAIM_KEYS, "bundle.claims");
@@ -272,7 +272,7 @@ function validateBundle(bundle, manifest) {
     for (const key of ["sha256", "artifact_sha256"]) expectString(source[key], `source ${key}`, /^[0-9a-f]{64}$/);
     for (const key of ["source_url", "artifact_url"]) {
       expectString(source[key], `source ${key}`);
-      if (!source[key].startsWith(`https://raw.githubusercontent.com/odaiin/assetfare-mcp/${bundle.release.public_evidence_commit}/verification/core/`)) fail(`source ${key} is not pinned to the public evidence commit`);
+      if (!source[key].startsWith(`https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${bundle.release.public_evidence_commit}/`)) fail(`source ${key} is not pinned to the public evidence commit`);
     }
   }
 
@@ -285,7 +285,7 @@ function validateBundle(bundle, manifest) {
   expectString(build.package_lock_path, "build package_lock_path", /^(?!\/)(?!.*\.\.)(?!.*\\).+$/);
   expectString(build.package_lock_sha256, "build package_lock_sha256", /^[0-9a-f]{64}$/);
   if (!Array.isArray(build.build_script_paths) || build.build_script_paths.length === 0 || build.build_script_paths.some((path) => typeof path !== "string" || !/^(?!\/)(?!.*\.\.)(?!.*\\).+$/.test(path))) fail("bundle build script paths are invalid");
-  if (!build.build_script_paths.includes("verification/core/agent_safety_invariants_preflight.mjs")) fail("bundle omits the reproducible invariant script");
+  if (!build.build_script_paths.includes("agent_safety_invariants_preflight.mjs")) fail("bundle omits the reproducible invariant script");
 
   if (!Array.isArray(bundle.evidence.deployments) || bundle.evidence.deployments.length !== Object.keys(DEPLOYMENTS).length) fail("bundle must include every deployment exactly once");
   if (canonical(bundle.evidence.deployments.map(({ id }) => id)) !== canonical(Object.keys(DEPLOYMENTS))) fail("bundle deployments must use the complete sorted id set");
@@ -328,7 +328,7 @@ function validateBundle(bundle, manifest) {
     if (value === null && ["incidents", "uptime"].includes(key)) continue;
     expectString(value, `bundle public URL ${key}`, /^https:\/\//);
   }
-  if (bundle.evidence.public_urls.manifest !== MANIFEST_URL || bundle.evidence.public_urls.source_repository !== bundle.release.public_evidence_repository || bundle.evidence.public_urls.source_tree !== bundle.release.public_evidence_tree_url || bundle.evidence.public_urls.verifier !== `https://github.com/odaiin/assetfare-mcp/blob/${bundle.release.public_evidence_commit}/scripts/assetfare-verify.mjs`) fail("bundle required public URLs are invalid");
+  if (bundle.evidence.public_urls.manifest !== MANIFEST_URL || bundle.evidence.public_urls.source_repository !== bundle.release.public_evidence_repository || bundle.evidence.public_urls.source_tree !== bundle.release.public_evidence_tree_url || !/^https:\/\/github\.com\/assetfare\/assetfare-mcp\/blob\/[0-9a-f]{40}\/scripts\/assetfare-verify\.mjs$/.test(bundle.evidence.public_urls.verifier)) fail("bundle required public URLs are invalid");
 
   exactKeys(bundle.verifier_rules, VERIFIER_RULE_KEYS, "bundle.verifier_rules");
   for (const [key, value] of Object.entries(bundle.verifier_rules)) expectString(value, `bundle verifier rule ${key}`, /^.{8,500}$/);
@@ -395,7 +395,7 @@ async function fetchEvidenceBytes(url, maximumBytes, label, fetchImpl = fetch) {
 
 async function verifyPublicEvidence(bundle, fetchImpl = fetch) {
   const commit = bundle.release.public_evidence_commit;
-  const rawRoot = `https://raw.githubusercontent.com/odaiin/assetfare-mcp/${commit}/`;
+  const rawRoot = `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${commit}/`;
   const expected = [];
   for (const source of bundle.evidence.sources) {
     expected.push({ url: source.source_url, sha256: source.sha256, label: `source ${source.contract}` });
@@ -410,7 +410,7 @@ async function verifyPublicEvidence(bundle, fetchImpl = fetch) {
     return { label: item.label, sha256: observed };
   }));
   const scripts = await Promise.all(bundle.evidence.build.build_script_paths.map(async (path) => {
-    if (!path.startsWith("verification/core/") || path.includes("..") || path.includes("\\")) fail("build script path is invalid");
+    if (!/^[A-Za-z0-9_.-]+\.mjs$/.test(path) || path.includes("..") || path.includes("\\")) fail("build script path is invalid");
     const bytes = await fetchEvidenceBytes(rawRoot + path, 256 * 1024, `build script ${path}`, fetchImpl);
     return { path, sha256: sha256Hex(bytes) };
   }));

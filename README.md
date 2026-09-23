@@ -1,9 +1,9 @@
 # AssetFare — non-custodial bridge and cross-chain swap for AI agents
 
-[![Public safety checks](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/odaiin/assetfare-mcp/actions/workflows/ci.yml)
+[![Public safety checks](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
-[![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
-[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/odaiin/assetfare-mcp)
+[![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.assetfare/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.assetfare/assetfare)
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/assetfare/assetfare-mcp)
 
 AssetFare is a non-custodial, agent-native cross-chain route service. It provides
 non-custodial bridge and cross-chain swap routes: six chains, eleven source
@@ -14,7 +14,7 @@ USDC and Optimism USDC → Base USDC. An agent gets a quote and, only after
 explicit caller approval, a bounded unsigned action the caller signs itself;
 AssetFare never receives private keys, signs, or submits.
 
-Verify before trusting: [public source](https://github.com/odaiin/assetfare-mcp),
+Verify before trusting: [public source](https://github.com/assetfare/assetfare-mcp),
 [Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
 [public key](https://assetfare.dev/.well-known/assetfare-manifest.pub),
 [security.txt](https://assetfare.dev/.well-known/security.txt), and
@@ -106,7 +106,7 @@ MCP:
 
 `https://api.assetfare.dev/mcp`
 
-Official MCP Registry server: `io.github.odaiin/assetfare`.
+Official MCP Registry server: `io.github.assetfare/assetfare`.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
 with a $1 minimum and no adapter-enforced maximum; live upstream availability
@@ -178,7 +178,7 @@ Hugging Face smolagents users can load the reviewed
 from free Static Spaces. Hub tools execute remote code locally: inspect
 `tool.py`, set `trust_remote_code=True`, and pin the documented immutable
 revision. The complete source and tests are in
-[`odaiin/smolagents-assetfare`](https://github.com/odaiin/smolagents-assetfare).
+[`assetfare/smolagents-assetfare`](https://github.com/assetfare/smolagents-assetfare).
 
 ## A2A v1 quote adapter
 
@@ -294,7 +294,7 @@ The portable Agent Skill is [`skills/assetfare-route/SKILL.md`](./skills/assetfa
 Skills.lc-compatible clients can install it directly from this public GitHub repository.
 
 ```bash
-npx --yes skills add odaiin/assetfare-mcp --skill assetfare-route -g -y
+npx --yes skills add assetfare/assetfare-mcp --skill assetfare-route -g -y
 ```
 
 ## Portable Agent Plugin
@@ -305,7 +305,7 @@ the same MCP connection and AssetFare route-evaluation skill through the
 included compatibility metadata:
 
 ```bash
-npx plugins add odaiin/assetfare-mcp
+npx plugins add assetfare/assetfare-mcp
 ```
 
 The MCP endpoint's two primary v2 tools are read-only capabilities and quote
@@ -337,7 +337,7 @@ Registry releases remain separately reviewed from remote deployment.
 ## Trust material
 
 - Security contact: `security@assetfare.dev`
-- Security policy and private reporting: `https://github.com/odaiin/assetfare-mcp/security/policy`
+- Security policy and private reporting: `https://github.com/assetfare/assetfare-mcp/security/policy`
 - Signed manifest: `https://api.assetfare.dev/.well-known/assetfare-manifest.json`
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
 - Six-chain source status: `https://api.assetfare.dev/v2/status`
@@ -358,11 +358,11 @@ Registry releases remain separately reviewed from remote deployment.
 
 ## Discovery
 
-- Official MCP Registry: `io.github.odaiin/assetfare`
-- MCP Servers: `https://mcpservers.org/servers/odaiin/assetfare-mcp`
+- Official MCP Registry: `io.github.assetfare/assetfare`
+- MCP Servers: `https://mcpservers.org/servers/assetfare/assetfare-mcp`
 - Smithery: `https://smithery.ai/servers/twotw55/assetfare`
-- Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
-- Agent Skill: `https://www.skills.sh/odaiin/assetfare-mcp/assetfare-route`
+- Glama: `https://glama.ai/mcp/connectors/io.github.assetfare/assetfare`
+- Agent Skill: `https://www.skills.sh/assetfare/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
 - Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `401ecf835a3e0c95807c245a208eeda81b0d9b81`)
 - Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `995b5c5be4d88a6c94241ef22ac3a6581dfa8cdb`)
