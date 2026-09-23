@@ -1,0 +1,48 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      root-runtime:
+        dependency-type: production
+      root-development:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /integrations/agenti
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /integrations/coinbase-agentkit
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /integrations/elizaos
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /integrations/goat-sdk
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /integrations/solana-agent-kit
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
