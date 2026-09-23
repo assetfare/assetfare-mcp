@@ -17,7 +17,7 @@ Usage:
   node scripts/route-eval.mjs [options]
 
 Options:
-  --amount <USD>          Whole or decimal USD amount from 1 through 1000
+  --amount <USD>          Finite whole or decimal USD amount of at least 1
   --from-chain <chain>    solana | base | arbitrum | robinhood | polygon | optimism
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
@@ -182,8 +182,8 @@ async function main() {
   const fromToken = String(option(argv, "--from-token", DEFAULTS.fromToken)).toUpperCase();
   const toChain = String(option(argv, "--to-chain", DEFAULTS.toChain)).toLowerCase();
   const toToken = String(option(argv, "--to-token", DEFAULTS.toToken)).toUpperCase();
-  if (!Number.isFinite(amountUsd) || amountUsd < 1 || amountUsd > 1000) {
-    throw new Error("amount must be a USD number from 1 through 1000");
+  if (!Number.isFinite(amountUsd) || amountUsd < 1) {
+    throw new Error("amount must be a finite USD number of at least 1");
   }
   if (fromChain === toChain && fromToken === toToken) throw new Error("identity route does not require a quote");
 
@@ -216,7 +216,7 @@ async function main() {
     }),
   }, "AssetFare quote");
   if (quote.status !== "capped_public_agent_release" || quote.execution?.supported !== true) {
-    throw new Error("AssetFare quote is not executable under the capped public release");
+    throw new Error("AssetFare quote is not executable under the current public release");
   }
   const expiresAt = new Date(Date.parse(quote.as_of) + Number(quote.ttl_seconds) * 1000).toISOString();
   const output = {

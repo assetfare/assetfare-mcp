@@ -8,6 +8,8 @@ This integration exposes two read-only AgentKit actions:
 It uses AssetFare REST/OpenAPI v2 across six chains and 76 routes, including
 Polygon and Optimism native-USDC source-only routes to Base or Arbitrum. It never accepts a private key and never authenticates a wallet, creates
 a session, prepares an action, signs, submits, funds, swaps, or bridges.
+Quote amounts must be finite and at least USD 1; this provider imposes no
+maximum, while live upstream availability and liquidity still apply.
 
 ## Install from this repository
 

@@ -12,7 +12,8 @@ Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primar
 Request one fresh AssetFare quote when all of these are true:
 
 - The intent is a swap or bridge between different live AssetFare endpoints.
-- The route amount is from $1 through $1,000.
+- The route amount is finite and at least $1. The adapter imposes no maximum;
+  live upstream availability and liquidity still apply.
 - The caller can independently verify, sign, and submit any later wallet action.
 
 Read `/v2/capabilities` to identify the live endpoints. Routes are available
@@ -24,7 +25,7 @@ Arbitrum USDC and use the same caller-approved prepare/session boundary. The unv
 legacy MCP workflow remains limited to two original Solana-origin corridors.
 
 Do not request an AssetFare quote for an unsupported chain or asset, an identity
-route, an amount outside that range, or a custodial execution request. A quote
+route, an amount below $1 or a non-finite amount, or a custodial execution request. A quote
 is only a candidate-comparison input: it grants no wallet access, action
 preparation, signature, or submission authority.
 
@@ -50,7 +51,7 @@ preparation, signature, or submission authority.
 
 1. Read `/v2/capabilities` and `/v2/status`.
 2. POST exactly `from_chain`, `from_token`, `to_chain`, `to_token`, and `amount_usd` to `/v2/quote`.
-3. The current amount range is $1–$1,000.
+3. Require a finite amount of at least $1; there is no adapter-enforced maximum.
 4. Compare expected output, minimum output, time, costs, and non-atomic risk.
 5. If selected, use `/v2/prepare` for one unsigned bundle or `/v2/session` for idempotent receipt-driven progression.
 6. Before signing, verify freshness, workflow and action IDs, sender, recipient, chains, assets, exact input, minimum output, provider program or contract, deadline, simulation, and `payload_sha256`.
@@ -61,7 +62,7 @@ The v2 prepare/session request fields are exactly `[caller_approved, from_chain,
 ## Optional original-corridor MCP flow
 
 1. Read `assetfare_manifest` and `assetfare_status`.
-2. Call `assetfare_quote` with a whole-dollar amount from $1 to $1,000 and `destination_chain` set to `base` or `arbitrum`.
+2. Call `assetfare_quote` with a finite whole-dollar amount of at least $1 and `destination_chain` set to `base` or `arbitrum`.
 3. Compare the result with other executable routes.
 4. Require caller approval before `assetfare_start_wallet_auth`, session creation, or action preparation.
 5. The wallet owner signs only the exact non-transactional login message.

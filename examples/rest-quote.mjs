@@ -5,8 +5,8 @@ const fromToken = String(process.argv[4] || "SOL").toUpperCase();
 const toChain = String(process.argv[5] || "base").toLowerCase();
 const toToken = String(process.argv[6] || "USDC").toUpperCase();
 
-if (!Number.isFinite(amountUsd) || amountUsd < 1 || amountUsd > 1000) {
-  throw new Error("amount must be a USD number from 1 through 1000");
+if (!Number.isFinite(amountUsd) || amountUsd < 1) {
+  throw new Error("amount must be a finite USD number of at least 1");
 }
 
 const response = await fetch(endpoint, {

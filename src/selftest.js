@@ -61,7 +61,7 @@ if (!required.every((name) => names.includes(name))) throw new Error("required M
 if (names.length !== 22 || new Set(names).size !== 22) throw new Error("MCP tool count mismatch");
 const quoteTool = result.tools.find((tool) => tool.name === "assetfare_quote");
 if (JSON.stringify(quoteTool?.inputSchema?.properties?.destination_chain?.enum) !== JSON.stringify(["base", "arbitrum"])) throw new Error("quote destination schema mismatch");
-if (quoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || quoteTool?.inputSchema?.properties?.amount_usd?.maximum !== 1000) throw new Error("quote amount schema mismatch");
+if (quoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || "maximum" in quoteTool.inputSchema.properties.amount_usd) throw new Error("quote amount schema mismatch");
 if (!quoteTool?.description?.startsWith("Legacy v1")) throw new Error("legacy quote is not labeled");
 const v2CapabilitiesTool = result.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
 const v2QuoteTool = result.tools.find((tool) => tool.name === "assetfare_v2_quote");
@@ -70,14 +70,16 @@ if (JSON.stringify(v2QuoteTool?.inputSchema?.required) !== JSON.stringify(["from
 if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_chain?.enum) !== JSON.stringify(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"])) throw new Error("v2 quote source chain schema mismatch");
 if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.to_chain?.enum) !== JSON.stringify(["solana", "base", "arbitrum", "robinhood"])) throw new Error("v2 quote destination chain schema mismatch");
 if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_token?.enum) !== JSON.stringify(["SOL", "ETH", "USDC", "USDG"])) throw new Error("v2 quote token schema mismatch");
-if (v2QuoteTool?.inputSchema?.properties?.amount_usd?.type !== "number" || v2QuoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || v2QuoteTool?.inputSchema?.properties?.amount_usd?.maximum !== 1000) throw new Error("v2 quote amount schema mismatch");
+if (v2QuoteTool?.inputSchema?.properties?.amount_usd?.type !== "number" || v2QuoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || "maximum" in v2QuoteTool.inputSchema.properties.amount_usd) throw new Error("v2 quote amount schema mismatch");
 if (v2QuoteTool?.annotations?.readOnlyHint !== true || v2QuoteTool?.annotations?.destructiveHint !== false || v2QuoteTool?.annotations?.idempotentHint !== false) throw new Error("v2 quote annotations mismatch");
 if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP must not expose transaction submission");
 // New v2 execution tools: caller_approved is a required literal-true gate on prepare/session_create.
 const v2PrepareTool = result.tools.find((tool) => tool.name === "assetfare_v2_prepare");
 if (!v2PrepareTool?.inputSchema?.required?.includes("caller_approved") || !v2PrepareTool?.inputSchema?.required?.includes("wallets")) throw new Error("v2 prepare must require caller_approved and wallets");
+if (v2PrepareTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2PrepareTool.inputSchema.properties.amount_usd) throw new Error("v2 prepare amount schema mismatch");
 const v2SessionCreateTool = result.tools.find((tool) => tool.name === "assetfare_v2_session_create");
 if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || !v2SessionCreateTool?.inputSchema?.required?.includes("session_token")) throw new Error("v2 session_create must require caller_approved and session_token");
+if (v2SessionCreateTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2SessionCreateTool.inputSchema.properties.amount_usd) throw new Error("v2 session_create amount schema mismatch");
 const v2NewTokenTool = result.tools.find((tool) => tool.name === "assetfare_v2_new_session_capability");
 if (Object.keys(v2NewTokenTool?.inputSchema?.properties || {}).length !== 0) throw new Error("v2 new_session_capability must take no arguments");
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
@@ -115,8 +117,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "0.4.10" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.10" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.11" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.11" || card.body?.tools?.length !== 22) throw new Error("server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow) throw new Error("MCP bridge discovery alias mismatch");
   for (const [channel, response] of discoveryCards) {
@@ -142,6 +144,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.10", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.11", server_card_tools: 22, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

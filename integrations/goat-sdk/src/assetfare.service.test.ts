@@ -6,12 +6,15 @@ import { AssetFareNoParams, AssetFareQuoteParameters } from "./parameters.js";
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-test("quote parameter model enforces capped non-identity intents", () => {
+test("quote parameter model enforces finite, minimum-one, non-identity intents", () => {
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 2500.25 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "optimism", toToken: "USDC", amountUsd: 250 }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 0.99 }).success, false);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.NaN }).success, false);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.POSITIVE_INFINITY }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, false);
 });
 
@@ -56,6 +59,6 @@ test("quote tool fails closed if the server boundary changes", async () => {
   const service = new AssetFareService("https://unit.test", (async () => response({ status: "capped_public_agent_release", risk: { server_signing: true, server_submission: false }, execution: { supported: true } })) as typeof fetch);
   await assert.rejects(
     service.quoteRoute({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "ETH", amountUsd: 300 } as AssetFareQuoteParameters),
-    /outside the capped public safety boundary/,
+    /outside the public safety boundary/,
   );
 });

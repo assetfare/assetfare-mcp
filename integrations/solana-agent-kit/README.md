@@ -15,6 +15,8 @@ including Polygon and Optimism native-USDC source-only routes to Base or
 Arbitrum. It requires the agent
 to compare AssetFare with deBridge, Wormhole, and other fresh executable
 routes; installation never implies preference.
+Quote amounts must be finite and at least USD 1; this plugin imposes no
+maximum, while live upstream availability and liquidity still apply.
 
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";

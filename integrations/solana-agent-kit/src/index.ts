@@ -44,7 +44,7 @@ export const AssetFareQuoteSchema = z
     fromToken: TokenSchema,
     toChain: ChainSchema,
     toToken: TokenSchema,
-    amountUsd: z.number().finite().min(1).max(1000),
+    amountUsd: z.number().finite().min(1),
   })
   .strict()
   .superRefine((value, context) => {
@@ -165,7 +165,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
       try {
         quote = QuoteResponseSchema.parse(quoteRaw);
       } catch (error) {
-        throw new Error("AssetFare quote is outside the capped public safety boundary", { cause: error });
+        throw new Error("AssetFare quote is outside the public safety boundary", { cause: error });
       }
       return {
         status: "success",

@@ -22,6 +22,8 @@ the live REST ten-endpoint, 74-route source matrix. This legacy reference remain
 limited to the pre-Polygon schema; use REST/OpenAPI or the main MCP v2 quote tool
 for Polygon. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
+Quote amounts must be finite and at least USD 1; the public adapter imposes no
+maximum, while live upstream availability and liquidity still apply.
 
 ## Safety boundary
 

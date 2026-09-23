@@ -8,6 +8,8 @@ This plugin exposes two read-only GOAT tools:
 It calls AssetFare REST/OpenAPI v2 across six chains and 76 routes, including
 Polygon and Optimism native-USDC source-only routes to Base or Arbitrum. It never accepts a private key and cannot authenticate, create a
 session, prepare an action, sign, submit, fund, swap, or bridge.
+Quote amounts must be finite and at least USD 1; this plugin imposes no
+maximum, while live upstream availability and liquidity still apply.
 
 ```ts
 import { getOnChainTools } from "@goat-sdk/adapter-vercel-ai";

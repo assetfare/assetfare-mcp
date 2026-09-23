@@ -1,6 +1,6 @@
 {
   "name": "assetfare-solana-agent-kit-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only AssetFare bridge and cross-chain swap quotes for Solana Agent Kit across 6 chains and 76 routes",
   "keywords": ["solana-agent-kit", "solana", "bridge", "cross-chain", "usdc", "base", "ai-agents", "non-custodial"],
   "homepage": "https://assetfare.dev/agents/",

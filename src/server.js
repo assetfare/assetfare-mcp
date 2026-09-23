@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.10";
+const VERSION = "0.4.11";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -84,7 +84,7 @@ const v2QuoteFields = {
   from_token: z.enum(V2_TOKENS),
   to_chain: z.enum(V2_DESTINATION_CHAINS),
   to_token: z.enum(V2_TOKENS),
-  amount_usd: z.number().finite().min(1).max(1000),
+  amount_usd: z.number().finite().min(1),
 };
 const emptyStrictInput = z.object({}).strict();
 const v2QuoteIntent = z.object(v2QuoteFields).strict();
@@ -101,7 +101,7 @@ const v2PrepareFields = {
   from_token: z.enum(V2_TOKENS),
   to_chain: z.enum(V2_DESTINATION_CHAINS),
   to_token: z.enum(V2_TOKENS),
-  amount_usd: z.number().finite().min(1).max(1000),
+  amount_usd: z.number().finite().min(1),
   wallets: v2WalletMap,
   event_signer_public: v2EventSignerPublic.optional(),
 };
@@ -486,7 +486,7 @@ function serverCard() {
   const eventSignerPublic = { type: "string", description: "Solana CCTP only: caller-generated ephemeral public key. Keep the matching private key client-side and co-sign the returned unsigned event-account transaction; never send the private key." };
   const walletMap = { type: "object", additionalProperties: publicAddress };
   const callerApproved = { type: "boolean", const: true };
-  const amountUsd = { type: "number", minimum: 1, maximum: 1000 };
+  const amountUsd = { type: "number", minimum: 1 };
   const v2Route = { from_chain: { type: "string", enum: V2_SOURCE_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_DESTINATION_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: amountUsd };
   const object = (properties, required = Object.keys(properties)) => ({ type: "object", additionalProperties: false, properties, required });
   return {
@@ -496,8 +496,8 @@ function serverCard() {
       { name: "assetfare_status", description: LEGACY_STATUS_DESCRIPTION, inputSchema: object({}) },
       { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
       { name: "assetfare_v2_capabilities", description: V2_CAPABILITIES_DESCRIPTION, inputSchema: object({}) },
-      { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object({ from_chain: { type: "string", enum: V2_SOURCE_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_DESTINATION_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: { type: "number", minimum: 1, maximum: 1000 } }) },
-      { name: "assetfare_quote", description: LEGACY_QUOTE_DESCRIPTION, inputSchema: object({ amount_usd: { type: "integer", minimum: 1, maximum: 1000 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
+      { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object({ from_chain: { type: "string", enum: V2_SOURCE_CHAINS }, from_token: { type: "string", enum: V2_TOKENS }, to_chain: { type: "string", enum: V2_DESTINATION_CHAINS }, to_token: { type: "string", enum: V2_TOKENS }, amount_usd: { type: "number", minimum: 1 } }) },
+      { name: "assetfare_quote", description: LEGACY_QUOTE_DESCRIPTION, inputSchema: object({ amount_usd: { type: "integer", minimum: 1 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
       { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
       { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
       { name: "assetfare_create_session", description: "Lock a fresh quote into one wallet-bound execution session. Creates no blockchain transaction.", inputSchema: object({ access_token: token, quote_id: uuid, idempotency_key: idempotency, source_wallet: wallet, destination_wallet: evmWallet }) },
@@ -569,7 +569,7 @@ function createServer(provenance = {}) {
   addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, { session_token: v2SessionToken, session_id: sessionId, idempotency_key: idempotencyKey, transaction_hashes: z.array(z.string().min(16).max(128)).min(1).max(8) }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
   addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, { session_token: v2SessionToken, session_id: sessionId, idempotency_key: idempotencyKey, transaction_hash: z.string().min(16).max(128).optional() }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
   addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, { session_token: v2SessionToken, session_id: sessionId, idempotency_key: idempotencyKey }, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: z.number().int().min(1).max(1000), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
+  addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: z.number().finite().int().min(1), destination_chain: z.enum(["base", "arbitrum"]).default("base") }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
   addTool(server, "assetfare_start_wallet_auth", "Create a non-transactional Solana signMessage challenge. Requires caller approval because it creates a short-lived login challenge; it cannot move funds.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
   addTool(server, "assetfare_finish_wallet_auth", "Verify a wallet signature over the exact challenge message and return a wallet-bound access token. Requires caller approval; the returned token is sensitive.", { challenge_id: z.string().uuid(), source_wallet: sourceWallet, signature: z.string().min(64).max(128), terms_version: z.string().min(1).max(160) }, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));

@@ -60,9 +60,10 @@ MCP:
 Official MCP Registry server: `io.github.odaiin/assetfare`.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
-from $1 through $1,000. Each charges an AssetFare service fee of exactly 1bp;
-Circle/provider/network fees are additional, and each quote exposes total
-token-path cost and live availability.
+with a $1 minimum and no adapter-enforced maximum; live upstream availability
+and liquidity still apply. Each route charges an AssetFare service fee of
+exactly 1bp; Circle/provider/network fees are additional, and each quote
+exposes total token-path cost and live availability.
 Canonical examples are `solana:SOL → base:USDC`, `solana:USDC → base:USDC`,
 and `optimism:USDC → base:USDC`. Polygon and Optimism contribute exactly four
 directional native-USDC source-only routes to Base and Arbitrum USDC. The
@@ -96,7 +97,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.10 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.11 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 
@@ -144,7 +145,9 @@ and invoke Agent Cards without MCP:
 The read-only quote skill accepts one structured DataPart containing
 `fromChain`, `fromToken`, `toChain`, `toToken`, and `amountUsd`. It calls the
 public v2 capabilities, status, and quote endpoints and returns one quote with
-its passed-through `caller_action_plan_handoff`. Additional caller-approved A2A
+its passed-through `caller_action_plan_handoff`. `amountUsd` must be finite and
+at least 1; the adapter imposes no maximum, while live upstream availability
+and liquidity still apply. Additional caller-approved A2A
 skills mirror the MCP execution tools: a local `new_session_capability` token
 generator, a one-shot `prepare` operation, and the full `session` lifecycle
 (`session_create`, `session_get`, `observe_source`, `observe_output`,

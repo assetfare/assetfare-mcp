@@ -31,7 +31,7 @@ export const AssetFareQuoteIntentSchema = z.object({
   fromToken: TokenSchema,
   toChain: ChainSchema,
   toToken: TokenSchema,
-  amountUsd: z.number().finite().min(1).max(1000),
+  amountUsd: z.number().finite().min(1),
 }).strict().superRefine((value, context) => {
   if (!(TOKENS_BY_CHAIN[value.fromChain] as readonly string[]).includes(value.fromToken)) {
     context.addIssue({ code: "custom", path: ["fromToken"], message: "token is not supported on source chain" });
@@ -80,7 +80,7 @@ const intentJsonSchema = {
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
 Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG; polygon USDC and optimism USDC as source-only to Base/Arbitrum USDC.
-The USD amount must be 1 through 1000. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
+The USD amount must be finite and at least 1; there is no adapter-enforced maximum. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
 {{recentMessages}}`;

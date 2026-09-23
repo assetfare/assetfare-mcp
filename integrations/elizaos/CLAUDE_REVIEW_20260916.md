@@ -1,5 +1,9 @@
 # AssetFare × elizaOS quote-only 플러그인 독립 검토 (Claude)
 
+> 보존된 과거 감사 기록: 이 문서는 `0.1.0`을 검토한 시점의 결과입니다.
+> 현재 `0.1.1`은 유한한 USD 1 이상을 요구하되 어댑터 최대값은 두지 않습니다.
+> 아래의 기존 최대값 관련 문구는 현재 계약이 아닙니다.
+
 - 일시: 2026-09-16T14:58:40Z · 검토자: Claude (독립 검토자)
 - 요청서: `CLAUDE_REVIEW_REQUEST_20260916.md`
 - 방식: **읽기 전용**. 시크릿·env·wallet·npm token 미접근. 라이브 quote·인증·세션·prepare·서명·
@@ -31,9 +35,9 @@
    사용하고 **`getSetting`·wallet·private key·signer·swap/bridge 실행 없음**. 소스·dist 모두 실제 접근
    호출 0건(‘wallet’ 등장은 설명 문자열·`walletAccessed:false` 플래그뿐). 테스트 "sends five fields
    and never reads wallet settings"가 Proxy 런타임으로 설정 접근 부재를 검증.
-3. **OBJECT_SMALL 산출물 zod 재검증·9 endpoint·identity·$1–$1,000 — PASS.** useModel 결과를
+3. **OBJECT_SMALL 산출물 zod 재검증·9 endpoint·identity·입력 경계 — PASS (금액 상한 판정은 0.1.1에서 폐기).** useModel 결과를
    `AssetFareQuoteIntentSchema.parse()`로 재검증(strict). `TOKENS_BY_CHAIN`로 9 endpoint 멤버십 강제,
-   identity 경로 거부, `amountUsd finite().min(1).max(1000)`. parse 실패 시 `success:false`로 fail-closed.
+   identity 경로 거부. 현재 계약은 `amountUsd finite().min(1)`이며 어댑터 최대값이 없다. parse 실패 시 `success:false`로 fail-closed.
 4. **POST 5필드·literal schema — PASS.** body = from_chain/from_token/to_chain/to_token/amount_usd
    (정확히 5). `QuoteSchema`: `status` literal, `execution.supported` literal true, `risk.server_signing`/
    `server_submission` literal false(zod v4 `.loose()`). 미충족 시 parse throw → fail-closed.

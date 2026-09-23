@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import urllib.request
 
@@ -13,8 +14,8 @@ from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
 from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "SOL"
 to_chain = sys.argv[4].lower() if len(sys.argv) > 4 else "base"
 to_token = sys.argv[5].upper() if len(sys.argv) > 5 else "USDC"
-if not 1 <= amount_usd <= 1000:
-    raise SystemExit("amount must be a USD number from 1 through 1000")
+if not math.isfinite(amount_usd) or amount_usd < 1:
+    raise SystemExit("amount must be a finite USD number of at least 1")
 
 payload = json.dumps(
     {

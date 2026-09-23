@@ -12,7 +12,7 @@ This Phase 1 plugin adds only:
 - `ASSETFARE_QUOTE_ROUTE`
 
 It uses elizaOS `ModelType.OBJECT_SMALL` to extract a bounded route intent,
-validates the exact six-chain, 76-route endpoints and `$1–$1,000` range, including Polygon and Optimism native-USDC source-only routes, requests a quote, and
+validates the exact six-chain, 76-route endpoints and finite `$1` minimum with no adapter-enforced maximum, including Polygon and Optimism native-USDC source-only routes, requests a quote, and
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 

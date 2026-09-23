@@ -14,7 +14,7 @@ export const AssetFareQuoteSchema = z
     fromToken: AssetFareTokenSchema.describe("Source asset symbol"),
     toChain: AssetFareChainSchema.describe("Destination blockchain"),
     toToken: AssetFareTokenSchema.describe("Destination asset symbol"),
-    amountUsd: z.number().min(1).max(1000).describe("USD notional from 1 through 1000"),
+    amountUsd: z.number().finite().min(1).describe("Finite USD notional of at least 1; no adapter-enforced maximum"),
   })
   .strict()
   .superRefine((value, context) => {

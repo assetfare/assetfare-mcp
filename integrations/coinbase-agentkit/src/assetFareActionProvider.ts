@@ -95,7 +95,7 @@ This action is read-only: it does not authenticate a wallet, create a session, p
       risk?.server_signing !== false ||
       risk?.server_submission !== false
     ) {
-      throw new Error("AssetFare quote is outside the capped public safety boundary");
+      throw new Error("AssetFare quote is outside the public safety boundary");
     }
     return JSON.stringify({
       success: true,

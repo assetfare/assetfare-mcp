@@ -25,7 +25,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.5");
+assert.equal(card.version, "0.1.6");
 assert.equal(card.skills.length, 4);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["new-session-capability", "prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -57,6 +57,15 @@ assert.equal(observedHeaders.get("x-assetfare-channel"), "a2a");
 assert.equal(result.result.message.role, "ROLE_AGENT");
 assert.ok(result.result.message.parts[0].data.quote);
 assert.equal(result.result.message.parts[0].data.guidance.transactionSubmitted, false);
+
+const uncappedIntent = { ...intent, amountUsd: 2500.25 };
+const uncappedResult = await transport.handle(request([data(uncappedIntent)], "uncapped"), context());
+assert.equal(observedBody.amount_usd, 2500.25);
+assert.ok(uncappedResult.result.message.parts[0].data.quote);
+for (const amountUsd of [0.99, Number.NaN, Number.POSITIVE_INFINITY]) {
+  const invalidAmount = await transport.handle(request([data({ ...intent, amountUsd })], `invalid-${String(amountUsd)}`), context());
+  assert.equal(invalidAmount.result.message.parts[0].data.error.code, "quote_intent_invalid");
+}
 
 const polygonIntent = { fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 10 };
 const polygonResult = await transport.handle(request([data(polygonIntent)], "polygon"), context());
@@ -117,6 +126,14 @@ const prepareResult = await execHandler.handle(request([data({ operation: "prepa
 assert.ok(dataOf(prepareResult).bundle.unsigned_action);
 assert.equal(execBody.caller_approved, true);
 assert.equal(dataOf(prepareResult).guidance.callerMustVerifySignAndSubmit, true);
+
+const uncappedPrepareResult = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 2500.25, wallets })], "uncapped-prepare"), context());
+assert.ok(dataOf(uncappedPrepareResult).bundle.unsigned_action);
+assert.equal(execBody.amount_usd, 2500.25);
+for (const amountUsd of [0.99, Number.NaN, Number.POSITIVE_INFINITY]) {
+  const invalidPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd, wallets })], `invalid-prepare-${String(amountUsd)}`), context());
+  assert.equal(dataOf(invalidPrepare).error.code, "prepare_intent_invalid");
+}
 
 // prepare caller_approved:false is rejected before any network work
 const badPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: false, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets })], "bad-prepare"), context());

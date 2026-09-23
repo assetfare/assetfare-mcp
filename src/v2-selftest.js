@@ -24,10 +24,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.10");
-assert.equal(lockMetadata.version, "0.4.10");
-assert.equal(lockMetadata.packages[""].version, "0.4.10");
-assert.equal(registryMetadata.version, "0.4.10");
+assert.equal(packageMetadata.version, "0.4.11");
+assert.equal(lockMetadata.version, "0.4.11");
+assert.equal(lockMetadata.packages[""].version, "0.4.11");
+assert.equal(registryMetadata.version, "0.4.11");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana SOL to Base USDC/i);
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
@@ -223,7 +223,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 22);
-  assert.equal(card.serverInfo.version, "0.4.10");
+  assert.equal(card.serverInfo.version, "0.4.11");
   assert.equal(card.tools.length, 22);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
@@ -322,8 +322,8 @@ try {
     { ...validIntent, to_chain: "robinhood", to_token: "USDG", from_chain: "robinhood", from_token: "USDG" },
     { ...validIntent, amount_usd: true },
     { ...validIntent, amount_usd: Number.NaN },
+    { ...validIntent, amount_usd: Number.POSITIVE_INFINITY },
     { ...validIntent, amount_usd: 0.99 },
-    { ...validIntent, amount_usd: 1000.01 },
     { ...validIntent, extra: "forbidden" },
   ];
   const beforeInvalid = calls.length;
@@ -332,6 +332,11 @@ try {
     assert.equal(result.isError, true, `invalid input accepted: ${JSON.stringify(args)}`);
   }
   assert.equal(calls.length, beforeInvalid, "invalid input reached upstream");
+
+  const beforeUncapped = calls.length;
+  const uncapped = await call(client, "assetfare_v2_quote", { ...validIntent, amount_usd: 2500.25 });
+  assert.equal(uncapped.isError, false, "finite amount above the retired USD 1,000 business cap was rejected");
+  assert.equal(calls.length, beforeUncapped + 1, "uncapped quote did not reach upstream exactly once");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
   const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long"];
@@ -378,6 +383,13 @@ try {
   assert.equal(parse(sourceOnlyPrepare).signed, false);
   assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
 
+  const uncappedPrepareArgs = { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 2500.25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "0x2222222222222222222222222222222222222222" } };
+  const beforeUncappedPrepare = calls.length;
+  const uncappedPrepare = await call(client, "assetfare_v2_prepare", uncappedPrepareArgs);
+  assert.equal(uncappedPrepare.isError, false, "caller-approved prepare above the retired business cap was rejected");
+  assert.equal(JSON.parse(String(calls.at(-1).init.body)).amount_usd, 2500.25);
+  assert.equal(calls.length, beforeUncappedPrepare + 1, "uncapped prepare did not reach upstream exactly once");
+
   // caller_approved gate: false / missing / string / number rejected BEFORE any network call.
   const badApproval = [
     { caller_approved: false, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "0x2222222222222222222222222222222222222222" } },
@@ -391,6 +403,13 @@ try {
     assert.equal(result.isError, true, `caller_approved gate accepted ${JSON.stringify(args.caller_approved)}`);
   }
   assert.equal(calls.length, beforeApproval, "caller_approved hostile reached upstream");
+
+  const beforeInvalidPrepareAmount = calls.length;
+  for (const amount_usd of [0.99, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const result = await call(client, "assetfare_v2_prepare", { ...uncappedPrepareArgs, amount_usd });
+    assert.equal(result.isError, true, `prepare accepted unsafe amount ${String(amount_usd)}`);
+  }
+  assert.equal(calls.length, beforeInvalidPrepareAmount, "unsafe prepare amount reached upstream");
 
   // A private-key-shaped wallet value (64-hex secret, not a public address) is rejected before any network call.
   const beforeSecret = calls.length;

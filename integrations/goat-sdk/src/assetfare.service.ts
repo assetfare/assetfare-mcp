@@ -27,7 +27,7 @@ export class AssetFareService {
 
   @Tool({
     name: "assetfare_get_capabilities",
-    description: "Read AssetFare's current capped public route scope and verify that server signing and submission remain disabled. This tool is read-only.",
+    description: "Read AssetFare's current public route scope and verify that server signing and submission remain disabled. This tool is read-only.",
   })
   async getCapabilities(_parameters: AssetFareNoParams) {
     const [capabilities, status] = await Promise.all([
@@ -72,7 +72,7 @@ export class AssetFareService {
       risk?.server_signing !== false ||
       risk?.server_submission !== false
     ) {
-      throw new Error("AssetFare quote is outside the capped public safety boundary");
+      throw new Error("AssetFare quote is outside the public safety boundary");
     }
     return {
       success: true,

@@ -22,7 +22,7 @@ export const AssetFareQuoteSchema = z.object({
   fromToken: TokenSchema,
   toChain: ChainSchema,
   toToken: TokenSchema,
-  amountUsd: z.number().finite().min(1).max(1000),
+  amountUsd: z.number().finite().min(1),
 }).strict().superRefine((value, context) => {
   if (!(TOKENS_BY_CHAIN[value.fromChain] as readonly string[]).includes(value.fromToken)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["fromToken"], message: "token is not supported on source chain" });
@@ -122,7 +122,7 @@ export function createAssetFareClient(config: AssetFareToolsConfig = {}) {
       try {
         return QuoteSchema.parse(quoteRaw);
       } catch (error) {
-        throw new Error("AssetFare quote is outside the capped public safety boundary", { cause: error });
+        throw new Error("AssetFare quote is outside the public safety boundary", { cause: error });
       }
     },
   };

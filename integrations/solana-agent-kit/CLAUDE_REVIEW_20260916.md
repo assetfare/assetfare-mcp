@@ -1,5 +1,9 @@
 # AssetFare × SendAI Solana Agent Kit 어댑터 독립 검토 (Claude)
 
+> 보존된 과거 감사 기록: 이 문서는 `0.1.0`을 검토한 시점의 결과입니다.
+> 현재 `0.1.1`은 유한한 USD 1 이상을 요구하되 어댑터 최대값은 두지 않습니다.
+> 아래의 기존 최대값 관련 문구는 현재 계약이 아닙니다.
+
 - 최초: 2026-09-16T13:51:16Z (GO) · **갱신: 2026-09-16T14:03:33Z (F-1~F-3 반영분 재검토, GO 유지)**
 - 검토자: Claude (독립 검토자 역할)
 - 요청서: `CLAUDE_REVIEW_REQUEST_20260916.md`
@@ -47,8 +51,8 @@
    order/prepare/signing/submission/funding/swap/bridge 없음. dist 빌드에도 동일.
 3. **지갑/키/서명자 미접근 — PASS.** 핸들러 `_agent` 미사용. dist에 wallet/privateKey/signer/
    sendTransaction/signTransaction/Keypair 참조 0.
-4. **quote 5필드·$1–$1,000·9 endpoint·identity 거부 — PASS.** 전송 필드 정확히 5개.
-   `amountUsd finite().min(1).max(1000)`, `TOKENS_BY_CHAIN`로 9 endpoint 강제, identity 거부,
+4. **quote 5필드·입력 경계·9 endpoint·identity 거부 — PASS (금액 상한 판정은 0.1.1에서 폐기).** 전송 필드 정확히 5개.
+   현재 계약은 `amountUsd finite().min(1)`이며 어댑터 최대값이 없다. `TOKENS_BY_CHAIN`로 9 endpoint 강제, identity 거부,
    `.strict()`+핸들러 재파싱으로 fail-closed.
 5. **서명/전송 false 아니면 실패 — PASS.** 응답 스키마 literal(false/true)로 강제, 미충족 시 throw.
 6. **자동선택 유도 없음·동등 비교 — PASS.** description "Compare it with deBridge, Wormhole..."

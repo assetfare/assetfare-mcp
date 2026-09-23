@@ -1,5 +1,9 @@
 # AssetFare × Agenti quote-only tools 독립 검토 (Claude)
 
+> 보존된 과거 감사 기록: 이 문서는 `0.1.0`을 검토한 시점의 결과입니다.
+> 현재 `0.1.1`은 유한한 USD 1 이상을 요구하되 어댑터 최대값은 두지 않습니다.
+> 아래의 기존 최대값 관련 문구는 현재 계약이 아닙니다.
+
 - 일시: 2026-09-16T15:10:30Z · 검토자: Claude (독립 검토자)
 - 요청서: `CLAUDE_REVIEW_REQUEST_20260916.md`
 - 방식: **읽기 전용**. 시크릿·env·wallet·npm token 미접근. 라이브 quote·인증·세션·prepare·서명·
@@ -32,9 +36,9 @@
    private key·signer 수신/읽기 **없음**(execute는 wallet 인자조차 받지 않음). 소스·dist 모두 실제
    접근 호출 0(‘wallet’은 설명·`walletAccessed:false` 플래그뿐). 테스트 "Vercel tools add only
    capability and quote functions"가 sign/submit/fund/bridge tool 부재를 검증.
-3. **5필드 POST·9 endpoint·identity·$1–$1,000 — PASS.** body = from_chain/from_token/to_chain/
+3. **5필드 POST·9 endpoint·identity·입력 경계 — PASS (금액 상한 판정은 0.1.1에서 폐기).** body = from_chain/from_token/to_chain/
    to_token/amount_usd(정확히 5). `AssetFareQuoteSchema` strict + superRefine으로 9 endpoint 멤버십·
-   identity 거부, `amountUsd finite().min(1).max(1000)`. execute 진입 시 SDK 검증 + `client.quote`
+   identity 거부. 현재 계약은 `amountUsd finite().min(1)`이며 어댑터 최대값이 없다. execute 진입 시 SDK 검증 + `client.quote`
    내부 `.parse()` 재검증(이중).
 4. **signing/submission false·execution supported fail-closed — PASS.** `QuoteSchema`: status
    literal, execution.supported literal true, risk.server_signing/submission literal false. 미충족 시

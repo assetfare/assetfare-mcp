@@ -1,6 +1,6 @@
 {
   "name": "@assetfare/goat-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only AssetFare multichain route quotes for GOAT",
   "type": "module",
   "main": "dist/index.js",

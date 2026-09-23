@@ -1,6 +1,6 @@
 {
   "name": "assetfare-elizaos-route-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read-only AssetFare bridge and cross-chain swap quotes for elizaOS across 6 chains and 76 routes",
   "keywords": ["elizaos", "plugin", "bridge", "cross-chain", "usdc", "solana", "base", "ai-agents", "non-custodial"],
   "homepage": "https://assetfare.dev/agents/",
