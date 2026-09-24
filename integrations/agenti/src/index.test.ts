@@ -31,6 +31,8 @@ test("Vercel tools add only capability and quote functions", () => {
   const tools = assetFareTools({ fetch: async () => Response.json({}) });
   assert.deepEqual(Object.keys(tools), ["assetfareGetCapabilities", "assetfareQuoteRoute"]);
   assert.equal(Object.keys(tools).some((name) => /sign|submit|execute|fund|bridge/i.test(name)), false);
+  assert.equal("inputSchema" in tools.assetfareGetCapabilities, true);
+  assert.equal("inputSchema" in tools.assetfareQuoteRoute, true);
 });
 
 test("client fails closed when server submission is enabled", async () => {

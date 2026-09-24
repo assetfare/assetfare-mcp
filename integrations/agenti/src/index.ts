@@ -133,12 +133,12 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
   return {
     assetfareGetCapabilities: tool({
       description: "Read AssetFare's public route scope and verify that the server still cannot sign or submit. Read-only and independent of the Agenti wallet.",
-      parameters: z.object({}).strict(),
+      inputSchema: z.object({}).strict(),
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
       description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes and stop. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
-      parameters: AssetFareQuoteSchema,
+      inputSchema: AssetFareQuoteSchema,
       execute: async (input) => ({
         success: true,
         quote: await client.quote(input),
