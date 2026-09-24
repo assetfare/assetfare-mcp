@@ -351,12 +351,12 @@ function rejectSecretMaterial(value) {
 function rejectPrivateOutputMaterial(value) {
   const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase"]);
   const stack=[[value,0]];let seen=0;
-  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of Object.keys(node))if(forbidden.has(String(key).toLowerCase().replaceAll("_","").replaceAll("-","")))throw new Error("assetfare_v2_secret_material_rejected");for(const child of Object.values(node))stack.push([child,depth+1]);}}
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of Object.keys(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if([...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_secret_material_rejected");}for(const child of Object.values(node))stack.push([child,depth+1]);}}
 }
 
 function rejectUnsignedActionMaterial(value) {
   const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase","signature","signatures"]),stack=[[value,0]];let seen=0;
-  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_bundle_unsafe");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if(forbidden.has(normalized))throw new Error("assetfare_v2_bundle_unsafe");if(["signed","submitted"].includes(normalized)&&child!==false)throw new Error("assetfare_v2_bundle_unsafe");stack.push([child,depth+1]);}}}
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_bundle_unsafe");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if([...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_bundle_unsafe");if(["signed","submitted"].includes(normalized)&&child!==false)throw new Error("assetfare_v2_bundle_unsafe");stack.push([child,depth+1]);}}}
 }
 
 function deepEqualArray(actual, expected) {
