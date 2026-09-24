@@ -2,6 +2,7 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { parseContinuation } from "./route-eval.mjs";
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -64,6 +65,48 @@ const server = createServer(async (request, response) => {
       route: { steps: [{ provider: "selftest" }] },
       risk: { non_atomic: true, server_signing: false, server_submission: false },
       execution: { supported: true },
+      handoff_schema_version: 2,
+      caller_action_plan_handoff_v2: {
+        kind: "caller_operated_rest_prepare",
+        method: "POST",
+        url: "https://api.assetfare.dev/v2/prepare",
+        schema_version: 2,
+        selection: "choose_exactly_one",
+        mutually_exclusive: true,
+        do_not_call_both: true,
+        selection_before_signing: true,
+        once_any_action_submitted_do_not_start_other_mode: true,
+        requires_explicit_caller_approval: true,
+        requires_public_wallet_addresses: true,
+        assetfare_server_signing: false,
+        assetfare_server_submission: false,
+        caller_must_verify_sign_and_submit: true,
+        requires_fresh_requote: true,
+        automatic_prepare_call_forbidden: true,
+        available: true,
+        options: [
+          {
+            kind: "one_shot_first_unsigned_bundle",
+            method: "POST",
+            url: "https://api.assetfare.dev/v2/prepare",
+            requires_explicit_caller_approval: true,
+            requires_public_wallet_addresses: true,
+            assetfare_never_signs_submits_or_auto_calls: true,
+            preview_or_manual_first_action_only: true,
+            not_a_session: true,
+            do_not_start_session_after_submission: true,
+          },
+          {
+            kind: "caller_approved_full_workflow_session",
+            method: "POST",
+            url: "https://api.assetfare.dev/v2/session",
+            requires_explicit_caller_approval: true,
+            requires_public_wallet_addresses: true,
+            assetfare_never_signs_submits_or_auto_calls: true,
+            recommended_for_multistep: true,
+          },
+        ],
+      },
     });
   }
   if (url.pathname === "/relay") return send(200, { details: { currencyOut: { amountFormatted: "0.000335", minimumAmount: "325000000000000", currency: { decimals: 18, symbol: "ETH" } }, timeEstimate: 2 } });
@@ -103,7 +146,30 @@ const checks = {
   representative_default_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).from_token === "USDC" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 1000,
   usdc_default_is_single_assetfare_candidate: result.requested_intent?.from_token === "USDC" && result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested" && /not a cross-provider market comparison/i.test(result.alternatives?.reason || ""),
   economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true,
+  continuation_preserved: result.continuation?.decision_required === "explicit_caller_approval" && result.continuation?.quote_authorizes_execution === false && result.continuation?.choose_exactly_one_mode === true && result.continuation?.automatic_prepare_forbidden === true && result.continuation?.full_openapi_url === "https://api.assetfare.dev/v2/openapi.json" && result.continuation?.server_signing === false && result.continuation?.server_submission === false && result.continuation?.caller_action_plan_handoff_v2?.schema_version === 2,
   no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
+const validQuote = {
+  handoff_schema_version: 2,
+  caller_action_plan_handoff_v2: result.continuation?.caller_action_plan_handoff_v2,
+};
+const hostileMutations = [
+  (quote) => { quote.handoff_schema_version = 3; },
+  (quote) => { quote.caller_action_plan_handoff_v2.assetfare_server_signing = true; },
+  (quote) => { quote.caller_action_plan_handoff_v2.automatic_prepare_call_forbidden = false; },
+  (quote) => { quote.caller_action_plan_handoff_v2.selection = "call_both"; },
+  (quote) => { quote.caller_action_plan_handoff_v2.options[0].url = "https://evil.example/prepare"; },
+  (quote) => { quote.caller_action_plan_handoff_v2.options[1].recommended_for_multistep = false; },
+];
+checks.hostile_continuations_rejected = hostileMutations.every((mutate) => {
+  const hostile = structuredClone(validQuote);
+  mutate(hostile);
+  try {
+    parseContinuation(hostile);
+    return false;
+  } catch {
+    return true;
+  }
+});
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));
 console.log(JSON.stringify({ status: "pass", checks }));

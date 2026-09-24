@@ -179,6 +179,61 @@ function settled(result) {
   return { status: "unavailable", error: result.reason instanceof Error ? result.reason.message : "request failed" };
 }
 
+export function parseContinuation(quote) {
+  const handoff = quote?.caller_action_plan_handoff_v2;
+  const prepare = handoff?.options?.[0];
+  const session = handoff?.options?.[1];
+  const valid = quote?.handoff_schema_version === 2
+    && handoff?.schema_version === 2
+    && handoff?.kind === "caller_operated_rest_prepare"
+    && handoff?.method === "POST"
+    && handoff?.url === "https://api.assetfare.dev/v2/prepare"
+    && handoff?.selection === "choose_exactly_one"
+    && handoff?.mutually_exclusive === true
+    && handoff?.do_not_call_both === true
+    && handoff?.selection_before_signing === true
+    && handoff?.once_any_action_submitted_do_not_start_other_mode === true
+    && handoff?.requires_explicit_caller_approval === true
+    && handoff?.requires_public_wallet_addresses === true
+    && handoff?.assetfare_server_signing === false
+    && handoff?.assetfare_server_submission === false
+    && handoff?.caller_must_verify_sign_and_submit === true
+    && handoff?.requires_fresh_requote === true
+    && handoff?.automatic_prepare_call_forbidden === true
+    && handoff?.available === true
+    && Array.isArray(handoff?.options)
+    && handoff.options.length === 2
+    && prepare?.kind === "one_shot_first_unsigned_bundle"
+    && prepare?.method === "POST"
+    && prepare?.url === "https://api.assetfare.dev/v2/prepare"
+    && prepare?.requires_explicit_caller_approval === true
+    && prepare?.requires_public_wallet_addresses === true
+    && prepare?.assetfare_never_signs_submits_or_auto_calls === true
+    && prepare?.preview_or_manual_first_action_only === true
+    && prepare?.not_a_session === true
+    && prepare?.do_not_start_session_after_submission === true
+    && session?.kind === "caller_approved_full_workflow_session"
+    && session?.method === "POST"
+    && session?.url === "https://api.assetfare.dev/v2/session"
+    && session?.requires_explicit_caller_approval === true
+    && session?.requires_public_wallet_addresses === true
+    && session?.assetfare_never_signs_submits_or_auto_calls === true
+    && session?.recommended_for_multistep === true;
+  if (!valid) throw new Error("AssetFare quote has no valid caller-approved continuation");
+  return {
+    decision_required: "explicit_caller_approval",
+    quote_authorizes_execution: false,
+    choose_exactly_one_mode: true,
+    automatic_prepare_forbidden: true,
+    full_openapi_url: "https://api.assetfare.dev/v2/openapi.json",
+    server_signing: false,
+    server_submission: false,
+    caller_verifies_signs_and_submits: true,
+    handoff_schema_version: 2,
+    caller_action_plan_handoff_v2: structuredClone(handoff),
+  };
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   if (argv.includes("--help")) {
@@ -226,6 +281,7 @@ async function main() {
   if (quote.status !== "capped_public_agent_release" || quote.execution?.supported !== true) {
     throw new Error("AssetFare quote is not executable under the current public release");
   }
+  const continuation = parseContinuation(quote);
   const expiresAt = new Date(Date.parse(quote.as_of) + Number(quote.ttl_seconds) * 1000).toISOString();
   const output = {
     status: "pass",
@@ -264,6 +320,7 @@ async function main() {
         ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Compare fresh executable alternatives at the intended amount."
         : "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
     },
+    continuation,
     safety: {
       wallet_authentication_performed: false,
       session_created: false,
