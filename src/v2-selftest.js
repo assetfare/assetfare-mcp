@@ -38,10 +38,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.21");
-assert.equal(lockMetadata.version, "0.4.21");
-assert.equal(lockMetadata.packages[""].version, "0.4.21");
-assert.equal(registryMetadata.version, "0.4.21");
+assert.equal(packageMetadata.version, "0.4.22");
+assert.equal(lockMetadata.version, "0.4.22");
+assert.equal(lockMetadata.packages[""].version, "0.4.22");
+assert.equal(registryMetadata.version, "0.4.22");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -56,6 +56,7 @@ assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native 
 assert.match(readmeMetadata.slice(0, 2500).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
 assert.doesNotMatch(readmeMetadata, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(readmeMetadata, /--to-chain base --to-token USDC/);
+assert.match(readmeMetadata, /assetfare-plan[\s\S]{0,700}--amount 1000/);
 
 function importedV2Base(extraEnvironment) {
   const result = spawnSync(process.execPath, [
@@ -243,7 +244,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "0.4.21");
+  assert.equal(card.serverInfo.version, "0.4.22");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

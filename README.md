@@ -164,7 +164,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.21 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.22 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
@@ -173,10 +173,10 @@ From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 For an explicit caller-approved quote → first unsigned-plan flow:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.21 assetfare-plan \
+npx --yes --package=assetfare-mcp@0.4.22 assetfare-plan \
   --caller-approved \
   --from-chain solana --from-token USDC \
-  --to-chain base --to-token USDC --amount 250 \
+  --to-chain base --to-token USDC --amount 1000 \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
   --wallet base=<CALLER_BASE_PUBLIC_ADDRESS> \
   --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY>

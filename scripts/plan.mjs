@@ -26,7 +26,7 @@ function usage() {
   return `Usage:
   assetfare-plan --caller-approved \\
     --from-chain solana --from-token USDC \\
-    --to-chain base --to-token USDC --amount 250 \\
+    --to-chain base --to-token USDC --amount 1000 \\
     --wallet solana=<public-key> --wallet base=<0x-address> \\
     --event-signer-public <caller-owned-public-key>
 
