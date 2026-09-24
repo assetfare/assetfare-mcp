@@ -6,7 +6,14 @@ import { fileURLToPath } from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const output=execFileSync("npm",["pack","--dry-run","--json"],{cwd:root,encoding:"utf8",stdio:["ignore","pipe","pipe"]});
-const report=JSON.parse(output)[0],files=new Set(report.files.map((entry)=>entry.path));
+const packReports=(value)=>Array.isArray(value)?value:Object.values(value);
+const parsed=JSON.parse(output),reports=packReports(parsed);
+assert.equal(reports.length,1,"npm pack must return exactly one package report");
+const [report]=reports;
+assert.ok(report&&Array.isArray(report.files),"npm pack report must include files");
+assert.equal(packReports([report])[0],report,"npm 11 array-form pack JSON unsupported");
+assert.equal(packReports({[report.name]:report})[0],report,"npm 12 object-form pack JSON unsupported");
+const files=new Set(report.files.map((entry)=>entry.path));
 const required=[
   "test/continuation-fixture.mjs",
   "test/quote-fixture.mjs",
