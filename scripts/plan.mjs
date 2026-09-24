@@ -155,8 +155,8 @@ function verifyPlanBundle(bundle,intent,nowMs=Date.now()){
       check(binding.chain_id===Number(row.chainId)&&sameParty(binding.target,row.to)&&binding.selector===selector&&binding.native_value_base===String(value),`receipt_evm_row_${binding.index}`);
     }else{
       check(typeof row.programId==="string"&&Array.isArray(row.keys)&&row.keys.every((key)=>typeof key.pubkey==="string"&&typeof key.isSigner==="boolean"&&typeof key.isWritable==="boolean"),`solana_row_${binding.index}`);
-      const prefix=bytes.subarray(0,8).toString("hex"),call=`${row.instruction_type?`${row.instruction_type}@`:""}${row.programId}:${prefix}`;targets.push(row.programId);calls.push(call);
-      check(binding.program_id===row.programId&&binding.data_prefix_hex===prefix&&(binding.instruction_type??null)===(row.instruction_type??null),`receipt_solana_row_${binding.index}`);
+      const prefix=bytes.subarray(0,8).toString("hex"),instructionType=row.type??row.instruction_type??null,call=`${instructionType?`${instructionType}@`:""}${row.programId}:${prefix}`;targets.push(row.programId);calls.push(call);
+      check(binding.program_id===row.programId&&binding.data_prefix_hex===prefix&&(binding.instruction_type??null)===instructionType,`receipt_solana_row_${binding.index}`);
     }
   }
   check(exactStringSet(receipt.target_or_program_allowlist,[...new Set(targets)])&&exactStringSet(receipt.selector_or_instruction_allowlist,[...new Set(calls)]),"receipt_allowlists");
@@ -203,7 +203,7 @@ async function requestJson(fetchImpl,url,options={}){
 
 function validatedBase(value){const url=new URL(value||DEFAULT_API_BASE);if(url.search||url.hash||url.username||url.password||url.pathname!=="/")throw new Error("assetfare_plan_api_base_invalid");if(url.protocol!=="https:"&&!(["127.0.0.1","localhost"].includes(url.hostname)&&url.protocol==="http:"))throw new Error("assetfare_plan_api_base_invalid");return url.origin;}
 
-async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs=Date.now()}={}){
+async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   const args=parseArgs(argv);if(args.help){stdout.write(usage());return {help:true};}
   const apiBase=validatedBase(args.api_base||process.env.ASSETFARE_API_BASE_URL||DEFAULT_API_BASE);delete args.api_base;
   const intent=parseV2Intent({from_chain:args.from_chain,from_token:args.from_token,to_chain:args.to_chain,to_token:args.to_token,amount_usd:args.amount_usd});
@@ -212,7 +212,7 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs=Date.no
   const quote=parseV2Quote(await requestJson(fetchImpl,`${apiBase}/v2/quote`,{method:"POST",body:JSON.stringify(intent)}),intent);
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
   const body={caller_approved:true,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{})};
-  const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs);
+  const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now());
   const result={status:"pass",mode:"caller_approved_unsigned_plan",intent,quote_summary:{quote_id:quote.quote_id,expires_in_seconds:quote.ttl_seconds,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,bundle,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
