@@ -4,6 +4,8 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { parseContinuation, validateRequestedQuote } from "./route-eval.mjs";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
+import { validateContinuationV3 } from "../src/continuation-v3.js";
+import { attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -53,13 +55,14 @@ const server = createServer(async (request, response) => {
     server_signing: false,
     server_submission: false,
     direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:168,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
+    continuation_v3:continuationCapability(),
     asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "solana", token: "USDC" }, { chain: "base", token: "USDC" }],
   });
   if (url.pathname === "/v2/status") return send(200, { status: "capped_public_agent_release", server_signing: false, server_submission: false });
   if (url.pathname === "/v2/quote") {
     const intent = JSON.parse(rawBody);
     servedQuote = {
-      quote_id: "quote-selftest",
+      quote_id: "00000000-0000-4000-8000-000000000001",
       status: "capped_public_agent_release",
       as_of: new Date().toISOString(),
       ttl_seconds: 20,
@@ -124,7 +127,7 @@ const server = createServer(async (request, response) => {
         note: "selftest top note",
       },
     };
-    return send(200, servedQuote);
+    return send(200, attachContinuation(servedQuote));
   }
   if (url.pathname === "/relay") return send(200, { details: { currencyOut: { amountFormatted: "0.000335", minimumAmount: "325000000000000", currency: { decimals: 18, symbol: "ETH" } }, timeEstimate: 2 } });
   if (url.pathname === "/mayan") return send(200, { quotes: [{ expectedAmountOut: "0.000332", minAmountOut: "0.00032", etaSeconds: 3, type: "MCTP" }] });
@@ -165,6 +168,9 @@ const checks = {
   economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true,
   continuation_preserved: result.continuation?.decision_required === "explicit_caller_approval" && result.continuation?.quote_authorizes_execution === false && result.continuation?.choose_exactly_one_mode === true && result.continuation?.automatic_prepare_forbidden === true && result.continuation?.full_openapi_url === "https://api.assetfare.dev/v2/openapi.json" && result.continuation?.server_signing === false && result.continuation?.server_submission === false && result.continuation?.caller_action_plan_handoff_v2?.schema_version === 2,
   direct_route_visible: result.direct_route_summary?.version === "assetfare-direct-route-summary-v1" && result.direct_route_summary?.classification === "direct_protocol_only" && result.direct_route_summary?.route_aggregator_used === false && result.direct_route_summary?.steps?.[0]?.provider === "circle_cctp" && result.direct_route_summary?.steps?.[0]?.from === "solana:USDC" && result.direct_route_summary?.steps?.[0]?.to === "base:USDC" && result.direct_route_summary?.steps?.[0]?.assetfare_fee_bps === 1,
+  v3_unranked_safe_draft: result.selection_status === "unranked_candidate" && result.selected_provider === null && result.automatic_selection_forbidden === true && result.approval_v3_draft?.selection_status === "unranked_candidate" && result.approval_v3_draft?.selected_mode === null && result.approval_v3_draft?.idempotency_key === null && result.approval_v3_draft?.executable === false && result.approval_v3_draft?.automatic_selection_forbidden === true,
+  v3_full_binding_visible: result.continuation_v3?.version === "assetfare-quote-bound-continuation-v3" && result.continuation_v3?.quote_payload_sha256 === result.continuation_v3?.quote_fingerprint_claim?.quote_payload_sha256 && result.continuation_v3?.required_wallet_chains?.join(",") === "base,solana" && result.continuation_v3?.event_signer_public_required === true,
+  no_comparison_no_selection: result.alternatives?.status === "not_requested" && result.alternatives?.selection_status === "unranked_candidate" && result.alternatives?.selected_provider === null,
   no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
 const validQuote = {
@@ -217,6 +223,15 @@ checks.hostile_direct_routes_rejected = directRouteHostiles.every((mutate) => {
     return true;
   }
 });
+checks.hostile_v3_bindings_rejected = [
+  (quote)=>{quote.continuation_v3.quote_fingerprint="0".repeat(64);},
+  (quote)=>{quote.continuation_v3.quote_payload_sha256="0".repeat(64);},
+  (quote)=>{quote.continuation_v3.required_wallet_chains=["base"];},
+  (quote)=>{quote.continuation_v3.event_signer_public_required=false;},
+  (quote)=>{quote.continuation_v3.minimum_output_base="1";},
+  (quote)=>{quote.continuation_v3.allowed_modes=["session"];},
+  (quote)=>{quote.as_of="2026-09-24T00:00:00Z";},
+].every((mutate)=>{const hostile=structuredClone(servedQuote);mutate(hostile);try{validateContinuationV3(hostile.continuation_v3,hostile);return false;}catch{return true;}});
 const requestedIntent = { from_chain:"solana", from_token:"USDC", to_chain:"base", to_token:"USDC", amount_usd:1000 };
 checks.requested_intent_mismatches_rejected = [
   (quote) => { quote.intent.from = "base:USDC"; },

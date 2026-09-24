@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 /** Caller-approved quote -> first unsigned plan. Never signs or submits. */
 
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { chmodSync, closeSync, openSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
 import { isMain } from "../src/is-main.js";
-import { parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote } from "../src/server.js";
+import { parseV2Bundle, parseV2Quote, parseV2Session } from "../src/server.js";
+import { readJsonFile } from "./select.mjs";
 
 const DEFAULT_API_BASE = "https://api.assetfare.dev";
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -24,26 +28,26 @@ const ACROSS={base:{pool:"0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64",token:PINS
 
 function usage() {
   return `Usage:
-  assetfare-plan --caller-approved \\
-    --from-chain solana --from-token USDC \\
-    --to-chain base --to-token USDC --amount 1000 \\
-    --wallet solana=<public-key> --wallet base=<0x-address> \\
-    --event-signer-public <caller-owned-public-key>
+  assetfare-plan --caller-approved --mode one_shot \\
+    --quote quote.json --approval approval.json \\
+    --wallet base=<0x-address> --wallet arbitrum=<0x-address>
 
-Returns one freshly requoted unsigned first-action bundle after verifying its
-validated direct_route_summary (ordered provider/from/to path, amount bounds,
-fee step, direct versus Across external-intent), ActionSafetyReceiptV1,
-raw/action/bundle SHA-256 bindings, intent, fee formula,
-and no-sign/no-submit flags. It defines no private-key input and never signs,
-submits, or moves funds. A base58 string cannot prove whether a caller
-mislabeled secret material: Solana CCTP callers must generate and retain the
-event-signer keypair outside AssetFare and pass only its public key.
+For session mode, use --mode session and optionally
+--session-token-output <new-private-file>. The token is generated from 256-bit
+caller-local CSPRNG memory and sent only in X-AssetFare-Session-Token. It is
+never printed or included in structured output. The optional file is created
+mode 0600 and must not already exist; without it, recovery after process exit
+is unavailable.
+
+The command verifies the exact Core quote, continuation_v3, approval_v3,
+wallet/signer requirements, path, bounds, mode and TTL before one POST. It
+never selects automatically, signs, submits, or accepts private key material.
 `;
 }
 
 function parseArgs(argv) {
   const out={wallets:{},caller_approved:false};
-  const values=new Set(["from-chain","from-token","to-chain","to-token","amount","wallet","event-signer-public","api-base"]);
+  const values=new Set(["mode","quote","approval","wallet","event-signer-public","session-token-output","api-base"]);
   for(let i=0;i<argv.length;i+=1){
     const raw=argv[i];
     if(raw==="--help"||raw==="-h")return {help:true};
@@ -59,8 +63,8 @@ function parseArgs(argv) {
   }
   if(out.help)return out;
   if(out.caller_approved!==true)throw new Error("assetfare_plan_explicit_caller_approval_required");
-  for(const key of ["from_chain","from_token","to_chain","to_token","amount"])if(!out[key])throw new Error(`assetfare_plan_${key}_missing`);
-  const amount=Number(out.amount);if(!Number.isFinite(amount)||amount<1)throw new Error("assetfare_plan_amount_invalid");out.amount_usd=amount;delete out.amount;
+  for(const key of ["mode","quote","approval"])if(!out[key])throw new Error(`assetfare_plan_${key}_missing`);
+  if(!["one_shot","session"].includes(out.mode))throw new Error("assetfare_plan_mode_invalid");
   if(!Object.keys(out.wallets).length)throw new Error("assetfare_plan_wallets_missing");
   for(const [chain,address] of Object.entries(out.wallets)){
     const valid=chain==="solana"?/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address):/^0x[0-9a-fA-F]{40}$/.test(address);
@@ -192,35 +196,64 @@ function verifyPlanBundle(bundle,intent,nowMs=Date.now()){
   return {verified:true,verification_scope:"decoded_current_action_and_intent",checks,simulation_performed:false,safe_to_sign:false,simulation_note:"Decode and simulate again in the caller's wallet/RPC immediately before signing; this verifier does not authorize a signature."};
 }
 
+function verifyApprovalBundleBounds(bundle,quote,approval){
+  const workflow=bundle?.workflow,summary=quote.direct_route_summary,index=bundle?.step_index,receipt=bundle?.unsigned_action?.safety_receipt;
+  if(!workflow||!Array.isArray(workflow.steps)||workflow.steps.length!==summary.step_count||!Number.isInteger(index)||index<0||index>=summary.step_count)throw new Error("assetfare_plan_approval_path_binding_failed");
+  for(let offset=0;offset<summary.steps.length;offset+=1){const expected=summary.steps[offset],actual=workflow.steps[offset],scope=stepScope(actual);if(actual?.provider!==expected.provider||scope.sourceChain!==expected.from.split(":")[0]||scope.sourceToken!==expected.from.split(":")[1]||scope.destinationChain!==expected.to.split(":")[0]||scope.destinationToken!==expected.to.split(":")[1]||Number(actual.route_fee_bps)!==expected.assetfare_fee_bps)throw new Error("assetfare_plan_approval_path_binding_failed");}
+  const step=summary.steps[index],spend=integer(receipt?.spend?.maximum_amount_base,"approval_spend",1),receive=integer(receipt?.receive?.minimum_amount_base,"approval_receive",1),stepMaximum=integer(step.expected_input_base,"approval_step_input",1),stepMinimum=integer(step.minimum_output_base,"approval_step_output",1);
+  if(spend>stepMaximum||receive<stepMinimum||(index===0&&spend>BigInt(approval.maximum_input_base))||(index===summary.step_count-1&&receive<BigInt(approval.minimum_output_base)))throw new Error("assetfare_plan_approval_bounds_binding_failed");
+  return {path_and_provider_bound:true,caller_bounds_enforced:true,quote_id:approval.quote_id,quote_fingerprint:approval.quote_fingerprint};
+}
+
 async function responseText(response){
   const declared=Number(response.headers.get("content-length"));if(Number.isFinite(declared)&&declared>MAX_RESPONSE_BYTES)throw new Error("assetfare_plan_response_too_large");
   if(!response.body?.getReader){const text=await response.text();if(Buffer.byteLength(text,"utf8")>MAX_RESPONSE_BYTES)throw new Error("assetfare_plan_response_too_large");return text;}
   const reader=response.body.getReader(),chunks=[];let total=0;while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>MAX_RESPONSE_BYTES){await reader.cancel().catch(()=>{});throw new Error("assetfare_plan_response_too_large");}chunks.push(Buffer.from(value));}return Buffer.concat(chunks,total).toString("utf8");
 }
 async function requestJson(fetchImpl,url,options={}){
-  const response=await fetchImpl(url,{...options,headers:{accept:"application/json",...(options.body?{"content-type":"application/json"}:{}),"x-assetfare-channel":"npm_plan_cli",...(options.headers||{})},redirect:"error",signal:AbortSignal.timeout(TIMEOUT_MS)});
+  let response;try{response=await fetchImpl(url,{...options,headers:{accept:"application/json",...(options.body?{"content-type":"application/json"}:{}),"x-assetfare-channel":"npm_plan_cli",...(options.headers||{})},redirect:"error",signal:AbortSignal.timeout(TIMEOUT_MS)});}catch{throw new Error("assetfare_plan_upstream_unavailable");}
   const media=String(response.headers.get("content-type")||"").split(";",1)[0].toLowerCase();if(media!=="application/json"&&!media.endsWith("+json"))throw new Error("assetfare_plan_response_invalid");
   let payload;try{payload=JSON.parse(await responseText(response));}catch{throw new Error("assetfare_plan_response_invalid");}
-  if(!response.ok)throw new Error(response.status===429?"assetfare_plan_rate_limited":response.status>=500?"assetfare_plan_upstream_unavailable":"assetfare_plan_request_rejected");
+  if(!response.ok){if(response.status===409){let safe;try{safe=reapprovalV3Schema.parse(payload);}catch{throw new Error("assetfare_plan_request_rejected");}throw Object.assign(new Error(safe.reason),{status:409,reapproval:safe});}throw new Error(response.status===429?"assetfare_plan_rate_limited":response.status>=500?"assetfare_plan_upstream_unavailable":"assetfare_plan_request_rejected");}
   if(!payload||Array.isArray(payload)||typeof payload!=="object")throw new Error("assetfare_plan_response_invalid");return payload;
 }
 
 function validatedBase(value){const url=new URL(value||DEFAULT_API_BASE);if(url.search||url.hash||url.username||url.password||url.pathname!=="/")throw new Error("assetfare_plan_api_base_invalid");if(url.protocol!=="https:"&&!(["127.0.0.1","localhost"].includes(url.hostname)&&url.protocol==="http:"))throw new Error("assetfare_plan_api_base_invalid");return url.origin;}
 
+function writeSessionToken(path,{token,quoteId,idempotencyKey}){
+  const absolute=resolve(path);let descriptor;
+  try{descriptor=openSync(absolute,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify({version:"assetfare-caller-session-capability-v1",session_token:token,quote_id:quoteId,idempotency_key:idempotencyKey,sensitivity:"sensitive_bearer_capability",is_private_key:false},null,2)}\n`,{encoding:"utf8"});chmodSync(absolute,0o600);}
+  catch(error){throw new Error(error?.code==="EEXIST"?"assetfare_plan_session_token_output_exists":"assetfare_plan_session_token_output_invalid");}
+  finally{if(descriptor!==undefined)closeSync(descriptor);}
+  return absolute;
+}
+
 async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   const args=parseArgs(argv);if(args.help){stdout.write(usage());return {help:true};}
   const apiBase=validatedBase(args.api_base||process.env.ASSETFARE_API_BASE_URL||DEFAULT_API_BASE);delete args.api_base;
-  const intent=parseV2Intent({from_chain:args.from_chain,from_token:args.from_token,to_chain:args.to_chain,to_token:args.to_token,amount_usd:args.amount_usd});
-  const capabilities=parseV2Capabilities(await requestJson(fetchImpl,`${apiBase}/v2/capabilities`));
-  if((capabilities.temporarily_unavailable_routes||[]).includes(`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`))throw new Error("assetfare_plan_route_temporarily_unavailable");
-  const quote=parseV2Quote(await requestJson(fetchImpl,`${apiBase}/v2/quote`,{method:"POST",body:JSON.stringify(intent)}),intent);
+  const rawQuote=readJsonFile(args.quote,"quote"),source=String(rawQuote.intent?.from||"").split(":"),destination=String(rawQuote.intent?.to||"").split(":");
+  if(source.length!==2||destination.length!==2)throw new Error("assetfare_plan_quote_intent_invalid");
+  const intent={from_chain:source[0],from_token:source[1],to_chain:destination[0],to_token:destination[1],amount_usd:rawQuote.intent?.amount_usd};
+  const quote=parseV2Quote(rawQuote,intent),continuation=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true,nowMs:nowMs??Date.now()}),rawApproval=readJsonFile(args.approval,"approval"),approval=validateApprovalV3(rawApproval,continuation,{mode:args.mode,requireUnexpired:true,nowMs:nowMs??Date.now()});
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
-  const body={caller_approved:true,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{})};
-  const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now());
-  const result={status:"pass",mode:"caller_approved_unsigned_plan",intent,quote_summary:{quote_id:quote.quote_id,expires_in_seconds:quote.ttl_seconds,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,bundle,server_signing:false,server_submission:false,signed:false,submitted:false};
+  if(args.mode==="one_shot"&&quote.direct_route_summary.step_count>1)throw new Error("assetfare_plan_multistep_session_required");
+  const expectedWallets=[...continuation.required_wallet_chains].sort(),actualWallets=Object.keys(args.wallets).sort();if(canonical(expectedWallets)!==canonical(actualWallets))throw new Error("assetfare_plan_required_wallet_chains_mismatch");
+  if(continuation.event_signer_public_required!==Boolean(args.event_signer_public))throw new Error(continuation.event_signer_public_required?"assetfare_plan_event_signer_public_required":"assetfare_plan_event_signer_public_not_allowed");
+  if(args.mode!=="session"&&args.session_token_output)throw new Error("assetfare_plan_session_token_output_mode_invalid");
+  const body={caller_approved:args.caller_approved,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{}),approval_v3:approval,...(args.mode==="session"?{idempotency_key:approval.idempotency_key}:{})};
+  let bundle=null,session=null,verification=null,sessionTokenPath=null,sessionTokenPersisted=false;
+  if(args.mode==="one_shot"){
+    bundle=parseV2Bundle(await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)}));verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};
+  }else{
+    const sessionToken=randomBytes(32).toString("base64url");if(!/^[A-Za-z0-9_-]{43}$/.test(sessionToken))throw new Error("assetfare_plan_session_token_generation_failed");
+    if(args.session_token_output){sessionTokenPath=writeSessionToken(args.session_token_output,{token:sessionToken,quoteId:approval.quote_id,idempotencyKey:approval.idempotency_key});sessionTokenPersisted=true;}
+    session=parseV2Session(await requestJson(fetchImpl,`${apiBase}/v2/session`,{method:"POST",headers:{"x-assetfare-session-token":sessionToken},body:JSON.stringify(body)}),approval,sessionToken);
+    if(session.current_action){bundle=session.current_action;verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};}
+  }
+  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle}:{}),...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 
 if(isMain(import.meta.url))runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
 
-export { canonical, parseArgs, runPlan, sha256, usage, verifyPlanBundle };
+export { canonical, parseArgs, requestJson, runPlan, sha256, usage, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken };

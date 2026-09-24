@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createPublicKey, verify } from "node:crypto";
+import { QUOTE_PAYLOAD_SHA256_SPEC, approvalDraft, validateContinuationV3 } from "../src/continuation-v3.js";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
 import { isMain } from "../src/is-main.js";
 
@@ -38,8 +39,10 @@ The default USDC path returns one AssetFare candidate, not a cross-provider
 market comparison. Output includes a fail-closed direct_route_summary with the
 ordered provider/from/to path, base-unit bounds, fee step, and direct versus
 Across external-intent classification. route_aggregator_used=false applies to
-AssetFare's engine only. The evaluator never authenticates a wallet, creates a
-session, prepares an action, signs, or submits a transaction.`;
+AssetFare's engine only. It also returns selection_status=unranked_candidate and
+a non-executable approval draft; it never selects without an explicit later
+assetfare-select operation. The evaluator never authenticates a wallet, creates
+a session, prepares an action, signs, or submits a transaction.`;
 }
 
 function option(argv, name, fallback) {
@@ -349,6 +352,8 @@ async function main() {
   }
   const routeContract=capabilities.direct_route_summary;
   if(routeContract?.version!=="assetfare-direct-route-summary-v1"||routeContract?.required_on_every_quote!==true||routeContract?.route_count!==76||routeContract?.step_count!==168||routeContract?.ordered_provider_path!==true||routeContract?.normalized_chain_asset_endpoints!==true||routeContract?.base_unit_amounts_are_decimal_strings!==true||routeContract?.assetfare_fee_step_bound!==true||JSON.stringify(routeContract?.classification_values)!==JSON.stringify(["direct_protocol_only","external_intent"])||routeContract?.route_aggregator_used_scope!=="assetfare_engine_only"||routeContract?.external_intent!=="Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"||routeContract?.server_signing!==false||routeContract?.server_submission!==false)throw new Error("public direct route summary contract is unavailable");
+  const continuationContract=capabilities.continuation_v3;
+  if(continuationContract?.version!=="assetfare-quote-bound-continuation-v3"||continuationContract?.required_on_every_quote!==true||continuationContract?.enforcement!=="server_enforced_quote_binding"||continuationContract?.selection_status!=="unranked_candidate"||continuationContract?.automatic_selection_forbidden!==true||continuationContract?.caller_approved_boolean_is_not_human_proof!==true||continuationContract?.whole_session_path_and_bounds_enforced!==true||continuationContract?.quote_payload_sha256_spec!==QUOTE_PAYLOAD_SHA256_SPEC||continuationContract?.server_signing!==false||continuationContract?.server_submission!==false)throw new Error("public continuation_v3 contract is unavailable");
   if (status.status !== "capped_public_agent_release" || status.server_signing !== false || status.server_submission !== false) {
     throw new Error("public provider status is not ready");
   }
@@ -373,10 +378,15 @@ async function main() {
   validateRequestedQuote(quote, { from_chain: fromChain, from_token: fromToken, to_chain: toChain, to_token: toToken, amount_usd: amountUsd });
   const continuation = parseContinuation(quote);
   const directRouteSummary = validateDirectRouteSummary(quote.direct_route_summary, quote.route, quote.risk, quote.intent, quote.offer);
-  const expiresAt = new Date(Date.parse(quote.as_of) + Number(quote.ttl_seconds) * 1000).toISOString();
+  const continuationV3=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true});
+  const expiresAt = continuationV3.expires_at;
   const output = {
     status: "pass",
     evaluation_kind: "read_only_assetfare_candidate_quote",
+    selection_status: "unranked_candidate",
+    selected_provider: null,
+    automatic_selection_forbidden: true,
+    caller_approved_boolean_is_not_human_proof: true,
     requested_intent: { from_chain: fromChain, from_token: fromToken, to_chain: toChain, to_token: toToken, amount_usd: amountUsd },
     economic_evaluation: {
       api_minimum_usd: 1,
@@ -407,11 +417,15 @@ async function main() {
     },
     alternatives: {
       status: "not_requested",
+      selection_status: "unranked_candidate",
+      selected_provider: null,
       reason: toToken === "USDC"
         ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Compare fresh executable alternatives at the intended amount."
         : "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
     },
     direct_route_summary: directRouteSummary,
+    continuation_v3: continuationV3,
+    approval_v3_draft: approvalDraft(continuationV3),
     continuation,
     safety: {
       wallet_authentication_performed: false,
@@ -420,6 +434,8 @@ async function main() {
       transaction_signed: false,
       transaction_submitted: false,
       requote_before_execution: true,
+      quote_authorizes_execution: false,
+      approval_draft_executable: false,
     },
   };
 
@@ -442,6 +458,8 @@ async function main() {
       input_lamports: inputLamports,
       providers: alternatives,
       highest_expected_receive_snapshot: candidates[0]?.provider || null,
+      selected_provider: null,
+      selection_status: "unranked_candidate",
       warning: "Comparison uses placeholder public addresses and is not an executable order. Requote every provider with the caller's real addresses before selection or signing.",
     };
   }

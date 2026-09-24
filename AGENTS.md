@@ -27,6 +27,11 @@ These instructions apply to the entire public MCP wrapper repository.
   `external_intent` marks Across Robinhood ingress. `route_aggregator_used=false`
   is scoped to AssetFare's engine and does not rule out provider-internal
   liquidity sourcing or aggregation.
+- Require and validate `continuation_v3` on every v2 quote: canonical full-quote
+  and route-summary hashes, fingerprint claim, exact path, wallet chains,
+  event-signer requirement, caller bounds, allowed modes and TTL. It must remain
+  `unranked_candidate`; never auto-select it. `caller_approved:true` alone is
+  not human proof.
 - For a six-chain source route, read `/v2/capabilities`, `/v2/status`, and
   `/v2/openapi.json`, then use `/v2/quote`. For an original MCP corridor, read
   `assetfare_status` and `assetfare_manifest`, then obtain a fresh
@@ -46,9 +51,11 @@ These instructions apply to the entire public MCP wrapper repository.
   keep it out of source files, logs, issues, and chat transcripts.
 - Require caller approval before wallet authentication, session creation, or
   unsigned-action preparation. The v2 execution tools (`assetfare_v2_prepare`
-  and the `assetfare_v2_session_*` lifecycle) require an explicit
-  `caller_approved:true` and the caller's public wallet addresses, are never
-  auto-called from a quote, and reject any private key/seed/signed transaction.
+  and the `assetfare_v2_session_*` lifecycle) require the caller itself to send
+  explicit `caller_approved:true`; adapters never insert it. Prefer strict
+  `approval_v3` selected through `assetfare-select`; omission is
+  `legacy_advisory`. Multi-step routes are session-only. Reject any private
+  key/seed/signed transaction.
   The v2 session capability token is a sensitive bearer credential, not a
   private key: remote clients generate 32 CSPRNG bytes locally and encode them
   as base64url; the remote adapter never generates that secret. The optional

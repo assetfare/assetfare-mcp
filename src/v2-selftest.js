@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
+import { approvalFor, attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
 
 const ENDPOINTS = [
   ["solana", "SOL"], ["solana", "USDC"], ["solana", "USDG"],
@@ -35,16 +36,15 @@ function prepareBundle() {
   return value;
 }
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+const lockUrl=new URL("../package-lock.json",import.meta.url),lockMetadata=existsSync(lockUrl)?JSON.parse(readFileSync(lockUrl,"utf8")):null;
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
-const bridgeRegistryMetadata = JSON.parse(readFileSync(new URL("../server.bridge.json", import.meta.url), "utf8"));
+const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.1.1");
-assert.equal(lockMetadata.version, "1.1.1");
-assert.equal(lockMetadata.packages[""].version, "1.1.1");
-assert.equal(registryMetadata.version, "1.1.1");
-assert.equal(bridgeRegistryMetadata.version, "1.1.1");
+assert.equal(packageMetadata.version, "1.2.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.2.0");assert.equal(lockMetadata.packages[""].version, "1.2.0");}
+assert.equal(registryMetadata.version, "1.2.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.2.0");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -55,14 +55,14 @@ assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /native-USDC bridge.*Solana USDC to Base USDC.*unsigned.*never signs/i);
+assert.match(registryMetadata.description, /76-route USDC bridge.*quote-bound approval.*unsigned.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
 assert.match(readmeMetadata.slice(0, 2500).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
 assert.doesNotMatch(readmeMetadata, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(readmeMetadata, /--to-chain base --to-token USDC/);
-assert.match(readmeMetadata, /assetfare-plan[\s\S]{0,700}--amount 1000/);
+assert.match(readmeMetadata, /assetfare-select[\s\S]{0,700}--maximum-input-base[\s\S]{0,700}assetfare-plan[\s\S]{0,400}--quote quote\.json --approval approval\.json/);
 
 function importedV2Base(extraEnvironment) {
   const result = spawnSync(process.execPath, [
@@ -104,6 +104,7 @@ function capabilities(overrides = {}) {
     temporarily_unavailable_route_count: 0,
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
     direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:168,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
+    continuation_v3:continuationCapability(),
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -142,7 +143,7 @@ function quote(intent, overrides = {}) {
     expectedInput=expectedOutput;minimumInput=minimumOutput;
   }
   const external=contract.classification==="external_intent",feeIndex=contract.steps.findIndex((step)=>step.assetfare_fee_bps===1);
-  return {
+  return attachContinuation({
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
     version: "assetfare-direct-multichain-api-quote-v2",
@@ -160,7 +161,7 @@ function quote(intent, overrides = {}) {
     caller_action_plan_handoff_v2: executableHandoffV2(),
     handoff_schema_version: 2,
     ...overrides,
-  };
+  });
 }
 
 function parse(result) {
@@ -192,7 +193,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (mode === "invalid-json") return new Response("<secret>", { status: 200, headers: { "content-type": "text/html" } });
   if (mode === "wrong-content-type") return new Response(JSON.stringify(quote(validIntent)), { status: 200, headers: { "content-type": "text/plain" } });
   if (mode === "unsafe-error") return new Response(JSON.stringify({ error: "SECRET leak\n", reason_class: "unsafe detail!", retry_after_seconds: 99999 }), { status: 502, headers: { "content-type": "application/json" } });
-  if (String(url).endsWith("/v2/capabilities")) {if(mode==="missing-direct-summary-contract"){const value=capabilities();delete value.direct_route_summary;return Response.json(value);}if(mode==="wrong-direct-summary-contract")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,step_count:167}}));if(mode==="wrong-direct-summary-scope")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,external_intent:"No external provider"}}));return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : mode === "fake-unavailable-route" ? capabilities({currently_prepare_ready_routes:75,temporarily_unavailable_routes:["evil:USDC->base:USDC"],temporarily_unavailable_route_count:1,execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:false,guarantees_future_availability:false}}) : mode === "availability-status-inconsistent" ? capabilities({execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false}}) : capabilities());}
+  if (String(url).endsWith("/v2/capabilities")) {if(mode==="missing-direct-summary-contract"){const value=capabilities();delete value.direct_route_summary;return Response.json(value);}if(mode==="missing-continuation-contract"){const value=capabilities();delete value.continuation_v3;return Response.json(value);}if(mode==="wrong-continuation-contract")return Response.json(capabilities({continuation_v3:{...continuationCapability(),automatic_selection_forbidden:false}}));if(mode==="wrong-continuation-hash-spec")return Response.json(capabilities({continuation_v3:{...continuationCapability(),quote_payload_sha256_spec:"sha256(JSON.stringify(quote))"}}));if(mode==="wrong-direct-summary-contract")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,step_count:167}}));if(mode==="wrong-direct-summary-scope")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,external_intent:"No external provider"}}));return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : mode === "fake-unavailable-route" ? capabilities({currently_prepare_ready_routes:75,temporarily_unavailable_routes:["evil:USDC->base:USDC"],temporarily_unavailable_route_count:1,execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:false,guarantees_future_availability:false}}) : mode === "availability-status-inconsistent" ? capabilities({execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false}}) : capabilities());}
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
@@ -214,6 +215,22 @@ globalThis.fetch = async (url, init = {}) => {
     if(mode==="direct-summary-across-false"){const value=quote(intent);value.direct_route_summary.classification="direct_protocol_only";value.direct_route_summary.external_intent_protocol_used=false;value.direct_route_summary.provider_internal_dex_aggregation_possible=false;return Response.json(value);}
     if(mode==="direct-summary-intermediate-input"){const value=quote(intent);value.direct_route_summary.steps[1].expected_input_base=String(Number(value.direct_route_summary.steps[1].expected_input_base)+1);value.route.steps[1].expected_input_base+=1;return Response.json(value);}
     if(mode==="direct-summary-fee-move"){const value=quote(intent),fee=value.direct_route_summary.fee_collection_step_index;value.direct_route_summary.steps[fee].assetfare_fee_bps=0;value.route.steps[fee].route_fee_bps=0;value.direct_route_summary.steps[0].assetfare_fee_bps=1;value.route.steps[0].route_fee_bps=1;value.direct_route_summary.fee_collection_step_index=0;value.offer.fee_collection_steps=[0];return Response.json(value);}
+    if(mode==="continuation-missing"){const value=quote(intent);delete value.continuation_v3;return Response.json(value);}
+    if(mode==="continuation-extra"){const value=quote(intent);value.continuation_v3.private_key="forbidden";return Response.json(value);}
+    if(mode==="continuation-fingerprint"){const value=quote(intent);value.continuation_v3.quote_fingerprint="0".repeat(64);return Response.json(value);}
+    if(mode==="continuation-summary-hash"){const value=quote(intent);value.continuation_v3.direct_route_summary_sha256="0".repeat(64);return Response.json(value);}
+    if(mode==="continuation-payload-hash"){const value=quote(intent);value.continuation_v3.quote_payload_sha256="0".repeat(64);return Response.json(value);}
+    if(mode==="continuation-payload-spec"){const value=quote(intent);value.continuation_v3.quote_payload_sha256_spec="sha256(JSON.stringify(quote))";return Response.json(value);}
+    if(mode==="continuation-claim-payload-spec"){const value=quote(intent);value.continuation_v3.quote_fingerprint_claim.quote_payload_sha256_spec="sha256(JSON.stringify(quote))";return Response.json(value);}
+    if(mode==="continuation-wallets"){const value=quote(intent);value.continuation_v3.required_wallet_chains=["base"];return Response.json(value);}
+    if(mode==="continuation-signer"){const value=quote(intent);value.continuation_v3.event_signer_public_required=!value.continuation_v3.event_signer_public_required;return Response.json(value);}
+    if(mode==="continuation-mode"){const value=quote(intent);value.continuation_v3.allowed_modes=["session"];return Response.json(value);}
+    if(mode==="continuation-bounds"){const value=quote(intent);value.continuation_v3.minimum_output_base="1";return Response.json(value);}
+    if(mode==="continuation-ttl"){const value=quote(intent);value.continuation_v3.expires_at=new Date(Date.parse(value.continuation_v3.expires_at)+1000).toISOString();return Response.json(value);}
+    if(mode==="continuation-expired"){const value=quote(intent);return Response.json(attachContinuation(value,{issuedAt:Date.now()-120_000,ttl:60}));}
+    if(mode==="continuation-future-issued"){const value=quote(intent);return Response.json(attachContinuation(value,{issuedAt:Date.now()+120_000,ttl:60}));}
+    if(mode==="continuation-quote-ttl-mismatch"){const value=quote(intent);value.ttl_seconds=30;return Response.json(value);}
+    if(mode==="continuation-selected"){const value=quote(intent);value.continuation_v3.selection_status="selected";return Response.json(value);}
     if (mode === "missing-handoff") { const value = quote(intent); delete value.caller_action_plan_handoff; return Response.json(value); }
     if (mode === "null-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: null }));
     if (mode === "array-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: [] }));
@@ -227,7 +244,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "handoff-v2-cross-field") { const value = quote(intent); value.caller_action_plan_handoff_v2.options[0].recommended_for_multistep = true; return Response.json(value); }
     if (mode === "handoff-v2-enforcement-overclaim") { const value = quote(intent); value.caller_action_plan_handoff_v2.enforcement = "server_enforced"; return Response.json(value); }
     if (mode === "handoff-schema-version-mismatch") { const value = quote(intent); value.handoff_schema_version = 3; return Response.json(value); }
-    if (mode === "rollback-core-no-v2") { const value = quote(intent); delete value.caller_action_plan_handoff_v2; delete value.handoff_schema_version; return Response.json(value); }
+    if (mode === "rollback-core-no-v2") { const value = quote(intent); delete value.caller_action_plan_handoff_v2; delete value.handoff_schema_version; return Response.json(attachContinuation(value)); }
     if (mode === "handoff-v2-orphan-version") { const value = quote(intent); delete value.caller_action_plan_handoff_v2; return Response.json(value); }
     if (mode === "handoff-v2-orphan-sibling") { const value = quote(intent); delete value.handoff_schema_version; return Response.json(value); }
     if (mode === "handoff-v2-null-sibling") { const value = quote(intent); value.caller_action_plan_handoff_v2 = null; return Response.json(value); }
@@ -259,8 +276,8 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "eta-inverted") { const value=quote(intent);value.eta.estimated_time_range_seconds=[30,23];return Response.json(value); }
     if (mode === "eta-incomplete-with-time") { const value=quote(intent);value.eta.complete_route_estimate=false;return Response.json(value); }
     if (mode === "ttl-too-long") { const value=quote(intent);value.ttl_seconds=61;return Response.json(value); }
-    if (mode === "rollback-core-no-cost") { const value = quote(intent); delete value.cost_summary;delete value.eta;return Response.json(value); }
-    if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(value); }
+    if (mode === "rollback-core-no-cost") { const value = quote(intent); delete value.cost_summary;delete value.eta;return Response.json(attachContinuation(value)); }
+    if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(attachContinuation(value)); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
   if (String(url).endsWith("/v2/prepare")) {const value=prepareBundle();if(mode==="unsafe-bundle-signed")value.unsigned_action.signed=true;if(mode==="unsafe-bundle-secret")value.unsigned_action.private_key="secret";if(mode==="unsafe-bundle-camel")value.unsigned_action.serverSigning=true;if(mode==="unsafe-bundle-nested-secret")value.unsigned_action.transactions=[{seedPhrase:"alpha beta gamma"}];if(mode==="unsafe-bundle-compound-secret")value.unsigned_action.transactions=[{eventSignerPrivateKey:"secret"}];if(mode==="unsafe-bundle-nested-signed")value.unsigned_action.transactions=[{signedTransaction:"0xdead",nested:{signed:true}}];if(mode==="unsafe-bundle-signature")value.unsigned_action.transactions=[{signature:"0xdead"}];if(mode==="bundle-hash-mismatch")value.expires_at="2099-01-02T00:00:00Z";if(mode==="bundle-version-mismatch"){value.version="assetfare-direct-multichain-action-v3";delete value.payload_sha256;value.payload_sha256=hashBundle(value);}if(mode==="bundle-hash-spec-missing"){delete value.payload_sha256_spec;delete value.payload_sha256;value.payload_sha256=hashBundle(value);}if(mode==="bundle-hash-spec-mismatch"){value.payload_sha256_spec="sha256(JSON.stringify(bundle))";delete value.payload_sha256;value.payload_sha256=hashBundle(value);}return Response.json(value);}
@@ -282,7 +299,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.1.1");
+  assert.equal(card.serverInfo.version, "1.2.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -403,7 +420,7 @@ try {
   assert.equal(calls.length, beforeUncapped + 1, "uncapped quote did not reach upstream exactly once");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra", "continuation-missing", "continuation-extra", "continuation-fingerprint", "continuation-summary-hash", "continuation-payload-hash", "continuation-payload-spec", "continuation-claim-payload-spec", "continuation-wallets", "continuation-signer", "continuation-mode", "continuation-bounds", "continuation-ttl", "continuation-expired", "continuation-future-issued", "continuation-quote-ttl-mismatch", "continuation-selected"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
@@ -431,9 +448,9 @@ try {
   assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:false was not rejected");
 
   mode = "success";
-  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "wrong-direct-summary-contract", "wrong-direct-summary-scope", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "missing-continuation-contract", "wrong-continuation-contract", "wrong-continuation-hash-spec", "wrong-direct-summary-contract", "wrong-direct-summary-scope", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
-    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "wrong-direct-summary-contract", "wrong-direct-summary-scope"].includes(failureMode);
+    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "missing-continuation-contract", "wrong-continuation-contract", "wrong-continuation-hash-spec", "wrong-direct-summary-contract", "wrong-direct-summary-scope"].includes(failureMode);
     const result = await call(client, capabilityFailure ? "assetfare_v2_capabilities" : "assetfare_v2_quote", capabilityFailure ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
     const value = parse(result);
@@ -450,13 +467,16 @@ try {
   const sourceOnlyBundle = parse(sourceOnlyPrepare);
   assert.deepEqual(sourceOnlyPrepare.structuredContent, sourceOnlyBundle, "prepare text and structuredContent diverged");
   assert.deepEqual(sourceOnlyBundle, prepareBundle(), "MCP adapter did not return the exact upstream Core bundle");
+  assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
+  const sourceOnlyQuote=quote({from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25}),sourceOnlyApproval=approvalFor(sourceOnlyQuote,"one_shot","mcp.one.0001"),v3Before=calls.length;
+  const v3Prepared=await call(client,"assetfare_v2_prepare",{caller_approved:true,from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25,wallets:{polygon:"0x1111111111111111111111111111111111111111",base:"0x2222222222222222222222222222222222222222"},approval_v3:sourceOnlyApproval});assert.equal(v3Prepared.isError,false);assert.equal(calls.length,v3Before+1);assert.deepEqual(JSON.parse(calls.at(-1).init.body).approval_v3,sourceOnlyApproval);
+  const wrongMode={...sourceOnlyApproval,selected_mode:"session"},wrongModeBefore=calls.length,wrongModeResult=await call(client,"assetfare_v2_prepare",{caller_approved:true,from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25,wallets:{polygon:"0x1111111111111111111111111111111111111111",base:"0x2222222222222222222222222222222222222222"},approval_v3:wrongMode});assert.equal(wrongModeResult.isError,true);assert.equal(calls.length,wrongModeBefore);
   assert.equal(sourceOnlyBundle.version, BUNDLE_VERSION);
   assert.equal(sourceOnlyBundle.signed, false);
   assert.equal(sourceOnlyBundle.guidance, undefined, "MCP guidance mutated the hashed Core bundle");
   const unhashedBundle = { ...sourceOnlyBundle };
   delete unhashedBundle.payload_sha256;
   assert.equal(hashBundle(unhashedBundle), sourceOnlyBundle.payload_sha256, "Core bundle hash was not preserved");
-  assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
 
   const uncappedPrepareArgs = { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 2500.25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "0x2222222222222222222222222222222222222222" } };
   const beforeUncappedPrepare = calls.length;

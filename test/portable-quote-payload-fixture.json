@@ -1,0 +1,52 @@
+{
+  "description": "Python Core compatible portable quote-payload hash fixture: amount_usd was 1000.0 and raw base-unit duplicates were rounded by JavaScript above 2^53.",
+  "quote": {
+    "quote_id": "00000000-0000-4000-8000-000000000120",
+    "ttl_seconds": 60,
+    "intent": {
+      "from": "base:USDC",
+      "to": "arbitrum:USDC",
+      "amount_usd": 1000.0,
+      "estimated_input_base": 9007199254742000
+    },
+    "offer": {
+      "assetfare_fee_bps": 1,
+      "expected_receive_usd": 999.125,
+      "rankable_all_in": false
+    },
+    "route": {
+      "input_base": 9007199254742000,
+      "expected_output_base": 9007199254740996,
+      "minimum_output_base": 9007199254740992,
+      "quote_latency_ms": 1.25,
+      "steps": [
+        {
+          "index": 0,
+          "route_fee_bps": 1,
+          "expected_input_base": 9007199254742000,
+          "floor_input_base": 9007199254742000,
+          "expected_output_base": 9007199254740996,
+          "minimum_output_base": 9007199254740992
+        }
+      ]
+    },
+    "direct_route_summary": {
+      "step_count": 1,
+      "fee_collection_step_index": 0,
+      "steps": [
+        {
+          "index": 0,
+          "expected_input_base": "9007199254741999",
+          "minimum_input_base": "9007199254741999",
+          "expected_output_base": "9007199254740995",
+          "minimum_output_base": "9007199254740993",
+          "assetfare_fee_bps": 1
+        }
+      ]
+    },
+    "continuation_v3": {
+      "ignored_by_projection": true
+    }
+  },
+  "expected_sha256": "976f1b0978b67ed8c2ee325f8d42f72c31eecc1ac2fca165c6f599190197bd9a"
+}

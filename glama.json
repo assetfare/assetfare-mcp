@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["odaiin"],
   "name": "AssetFare USDC Bridge",
-  "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes, each with a validated ordered provider path and exact 1bp fee step. Caller approves/signs; server never signs or submits.",
+  "description": "USDC bridge API for AI agents and agent-wallet funding: 76 routes with validated ordered provider paths, full-quote hashes, restart-fail-closed quote-bound approval, and exact 1bp fee steps. Caller signs; server never signs or submits.",
   "repository": "https://github.com/assetfare/assetfare-mcp",
   "homepage": "https://assetfare.dev/agents/",
   "license": "MIT",

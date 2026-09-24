@@ -1,18 +1,20 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.1.1",
-  "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated provider paths and fee steps; exact 1bp service fee plus Circle/provider/network fees; server never signs or submits.",
+  "version": "1.2.0",
+  "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated provider paths, quote-bound approval, and fee steps; exact 1bp service fee plus Circle/provider/network fees; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
     "assetfare-mcp": "src/server.js",
     "assetfare-plan": "scripts/plan.mjs",
+    "assetfare-select": "scripts/select.mjs",
     "assetfare-route-eval": "scripts/route-eval.mjs",
     "assetfare-verify": "scripts/assetfare-verify.mjs"
   },
   "files": [
     "src",
     "scripts",
+    "test",
     "skills",
     "examples",
     "README.md",
@@ -64,8 +66,8 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/is-main.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
-    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/bin-entrypoint-selftest.mjs && node scripts/plan-selftest.mjs && node scripts/route-eval-selftest.mjs && node scripts/agent-plugin-selftest.mjs && node scripts/assetfare-verify-selftest.mjs && node scripts/publish-workflow-selftest.mjs && node scripts/integration-publish-workflow-selftest.mjs",
+    "check": "node --check src/is-main.js && node --check src/continuation-v3.js && node --check src/continuation-v3-selftest.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/test-runner.mjs && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/select.mjs && node --check scripts/select-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/package-contents-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
+    "test": "node scripts/test-runner.mjs",
     "verify-selftest": "node scripts/assetfare-verify-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",

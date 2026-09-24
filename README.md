@@ -4,6 +4,23 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.2.0 verifies the
+canonical full-quote hash, route-summary hash and fingerprint claim, exact
+path/providers, caller wallet-chain and event-signer requirements, base-unit
+bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
+adapter selects it automatically, and `caller_approved:true` alone is not
+human-approval proof.
+
+The portable quote hash removes `continuation_v3`, replaces duplicated raw
+base-unit numbers with the exact decimal strings in `direct_route_summary`,
+then hashes AssetFare `typed-canonical-v1` bytes. That encoding preserves JSON
+type, uses exact IEEE-754 binary64 bytes for finite numbers, UTF-8 byte lengths
+and byte-sorted object keys, distinguishes `-0` from `0`, and rejects every
+non-substituted integral number outside JavaScript's safe-integer range. The required literal
+`quote_payload_sha256_spec` appears both on `continuation_v3` and in its
+fingerprint claim, preventing numeric-string collisions and cross-language
+precision ambiguity.
+
 [![Public safety checks](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
@@ -46,6 +63,14 @@ ingress, where provider-internal liquidity sourcing may occur.
 `route_aggregator_used=false` describes AssetFare's own engine and does not
 claim every provider avoids internal aggregation. Circle/provider costs remain
 in `cost_summary.provider_fee_components`; network gas is in `unpriced_costs`.
+
+`continuation_v3` binds the entire quote (excluding the continuation object
+itself) to a process-local, maximum-60-second Core cache. A later exact
+`approval_v3` selects `one_shot` or `session`, may only strengthen the quote's
+maximum-input/minimum-output bounds, and fails closed after expiry, restart,
+path/provider drift, wallet/signer requirement drift, mode conflict or replay.
+Multi-step routes are session-only. Omitting `approval_v3` is explicitly
+`legacy_advisory`; the boolean gate remains required but is not human proof.
 
 ### Independent agent verifier
 
@@ -122,7 +147,8 @@ MCP:
   not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
   and network fees are additional and appear in the quote's total token-path cost.
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
-- `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply the result on every session call. The remote MCP/A2A service never generates that secret. The optional local stdio server retains `assetfare_v2_new_session_capability` as an offline convenience.
+- `assetfare_v2_prepare` and `assetfare_v2_session_create` accept an optional strict `approval_v3`. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. Without it, the path is `legacy_advisory`. Each call still requires the caller to supply literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
+- A session capability is a sensitive bearer credential, never a private key. Remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply it only in `X-AssetFare-Session-Token`. The server stores only its hash. The remote MCP/A2A service never generates the secret; `assetfare-plan` keeps it in memory by default and writes it only to an explicit new mode-0600 file. The optional local stdio helper remains offline-only.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are isolated at `/mcp/legacy` for original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
@@ -136,7 +162,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.1.1` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.2.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -184,31 +210,41 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.1.1 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.2.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 
-For an explicit caller-approved quote → first unsigned-plan flow:
+For a server-enforced quote → explicit selection → unsigned-plan flow, first
+save the exact fresh REST or MCP quote as `quote.json`. Then select a mode and
+bounds offline (zero network requests):
 
 ```bash
-npx --yes --package=assetfare-mcp@1.1.1 assetfare-plan \
-  --caller-approved \
-  --from-chain solana --from-token USDC \
-  --to-chain base --to-token USDC --amount 1000 \
+npx --yes --package=assetfare-mcp@1.2.0 assetfare-select \
+  --quote quote.json --mode session \
+  --maximum-input-base <CONTINUATION_MAXIMUM_INPUT_BASE> \
+  --minimum-output-base <CONTINUATION_MINIMUM_OUTPUT_BASE> \
+  --output approval.json
+
+npx --yes --package=assetfare-mcp@1.2.0 assetfare-plan \
+  --caller-approved --mode session \
+  --quote quote.json --approval approval.json \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
   --wallet base=<CALLER_BASE_PUBLIC_ADDRESS> \
-  --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY>
+  --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY> \
+  --session-token-output ./session-capability.json
 ```
 
-`assetfare-plan` obtains a fresh quote, calls `/v2/prepare`, verifies the
-ActionSafetyReceiptV1 intent and fee bindings plus the raw/action/bundle hashes,
-and stops with an unsigned, unsubmitted bundle. It defines no private-key input
-and never generates, stores, signs with, or transmits private keys. A base58
-string alone cannot prove that a caller did not mislabel secret material, so the
-caller must provide only public addresses and retain every required signer
-keypair outside AssetFare.
+`assetfare-select` refuses expired/tampered quotes, weak bounds, one-shot on a
+multi-step path, existing output files and secret material. It writes the exact
+approval object with mode 0600 and never claims that selection proves human
+approval. `assetfare-plan` validates both files and their exact hashes, makes
+only the selected prepare/session POST, checks the returned path/provider/bounds
+and ActionSafetyReceiptV1/raw/action/bundle hashes, and stops unsigned and
+unsubmitted. Session tokens never appear in stdout or structured results. The
+optional token output path must not exist and is created mode 0600; omit it only
+if loss of recovery after process exit is acceptable.
 
 The evaluator defaults to the representative USD 1,000
 `solana:USDC -> base:USDC` request. That USDC result is one AssetFare candidate,

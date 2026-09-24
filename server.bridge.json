@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.odaiin/assetfare-bridge",
   "title": "AssetFare USDC Bridge",
-  "version": "1.1.1",
-  "description": "Native-USDC bridge API for AI agents: Solana USDC to Base USDC; 76 routes; unsigned; never signs",
+  "version": "1.2.0",
+  "description": "76-route USDC bridge with quote-bound approval; unsigned; never signs or submits",
   "repository": {
     "url": "https://github.com/assetfare/assetfare-mcp",
     "source": "github"

@@ -10,10 +10,11 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
+import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema, reapprovalV3Schema, validateContinuationV3 } from "./continuation-v3.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.1.1";
+const VERSION = "1.2.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -70,11 +71,11 @@ const V2_BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact sepa
 const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every six-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
-const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, and required direct_route_summary contract before quoting. Example: confirm solana:USDC->base:USDC is ready, ordered provider-path summaries are required, and signing/submission are false. Read-only; creates no wallet login, session, or action.";
-const V2_QUOTE_DESCRIPTION = "Get a fresh fee-inclusive quote plus direct_route_summary: ordered provider/from/to steps, base-unit bounds, and the AssetFare fee step. direct_protocol_only means disclosed direct protocols; external_intent marks Across Robinhood ingress, where provider-internal sourcing may occur. route_aggregator_used=false scopes only AssetFare's engine. Example: from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=1000. USD 1 is smoke-only; compare fresh at the intended amount. Read-only; never authenticates, prepares, signs, or submits.";
+const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, direct_route_summary, and continuation_v3 contracts before quoting. continuation_v3 is restart-fail-closed and binds the full quote payload, exact path, wallet chains, signer requirement, bounds, and explicit one_shot/session choice. Example: inspect this before requesting solana:USDC to base:USDC. Read-only; creates no wallet login, session, or action.";
+const V2_QUOTE_DESCRIPTION = "Get one unranked fresh candidate with direct_route_summary and continuation_v3. The adapter verifies the canonical full-quote hash, route-summary hash, fingerprint claim, wallet/signer requirements, path, bounds, modes, and TTL. It never auto-selects or treats caller_approved:true as human proof. Example: quote solana USDC to Base USDC at USD 1000. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
-const V2_PREPARE_DESCRIPTION = "Return the exact validated versioned Core bundle for the first caller-approved unsigned action after a fresh re-quote. Its payload_sha256 covers the Core bundle with only payload_sha256 omitted; the MCP adapter does not append fields to that hash scope. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
-const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved receipt-driven workflow and return its current unsigned action. Example: pass a locally generated 256-bit base64url session_token, public wallets, and idempotency_key='create-0001'. Use for multi-step execution, never alongside one-shot prepare; AssetFare never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Return the exact validated first unsigned bundle. For server-enforced binding, explicitly pass caller_approved=true plus an approval_v3 selected as one_shot from the exact quote; multi-step quotes reject one_shot. Example: use the approval file produced by assetfare-select for a one-step quote. Omitting approval_v3 uses legacy_advisory only, and caller_approved:true is not human proof. No field is auto-inserted; AssetFare never signs or submits.";
+const V2_SESSION_CREATE_DESCRIPTION = "Create one receipt-driven workflow. For server-enforced binding, explicitly pass caller_approved=true, the exact approval_v3 selected as session, the same idempotency_key, and a caller-local session token. Example: select session for any multi-step quote. Omitting approval_v3 uses legacy_advisory only. AssetFare never signs or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read an existing v2 workflow and current unsigned action without advancing it. Example: pass the session_id and its caller-owned session_token after a restart. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record source hashes the caller already signed and submitted, then advance the workflow. Example: transaction_hashes=['<finalized-source-hash>'] with idempotency_key='source-0001'. Never pass an unsigned hash; AssetFare observes but never signs or submits.";
 const V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION = "Record an already-produced bridge or destination output, then advance the workflow. Example: transaction_hash='<caller-or-provider-output-hash>' with idempotency_key='output-0001'. AssetFare observes but never signs or submits.";
@@ -83,7 +84,10 @@ const V2_SESSION_REFRESH_ACTION_DESCRIPTION = "Refresh an expired action only wh
 const accessToken = z.string().min(20).max(512).describe("Sensitive legacy v1 wallet-bound bearer token returned by assetfare_finish_wallet_auth. Use only with unversioned legacy session tools; never log or use it as a v2 session capability.");
 const legacySessionId = z.string().uuid().describe("Legacy v1 session UUID returned by assetfare_create_session. Use only with the unversioned legacy workflow; do not pass a v2 session ID.");
 const v2SessionId = z.string().uuid().describe("V2 workflow session UUID returned by assetfare_v2_session_create. Use only with assetfare_v2_session_* tools; do not pass a legacy session ID.");
-const idempotencyKey = z.string().min(8).max(128).describe("Caller-generated retry key, 8-128 characters. Reuse it only when retrying the same logical mutation; choose a new key for a new operation.");
+// Preserve the 1.1.x compatibility surface for legacy and legacy-advisory
+// operations. Strict Core 2.4 approval_v3 carries its own constrained key and,
+// when present on session creation, must exactly match this request field.
+const idempotencyKey = z.string().min(8).max(128).describe("Caller-generated retry key, 8-128 characters. Reuse it only when retrying the same logical mutation; choose a new key for a new operation. Strict approval_v3 requests additionally enforce its ASCII key pattern.");
 const sourceWallet = z.string().min(32).max(64).describe("Caller-owned Solana public wallet address for the legacy v1 source. Public address only; never provide a seed phrase or private key.");
 const destinationWallet = z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe("Caller-owned Base or Arbitrum EVM destination address as 0x plus 40 hex characters. Public address only; never provide a private key.");
 const legacyChallengeId = z.string().uuid().describe("Short-lived legacy wallet-login challenge UUID returned by assetfare_start_wallet_auth.");
@@ -122,14 +126,17 @@ const v2SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/).describe("Sen
 const v2PublicAddress = z.string().refine((value) => /^0x[0-9a-fA-F]{40}$/.test(value) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), "assetfare_v2_wallet_not_public_address").describe("Caller-owned public wallet address: 0x plus 40 hex characters for EVM, or 32-44 base58 characters for Solana. Never provide secret key material.");
 const v2EventSignerPublic = v2PublicAddress.describe("Solana CCTP only: caller-generated ephemeral public key. Keep the matching private key client-side and use it to co-sign the returned unsigned event-account transaction; never send the private key.");
 const v2WalletMap = z.record(z.enum(V2_SOURCE_CHAINS), v2PublicAddress).refine((value) => Object.keys(value).length >= 1 && Object.keys(value).length <= 6, "assetfare_v2_wallets_out_of_range").describe("Map each chain needed by this route to the caller's public wallet address. Include public addresses only; one to six entries, never private keys or seed phrases.");
+const v2OneShotApproval=approvalV3Schema.extend({selected_mode:z.literal("one_shot")}).strict();
+const v2SessionApproval=approvalV3Schema.extend({selected_mode:z.literal("session")}).strict();
 const v2PrepareFields = {
-  caller_approved: z.literal(true).describe("Explicit confirmation that the caller approved this state-changing preparation or session creation. A quote alone is not approval."),
+  caller_approved: z.literal(true).describe("Legacy caller assertion that MUST be supplied explicitly. It is not human-proof and is never auto-inserted; approval_v3 adds server-enforced quote binding."),
   ...v2QuoteFields,
   wallets: v2WalletMap,
   event_signer_public: v2EventSignerPublic.optional(),
+  approval_v3: v2OneShotApproval.optional().describe("Optional strict Core 2.4.1 one_shot quote-bound selection. Omit only for the explicitly legacy_advisory path."),
 };
 const v2PrepareIntent = z.object(v2PrepareFields).strict();
-const v2SessionCreateIntent = z.object({ ...v2PrepareFields, session_token: v2SessionToken, idempotency_key: idempotencyKey }).strict();
+const v2SessionCreateIntent = z.object({ ...v2PrepareFields, approval_v3:v2SessionApproval.optional().describe("Optional strict Core 2.4.1 session quote-bound selection. Omit only for legacy_advisory."), session_token: v2SessionToken, idempotency_key: idempotencyKey }).strict();
 const v2TransactionHashes = z.array(z.string().min(16).max(128)).min(1).max(8).describe("One to eight hashes for source transactions the caller already signed and submitted. Do not provide unsigned payloads or destination hashes.");
 const v2OutputTransactionHash = z.string().min(16).max(128).optional().describe("Optional bridge or destination transaction hash already produced outside AssetFare. Omit only when the provider output can be observed without a hash.");
 const v2SessionReadIntent = z.object({ session_token: v2SessionToken, session_id: v2SessionId }).strict();
@@ -163,6 +170,7 @@ const v2CapabilitiesResponse = z.object({
   temporarily_unavailable_route_count: z.number().int().min(0).max(76).optional(),
   execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(76), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
   direct_route_summary:z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(168),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
+  continuation_v3: continuationV3CapabilitySchema,
   phase_b_blocked_routes: z.literal(0),
   blocked_source_only_routes: z.array(z.never()).length(0),
   server_signing: z.literal(false),
@@ -208,6 +216,7 @@ const v2QuoteResponse = z.object({
     server_submission: z.literal(false),
   }).passthrough(),
   direct_route_summary: v2DirectRouteSummary,
+  continuation_v3: continuationV3Schema,
   risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
   execution: z.object({
     supported: z.boolean(),
@@ -229,8 +238,11 @@ const v2BundleOutput = z.object({
   unsigned_action:z.record(z.unknown()), payload_sha256:z.string().regex(/^[0-9a-f]{64}$/).describe(V2_BUNDLE_HASH_SPEC), payload_sha256_spec:z.literal(V2_BUNDLE_HASH_SPEC),
   server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
 }).passthrough();
+const v2SessionQuoteBindingV3=z.object({version:z.literal("assetfare-quote-bound-session-constraints-v1"),quote_id:z.string().uuid(),quote_fingerprint:z.string().regex(/^[0-9a-f]{64}$/),selected_mode:z.literal("session"),whole_session_path_and_bounds_enforced:z.literal(true),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
+const v2SessionQuoteBindingLegacy=z.object({version:z.literal("legacy_advisory"),whole_session_path_and_bounds_enforced:z.literal(false),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const v2SessionOutput = z.object({
   session_id:z.string().uuid(), status:z.string().min(1), action_available:z.boolean(), current_action:z.union([v2BundleOutput,z.null()]),
+  quote_binding:z.union([v2SessionQuoteBindingV3,v2SessionQuoteBindingLegacy]),
   server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
 }).passthrough();
 
@@ -271,6 +283,12 @@ async function responseText(response, maximumBytes) {
 }
 
 function safeV2ErrorPayload(payload, status) {
+  if(status===409){
+    let safe;
+    try{safe=reapprovalV3Schema.parse(payload);}
+    catch{throw Object.assign(new Error("assetfare_v2_request_rejected"),{status,payload:{error:"assetfare_v2_request_rejected"}});}
+    return Object.assign(new Error(safe.error),{status,payload:safe});
+  }
   const error = status === 429 ? "assetfare_v2_rate_limited" : status >= 500 ? "assetfare_v2_upstream_unavailable" : "assetfare_v2_request_rejected";
   const value = { error };
   if (Number.isInteger(payload?.retry_after_seconds) && payload.retry_after_seconds >= 0 && payload.retry_after_seconds <= 3600) value.retry_after_seconds = payload.retry_after_seconds;
@@ -363,6 +381,14 @@ function rejectPrivateOutputMaterial(value) {
   const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase"]);
   const stack=[[value,0]];let seen=0;
   while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of Object.keys(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if([...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_secret_material_rejected");}for(const child of Object.values(node))stack.push([child,depth+1]);}}
+}
+
+// Session capability values are caller-owned bearer secrets. Public hashes and
+// quote/session bindings are allowed, but a raw token must never cross back out
+// of the upstream response boundary under a familiar key or any other key.
+function rejectSessionTokenEcho(value, expectedToken = null) {
+  const rawKeys=new Set(["sessiontoken","rawsessiontoken","sessioncapability","rawsessioncapability"]),stack=[[value,0]];let seen=0;
+  while(stack.length){const[node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_session_token_echo_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const[key,child]of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if(rawKeys.has(normalized))throw new Error("assetfare_v2_session_token_echo_rejected");if(expectedToken&&typeof child==="string"&&child.includes(expectedToken))throw new Error("assetfare_v2_session_token_echo_rejected");stack.push([child,depth+1]);}}}
 }
 
 function rejectUnsignedActionMaterial(value) {
@@ -504,13 +530,18 @@ function parseV2Bundle(payload) {
 }
 
 // Validate a v2 session workflow-state response. It must never assert signing/submission.
-function parseV2Session(payload) {
+function parseV2Session(payload, expectedApproval = null, expectedSessionToken = null) {
   rejectSigningClaims(payload);
   rejectPrivateOutputMaterial(payload);
+  rejectSessionTokenEcho(payload, expectedSessionToken);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("assetfare_v2_session_invalid");
   if (typeof payload.session_id !== "string" || !payload.session_id) throw new Error("assetfare_v2_session_invalid");
   if (payload.server_signing !== false || payload.server_submission !== false || payload.signed !== false || payload.submitted !== false) throw new Error("assetfare_v2_session_unsafe");
   if(payload.current_action!==null&&payload.current_action!==undefined)parseV2Bundle(payload.current_action);
+  let binding;
+  try { binding=z.union([v2SessionQuoteBindingV3,v2SessionQuoteBindingLegacy]).parse(payload.quote_binding); }
+  catch { throw new Error("assetfare_v2_session_quote_binding_invalid"); }
+  if(expectedApproval && (binding.version!=="assetfare-quote-bound-session-constraints-v1" || binding.quote_id!==expectedApproval.quote_id || binding.quote_fingerprint!==expectedApproval.quote_fingerprint))throw new Error("assetfare_v2_session_quote_binding_mismatch");
   return payload;
 }
 
@@ -531,7 +562,7 @@ function generateSessionCapability() {
   };
 }
 
-function parseV2Quote(payload, intent) {
+function parseV2Quote(payload, intent, { nowMs = Date.now() } = {}) {
   rejectSigningClaims(payload);
   rejectPrivateOutputMaterial(payload);
   rejectUnsignedActionMaterial(payload);
@@ -540,6 +571,9 @@ function parseV2Quote(payload, intent) {
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
   if (value.intent.from !== `${intent.from_chain}:${intent.from_token}` || value.intent.to !== `${intent.to_chain}:${intent.to_token}` || value.intent.amount_usd !== intent.amount_usd) throw new Error("assetfare_v2_quote_binding_failed");
   if (value.offer.output_symbol !== intent.to_token || value.offer.estimated_min_receive_amount > value.offer.expected_receive_amount) throw new Error("assetfare_v2_quote_binding_failed");
+  const directRouteSummary=validateDirectRouteSummary(value.direct_route_summary,value.route,value.risk,value.intent,value.offer);
+  if(canonicalJson(directRouteSummary)!==canonicalJson(value.direct_route_summary))throw new Error("assetfare_v2_direct_route_summary_invalid");
+  value.continuation_v3=validateContinuationV3(value.continuation_v3,value,{requireUnexpired:true,nowMs});
   if (value.cost_summary) {
     const expectedCost=Math.max(0,intent.amount_usd-value.offer.expected_receive_usd),maximumCost=Math.max(0,intent.amount_usd-value.offer.estimated_min_receive_usd),close=(a,b,t=.000001)=>Math.abs(a-b)<=t;
     const componentExpected=value.cost_summary.provider_fee_components.reduce((sum,row)=>sum+row.expected_usd,0),componentMaximum=value.cost_summary.provider_fee_components.reduce((sum,row)=>sum+row.maximum_usd,0);
@@ -554,8 +588,6 @@ function parseV2Quote(payload, intent) {
   if (!value.eta) value.eta={estimated_time_seconds:value.offer.estimated_time_seconds,estimated_time_range_seconds:null,complete_route_estimate:false,sources:[],note:"Legacy-core fallback; full ETA provenance unavailable"};
   if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true || ("blocker" in value.execution && value.execution.blocker !== null)) throw new Error("assetfare_v2_execution_boundary_failed");
   validateFee(value.offer, value.route.steps.length);
-  const directRouteSummary=validateDirectRouteSummary(value.direct_route_summary,value.route,value.risk,value.intent,value.offer);
-  if(canonicalJson(directRouteSummary)!==canonicalJson(value.direct_route_summary))throw new Error("assetfare_v2_direct_route_summary_invalid");
   validateHandoff(value.caller_action_plan_handoff);
   // Transition-safe: v1 is ALWAYS validated (exact old shape). The v2 sibling and its schema_version are strictly
   // coupled — both present (version===2, sibling a non-null object) or both absent (rollback Core still quotes).
@@ -670,29 +702,30 @@ function createServer(provenance = {}, profile = "v2") {
     const quote = parseV2Quote(await v2Api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
     // The upstream caller_action_plan_handoff (passed through verbatim above) documents the
     // REST endpoints; guidance points callers at the explicit MCP tools that operate them.
-    const executionHandoff = { execution_ready: true, note: "AssetFare never signs or submits. Requires explicit caller_approved:true and the caller's public wallet addresses. Never auto-call these from a quote. Generate the session capability locally; the remote adapter does not generate it.", session_capability_generation: "client-side CSPRNG: 32 random bytes encoded as base64url without padding", mcp_tools: { one_shot_prepare: "assetfare_v2_prepare", session_create: "assetfare_v2_session_create", session_get: "assetfare_v2_session_get", observe_source: "assetfare_v2_session_observe_source", observe_output: "assetfare_v2_session_observe_output", refresh_action: "assetfare_v2_session_refresh_action" }, rest_endpoints: { prepare: V2_PREPARE_URL, session: V2_SESSION_URL } };
-    return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true, caller_action_plan: executionHandoff } };
+    const executionHandoff = { execution_ready: true, selection_status: "unranked_candidate", automatic_selection_forbidden: true, caller_approved_boolean_is_not_human_proof: true, note: "Select explicitly with approval_v3 after comparing candidates. Never auto-call prepare/session from a quote. Omitting approval_v3 is legacy_advisory only. AssetFare never signs or submits.", session_capability_generation: "client-side CSPRNG: 32 random bytes encoded as base64url without padding", mcp_tools: { one_shot_prepare: "assetfare_v2_prepare", session_create: "assetfare_v2_session_create", session_get: "assetfare_v2_session_get", observe_source: "assetfare_v2_session_observe_source", observe_output: "assetfare_v2_session_observe_output", refresh_action: "assetfare_v2_session_refresh_action" }, rest_endpoints: { prepare: V2_PREPARE_URL, session: V2_SESSION_URL } };
+    return { ...quote, guidance: { selectionStatus:"unranked_candidate", automaticSelectionForbidden:true, callerApprovedBooleanIsNotHumanProof:true, legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true, caller_action_plan: executionHandoff } };
   }, v2QuoteOutput);
   if (includeV2 && process.env.ASSETFARE_MCP_TRANSPORT === "stdio") addTool(server, "assetfare_v2_new_session_capability", V2_NEW_SESSION_CAPABILITY_DESCRIPTION, emptyStrictInput, { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async () => generateSessionCapability(), v2SessionCapabilityOutput);
   if (includeV2) addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareIntent, stateful(false), async (args) => {
     const intent = v2PrepareIntent.parse(args);
     rejectSecretMaterial(intent);
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
-    const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
+    const body = { caller_approved: intent.caller_approved, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}), ...(intent.approval_v3 ? { approval_v3: intent.approval_v3 } : {}) };
     const bundle = parseV2Bundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
     return bundle;
   }, v2BundleOutput);
   if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, v2SessionCreateIntent, stateful(true), async (args) => {
     const intent = v2SessionCreateIntent.parse(args);
+    if(intent.approval_v3&&intent.approval_v3.idempotency_key!==intent.idempotency_key)throw new Error("assetfare_v2_approval_v3_idempotency_mismatch");
     rejectSecretMaterial({ ...intent, session_token: undefined });
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
-    const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, idempotency_key: intent.idempotency_key, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
-    return parseV2Session(await v2Api("/v2/session", { method: "POST", body, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: intent.session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
+    const body = { caller_approved: intent.caller_approved, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, idempotency_key: intent.idempotency_key, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}), ...(intent.approval_v3 ? { approval_v3: intent.approval_v3 } : {}) };
+    return parseV2Session(await v2Api("/v2/session", { method: "POST", body, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: intent.session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent.approval_v3 || null, intent.session_token);
   }, v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, v2SessionReadIntent, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, v2SessionObserveSourceIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, v2SessionObserveOutputIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, v2SessionRefreshIntent, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, v2SessionReadIntent, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), null, session_token), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, v2SessionObserveSourceIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), null, session_token), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, v2SessionObserveOutputIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), null, session_token), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, v2SessionRefreshIntent, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), null, session_token), v2SessionOutput);
   if (includeLegacy) addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, legacyQuoteIntent, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
   if (includeLegacy) addTool(server, "assetfare_start_wallet_auth", "Create a short-lived, non-transactional Solana signMessage challenge for the legacy v1 workflow. Use only after selecting a fresh legacy assetfare_quote and obtaining caller approval; v2 quote and session tools do not use wallet authentication. Makes a network request and creates login-challenge state, but cannot move funds, sign, or submit.", legacyStartAuthIntent, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
@@ -823,4 +856,4 @@ async function main() {
 
 if (isMain(import.meta.url)) main().catch(() => process.exit(1));
 
-export { DIRECT_ROUTE_CONTRACT_COUNTS, V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, provenanceFromHeaders, serverCard };
+export { DIRECT_ROUTE_CONTRACT_COUNTS, V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, parseV2Session, provenanceFromHeaders, serverCard };

@@ -1,7 +1,7 @@
 {
   "name": "assetfare",
-  "version": "1.1.1",
-  "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated ordered provider paths, exact 1bp fee steps, and caller-approved unsigned plans; never signs or submits transactions.",
+  "version": "1.2.0",
+  "description": "USDC bridge API for AI agents and agent-wallet funding: 76 cross-chain routes with validated ordered provider paths, full-quote hashes, quote-bound approval, exact 1bp fee steps, and unsigned plans; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",
