@@ -13,7 +13,7 @@ import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.1.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,

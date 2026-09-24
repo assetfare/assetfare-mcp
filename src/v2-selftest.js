@@ -40,11 +40,11 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryMetadata = JSON.parse(readFileSync(new URL("../server.bridge.json", import.meta.url), "utf8"));
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.1.0");
-assert.equal(lockMetadata.version, "1.1.0");
-assert.equal(lockMetadata.packages[""].version, "1.1.0");
-assert.equal(registryMetadata.version, "1.1.0");
-assert.equal(bridgeRegistryMetadata.version, "1.1.0");
+assert.equal(packageMetadata.version, "1.1.1");
+assert.equal(lockMetadata.version, "1.1.1");
+assert.equal(lockMetadata.packages[""].version, "1.1.1");
+assert.equal(registryMetadata.version, "1.1.1");
+assert.equal(bridgeRegistryMetadata.version, "1.1.1");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -282,7 +282,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.1.0");
+  assert.equal(card.serverInfo.version, "1.1.1");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

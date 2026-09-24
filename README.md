@@ -1,5 +1,9 @@
 # AssetFare — non-custodial bridge and cross-chain swap for AI agents
 
+USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
+cross-chain routes, each with a validated ordered provider path and exact 1bp
+fee step. Caller approves and signs; the server never signs or submits.
+
 [![Public safety checks](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/assetfare/assetfare-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/assetfare-mcp.svg)](https://www.npmjs.com/package/assetfare-mcp)
 [![AssetFare MCP connector](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.odaiin/assetfare)
@@ -132,7 +136,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.1.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.1.1` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -180,7 +184,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.1.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.1.1 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
@@ -189,7 +193,7 @@ From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 For an explicit caller-approved quote → first unsigned-plan flow:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.1.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.1.1 assetfare-plan \
   --caller-approved \
   --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --amount 1000 \
