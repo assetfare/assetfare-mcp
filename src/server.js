@@ -10,7 +10,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.17";
+const VERSION = "0.4.18";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -64,15 +64,16 @@ const V2_FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const V2_SESSION_TOKEN_HEADER = "x-assetfare-session-token";
 const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every six-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
-const V2_CAPABILITIES_DESCRIPTION = "Read current non-custodial bridge/swap capabilities, route availability, fee policy, and the no-sign/no-submit boundary for 76 routes across six chains and eleven endpoints. Use before assetfare_v2_quote for a new v2 evaluation; do not use legacy assetfare_status to decide v2 availability. Read-only; makes a network request and creates no wallet login, session, or action.";
-const V2_QUOTE_DESCRIPTION = "Get one fresh read-only AssetFare bridge/swap quote for a selected v2 route, including total token-path cost, live availability, and an unsigned-action handoff. Use for every new six-chain evaluation after assetfare_v2_capabilities; use legacy assetfare_quote only for the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow. AssetFare charges 1bp plus Circle/provider/network fees. This call makes a network request but never authenticates, creates a session, prepares an action, signs, or submits.";
+const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
+const V2_CAPABILITIES_DESCRIPTION = "Read the current 76-route capability and live-availability matrix before quoting. Example: confirm solana:USDC->base:USDC is prepare-ready and server_signing/server_submission are false. Read-only; creates no wallet login, session, or action.";
+const V2_QUOTE_DESCRIPTION = "Get one fresh fee-inclusive quote and caller-operated unsigned-plan handoff. Example: from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=250. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
-const V2_PREPARE_DESCRIPTION = "Prepare one caller-approved, one-shot first unsigned action for a v2 route that a fresh quote reports available. Use for preview or manual first-action handling; for a receipt-driven multi-step workflow generate a 256-bit base64url session capability locally, then use assetfare_v2_session_create, and never call both modes for one transfer. Solana-CCTP routes require only a fresh caller-owned event signer public key. Makes a network request and prepares an action, but AssetFare never receives private keys, signs, or submits.";
-const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved, receipt-driven v2 workflow session and return its current unsigned action. Use for multi-step execution after a fresh available quote; for a one-shot preview/manual first action use assetfare_v2_prepare instead, and never start both modes for one transfer. Requires a locally generated session capability token, exact public-wallet map, idempotency key, and on Solana-CCTP routes an event signer public key. Makes a network request and creates session state, but never signs or submits.";
-const V2_SESSION_GET_DESCRIPTION = "Read a v2 session's current workflow state and unsigned action using its caller-owned capability token. Use to resume or inspect an existing v2 session; do not use legacy assetfare_read_session or use this call to report a new receipt. Read-only and makes a network request; never advances the workflow, signs, or submits.";
-const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record already-submitted source transaction hashes for an existing v2 session and advance its server-side workflow state. Use only after the caller independently submitted the current source action; use assetfare_v2_session_get for inspection without advancement and never pass unsigned or unsubmitted hashes. Requires the session capability and an idempotency key; makes a network request but never signs or submits.";
-const V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION = "Record an already-produced bridge or destination output for an existing v2 session and advance its server-side workflow state. Use only after the caller or provider produced the expected output; use assetfare_v2_session_get for read-only inspection and assetfare_v2_session_observe_source for source hashes. Requires the session capability and an idempotency key; makes a network request but never signs or submits.";
-const V2_SESSION_REFRESH_ACTION_DESCRIPTION = "Replace an expired, still-unsubmitted unsigned action in an existing v2 session with a fresh quote-bound action. Use only before the caller submits the expired action; use assetfare_v2_session_get when the current action is still valid and never refresh an already-submitted step. Requires the session capability and an idempotency key; advances session state but never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Return the first caller-approved unsigned action after a fresh re-quote. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
+const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved receipt-driven workflow and return its current unsigned action. Example: pass a locally generated 256-bit base64url session_token, public wallets, and idempotency_key='create-0001'. Use for multi-step execution, never alongside one-shot prepare; AssetFare never signs or submits.";
+const V2_SESSION_GET_DESCRIPTION = "Read an existing v2 workflow and current unsigned action without advancing it. Example: pass the session_id and its caller-owned session_token after a restart. Read-only; never signs or submits.";
+const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record source hashes the caller already signed and submitted, then advance the workflow. Example: transaction_hashes=['<finalized-source-hash>'] with idempotency_key='source-0001'. Never pass an unsigned hash; AssetFare observes but never signs or submits.";
+const V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION = "Record an already-produced bridge or destination output, then advance the workflow. Example: transaction_hash='<caller-or-provider-output-hash>' with idempotency_key='output-0001'. AssetFare observes but never signs or submits.";
+const V2_SESSION_REFRESH_ACTION_DESCRIPTION = "Refresh an expired action only while it remains unsubmitted. Example: pass the existing session_id, session_token, and idempotency_key='refresh-0001'. Never refresh a submitted step; AssetFare never signs or submits.";
 
 const accessToken = z.string().min(20).max(512).describe("Sensitive legacy v1 wallet-bound bearer token returned by assetfare_finish_wallet_auth. Use only with unversioned legacy session tools; never log or use it as a v2 session capability.");
 const legacySessionId = z.string().uuid().describe("Legacy v1 session UUID returned by assetfare_create_session. Use only with the unversioned legacy workflow; do not pass a v2 session ID.");
@@ -156,7 +157,8 @@ const v2CostSummary = z.object({
   provider_fee_components:z.array(z.object({provider:z.string().min(1),kind:z.string().min(1),expected_usd:z.number().finite().nonnegative(),maximum_usd:z.number().finite().nonnegative(),included_in_receive_amount:z.literal(true)}).passthrough().refine((value)=>value.maximum_usd>=value.expected_usd)),
   unpriced_costs:z.array(z.string().min(1)).min(1), rankable_all_in:z.literal(false), small_amount_warning:z.boolean(), warning:z.string().min(1).nullable(),
 }).strict();
-const v2Eta = z.object({estimated_time_seconds:z.number().int().positive().nullable(),estimated_time_range_seconds:z.tuple([z.number().int().nonnegative(),z.number().int().positive()]).nullable(),complete_route_estimate:z.boolean(),sources:z.array(z.string().url()),note:z.string().min(1)}).strict().superRefine((value,context)=>{if(value.complete_route_estimate){if(value.estimated_time_seconds===null||value.estimated_time_range_seconds===null||value.estimated_time_range_seconds[0]>value.estimated_time_range_seconds[1]||value.estimated_time_range_seconds[1]!==value.estimated_time_seconds)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_complete_inconsistent"});}else if(value.estimated_time_seconds!==null||value.estimated_time_range_seconds!==null)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_incomplete_inconsistent"});});
+const v2EtaShape={estimated_time_seconds:z.number().int().positive().nullable(),estimated_time_range_seconds:z.tuple([z.number().int().nonnegative(),z.number().int().positive()]).nullable(),complete_route_estimate:z.boolean(),sources:z.array(z.string().url()),note:z.string().min(1)};
+const v2Eta = z.object(v2EtaShape).strict().superRefine((value,context)=>{if(value.complete_route_estimate){if(value.estimated_time_seconds===null||value.estimated_time_range_seconds===null||value.estimated_time_range_seconds[0]>value.estimated_time_range_seconds[1]||value.estimated_time_range_seconds[1]!==value.estimated_time_seconds)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_complete_inconsistent"});}else if(value.estimated_time_seconds!==null||value.estimated_time_range_seconds!==null)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_incomplete_inconsistent"});});
 const v2QuoteResponse = z.object({
   quote_id: z.string().uuid(),
   status: z.literal("capped_public_agent_release"),
@@ -189,6 +191,23 @@ const v2QuoteResponse = z.object({
     first_unsigned_action_supported: z.boolean(),
   }).passthrough(),
   caller_action_plan_handoff: z.object({}).passthrough(),
+}).passthrough();
+const v2QuoteOutput = v2QuoteResponse.extend({ cost_summary:v2CostSummary, eta:z.object(v2EtaShape).strict() }).passthrough();
+const v2ManifestOutput = z.object({
+  service: z.literal("AssetFare"),
+  release_commit: z.string().regex(/^[0-9a-f]{40}$/),
+  execution: z.record(z.unknown()),
+  safety_bundle: z.object({ schema:z.string().url(), url:z.string().url(), sha256:z.string().regex(/^[0-9a-f]{64}$/), canonicalization:z.string().min(1) }).passthrough(),
+  signature: z.object({ algorithm:z.literal("Ed25519"), key_id:z.string().min(1), public_key_url:z.string().url(), value:z.string().min(1) }).passthrough(),
+}).passthrough();
+const v2BundleOutput = z.object({
+  workflow_id:z.string().uuid(), action_id:z.string().uuid(), step_index:z.number().int().nonnegative(), expires_at:z.string().min(1),
+  unsigned_action:z.record(z.unknown()), payload_sha256:z.string().regex(/^[0-9a-f]{64}$/),
+  server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
+}).passthrough();
+const v2SessionOutput = z.object({
+  session_id:z.string().uuid(), status:z.string().min(1), action_available:z.boolean(), current_action:z.union([v2BundleOutput,z.null()]),
+  server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
 }).passthrough();
 
 function asText(value, isError = false, includeStructuredContent = false) {
@@ -494,7 +513,7 @@ function parseV2Quote(payload, intent) {
 // Wallet-bound workflow tools use an access token produced by the preceding
 // non-transactional signMessage flow. They never require a server-side API key
 // or give the server signing/submission authority.
-function serverCard() {
+function serverCard(profile = "v2") {
   const token = { type: "string", minLength: 20, maxLength: 512 };
   const uuid = { type: "string", format: "uuid" };
   const wallet = { type: "string", minLength: 32, maxLength: 64 };
@@ -515,14 +534,21 @@ function serverCard() {
     amount_usd: { ...amountUsd, description: "Requested input value in USD, minimum 1. Obtain a fresh quote because availability, fees, and receive amounts can change." },
   };
   const object = (properties, required = Object.keys(properties)) => ({ type: "object", additionalProperties: false, properties, required });
-  return {
-    serverInfo: { name: "AssetFare", version: VERSION },
-    authentication: { required: false, schemes: [] },
-    tools: [
-      { name: "assetfare_status", description: LEGACY_STATUS_DESCRIPTION, inputSchema: object({}) },
-      { name: "assetfare_manifest", description: "Read the signed release, contract, and mainnet-evidence manifest.", inputSchema: object({}) },
+  const manifestTool = { name: "assetfare_manifest", description: V2_MANIFEST_DESCRIPTION, inputSchema: object({}) };
+  const v2Tools = [
+      manifestTool,
       { name: "assetfare_v2_capabilities", description: V2_CAPABILITIES_DESCRIPTION, inputSchema: object({}) },
       { name: "assetfare_v2_quote", description: V2_QUOTE_DESCRIPTION, inputSchema: object(v2Route) },
+      { name: "assetfare_v2_prepare", description: V2_PREPARE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]) },
+      { name: "assetfare_v2_session_create", description: V2_SESSION_CREATE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic, session_token: sessionCapability, idempotency_key: idempotency }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "session_token", "idempotency_key"]) },
+      { name: "assetfare_v2_session_get", description: V2_SESSION_GET_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid }) },
+      { name: "assetfare_v2_session_observe_source", description: V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hashes: { type: "array", items: { type: "string", minLength: 16, maxLength: 128 }, minItems: 1, maxItems: 8 } }) },
+      { name: "assetfare_v2_session_observe_output", description: V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hash: { type: "string", minLength: 16, maxLength: 128 } }, ["session_token", "session_id", "idempotency_key"]) },
+      { name: "assetfare_v2_session_refresh_action", description: V2_SESSION_REFRESH_ACTION_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency }) },
+  ];
+  const legacyTools = [
+      { name: "assetfare_status", description: LEGACY_STATUS_DESCRIPTION, inputSchema: object({}) },
+      manifestTool,
       { name: "assetfare_quote", description: LEGACY_QUOTE_DESCRIPTION, inputSchema: object({ amount_usd: { type: "integer", minimum: 1 }, destination_chain: { type: "string", enum: ["base", "arbitrum"], default: "base" } }, ["amount_usd"]) },
       { name: "assetfare_start_wallet_auth", description: "Create a signMessage-only wallet login challenge. It cannot authorize or submit a transaction.", inputSchema: object({ source_wallet: wallet }) },
       { name: "assetfare_finish_wallet_auth", description: "Verify the exact wallet-login message and return a wallet-bound access token. The token is sensitive.", inputSchema: object({ challenge_id: uuid, source_wallet: wallet, signature, terms_version: { type: "string", minLength: 1, maxLength: 160 } }) },
@@ -534,14 +560,13 @@ function serverCard() {
       { name: "assetfare_observe_cctp", description: "Observe an already-submitted CCTP burn and forwarded mint; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, burn_signature: signature, idempotency_key: idempotency }) },
       { name: "assetfare_prepare_destination_action", description: "Prepare an unsigned ERC-4337 settlement plan with bounded permit and deadline.", inputSchema: object({ access_token: token, session_id: uuid, idempotency_key: idempotency }) },
       { name: "assetfare_observe_destination", description: "Verify an already-submitted destination UserOperation receipt; never submits a transaction.", inputSchema: object({ access_token: token, session_id: uuid, transaction_hash: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$" }, idempotency_key: idempotency }) },
-      ...(process.env.ASSETFARE_MCP_TRANSPORT === "stdio" ? [{ name: "assetfare_v2_new_session_capability", description: V2_NEW_SESSION_CAPABILITY_DESCRIPTION, inputSchema: object({}) }] : []),
-      { name: "assetfare_v2_prepare", description: V2_PREPARE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets"]) },
-      { name: "assetfare_v2_session_create", description: V2_SESSION_CREATE_DESCRIPTION, inputSchema: object({ caller_approved: callerApproved, ...v2Route, wallets: walletMap, event_signer_public: eventSignerPublic, session_token: sessionCapability, idempotency_key: idempotency }, ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "session_token", "idempotency_key"]) },
-      { name: "assetfare_v2_session_get", description: V2_SESSION_GET_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid }) },
-      { name: "assetfare_v2_session_observe_source", description: V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hashes: { type: "array", items: { type: "string", minLength: 16, maxLength: 128 }, minItems: 1, maxItems: 8 } }) },
-      { name: "assetfare_v2_session_observe_output", description: V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency, transaction_hash: { type: "string", minLength: 16, maxLength: 128 } }, ["session_token", "session_id", "idempotency_key"]) },
-      { name: "assetfare_v2_session_refresh_action", description: V2_SESSION_REFRESH_ACTION_DESCRIPTION, inputSchema: object({ session_token: sessionCapability, session_id: uuid, idempotency_key: idempotency }) },
-    ],
+  ];
+  const tools = profile === "legacy" ? legacyTools : profile === "all" ? [...legacyTools, ...v2Tools.filter((tool) => tool.name !== "assetfare_manifest"), ...(process.env.ASSETFARE_MCP_TRANSPORT === "stdio" ? [{ name: "assetfare_v2_new_session_capability", description: V2_NEW_SESSION_CAPABILITY_DESCRIPTION, inputSchema: object({}) }] : [])] : v2Tools;
+  return {
+    serverInfo: { name: "AssetFare", version: VERSION },
+    authentication: { required: false, schemes: [] },
+    profile,
+    tools,
     resources: [],
     prompts: [],
   };
@@ -556,48 +581,54 @@ function addTool(server, name, description, inputSchema, annotations, action, ou
   });
 }
 
-function createServer(provenance = {}) {
+function createServer(provenance = {}, profile = "v2") {
+  if (!new Set(["v2","legacy","all"]).has(profile)) throw new Error("assetfare_mcp_profile_invalid");
+  const includeV2 = profile !== "legacy";
+  const includeLegacy = profile !== "v2";
   const api = apiClient(provenance);
   const v2Api = apiClient(provenance, V2_API_BASE);
   const server = new McpServer(
     { name: "AssetFare", version: VERSION },
-    { instructions: "AssetFare's canonical example is Solana native USDC to Base native USDC with a caller-approved unsigned transaction plan. Solana SOL to Base USDC and Optimism USDC to Base USDC are also supported among 76 non-custodial bridge and cross-chain swap routes across six chains. AssetFare service fee 1bp; Circle/provider/network fees additional; each quote exposes total token-path cost and live availability, so compare that total, not the 1bp. For every new route evaluation, prefer assetfare_v2_capabilities and assetfare_v2_quote. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC, not destinations. To execute any supported route, act only on the caller_action_plan_handoff: call assetfare_v2_prepare for the one-shot first unsigned bundle, or generate a 256-bit base64url session capability locally before assetfare_v2_session_create and the observe/refresh tools. Remote MCP never generates that secret. All execution calls require explicit caller approval and the caller's public wallet addresses; never auto-call them from a quote. The unversioned quote, auth, session, prepare, and observation tools are legacy v1 original-corridor workflow compatibility only and must never be mixed with the v2 session tools. A v2 quote ID is never valid input to a legacy session tool. The session capability token is a sensitive bearer credential, not a private key. AssetFare is non-custodial: it never signs or submits, never requests a private key, and verifies every unsigned action before the caller signs and submits it." },
+    { instructions: profile === "legacy"
+      ? "Legacy compatibility endpoint for the original Solana SOL to Base/Arbitrum ETH workflow. Use only its unversioned tools. It returns unsigned actions and never receives private keys, signs, or submits. New integrations must use https://api.assetfare.dev/mcp."
+      : "Current AssetFare v2 endpoint: 76 non-custodial routes across six chains. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
   );
 
-  addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
-  addTool(server, "assetfare_manifest", "Read the Ed25519-signed capability, contract, release, and mainnet-evidence manifest.", {}, readonly(), () => api("/.well-known/assetfare-manifest.json"));
-  addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await v2Api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
+  if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
+  addTool(server, "assetfare_manifest", V2_MANIFEST_DESCRIPTION, {}, readonly(), () => api("/.well-known/assetfare-manifest.json"), v2ManifestOutput);
+  if (includeV2) addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await v2Api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2CapabilitiesResponse);
+  if (includeV2) addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
     const intent = parseV2Intent(args);
     const quote = parseV2Quote(await v2Api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);
     // The upstream caller_action_plan_handoff (passed through verbatim above) documents the
     // REST endpoints; guidance points callers at the explicit MCP tools that operate them.
     const executionHandoff = { execution_ready: true, note: "AssetFare never signs or submits. Requires explicit caller_approved:true and the caller's public wallet addresses. Never auto-call these from a quote. Generate the session capability locally; the remote adapter does not generate it.", session_capability_generation: "client-side CSPRNG: 32 random bytes encoded as base64url without padding", mcp_tools: { one_shot_prepare: "assetfare_v2_prepare", session_create: "assetfare_v2_session_create", session_get: "assetfare_v2_session_get", observe_source: "assetfare_v2_session_observe_source", observe_output: "assetfare_v2_session_observe_output", refresh_action: "assetfare_v2_session_refresh_action" }, rest_endpoints: { prepare: V2_PREPARE_URL, session: V2_SESSION_URL } };
     return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true, caller_action_plan: executionHandoff } };
-  });
-  if (process.env.ASSETFARE_MCP_TRANSPORT === "stdio") addTool(server, "assetfare_v2_new_session_capability", V2_NEW_SESSION_CAPABILITY_DESCRIPTION, emptyStrictInput, { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async () => generateSessionCapability(), v2SessionCapabilityOutput);
-  addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareFields, stateful(false), async (args) => {
+  }, v2QuoteOutput);
+  if (includeV2 && process.env.ASSETFARE_MCP_TRANSPORT === "stdio") addTool(server, "assetfare_v2_new_session_capability", V2_NEW_SESSION_CAPABILITY_DESCRIPTION, emptyStrictInput, { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async () => generateSessionCapability(), v2SessionCapabilityOutput);
+  if (includeV2) addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareFields, stateful(false), async (args) => {
     const intent = v2PrepareIntent.parse(args);
     rejectSecretMaterial(intent);
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
     const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
     const bundle = parseV2Bundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
     return { ...bundle, guidance: { freshRequoted: true, callerApprovalHonored: true, actionPrepared: true, transactionSigned: false, transactionSubmitted: false, callerMustVerifySignAndSubmit: true } };
-  });
-  addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, { ...v2PrepareFields, session_token: v2SessionToken, idempotency_key: idempotencyKey }, stateful(true), async (args) => {
+  }, v2BundleOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, { ...v2PrepareFields, session_token: v2SessionToken, idempotency_key: idempotencyKey }, stateful(true), async (args) => {
     const intent = v2SessionCreateIntent.parse(args);
     rejectSecretMaterial({ ...intent, session_token: undefined });
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
     const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, idempotency_key: intent.idempotency_key, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
     return parseV2Session(await v2Api("/v2/session", { method: "POST", body, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: intent.session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
-  });
-  addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId }, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hashes: v2TransactionHashes }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hash: v2OutputTransactionHash }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey }, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })));
-  addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: legacyAmountUsd, destination_chain: legacyDestinationChain }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
+  }, v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId }, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hashes: v2TransactionHashes }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hash: v2OutputTransactionHash }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey }, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeLegacy) addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: legacyAmountUsd, destination_chain: legacyDestinationChain }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
-  addTool(server, "assetfare_start_wallet_auth", "Create a short-lived, non-transactional Solana signMessage challenge for the legacy v1 workflow. Use only after selecting a fresh legacy assetfare_quote and obtaining caller approval; v2 quote and session tools do not use wallet authentication. Makes a network request and creates login-challenge state, but cannot move funds, sign, or submit.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
+  if (includeLegacy) addTool(server, "assetfare_start_wallet_auth", "Create a short-lived, non-transactional Solana signMessage challenge for the legacy v1 workflow. Use only after selecting a fresh legacy assetfare_quote and obtaining caller approval; v2 quote and session tools do not use wallet authentication. Makes a network request and creates login-challenge state, but cannot move funds, sign, or submit.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
+  if (includeLegacy) {
   addTool(server, "assetfare_finish_wallet_auth", "Verify the caller's signature over the exact legacy login challenge and return a sensitive wallet-bound access token. Use only after assetfare_start_wallet_auth; do not use for a v2 session, transaction signature, or arbitrary message. Makes a network request and consumes login-challenge state, but never signs or submits.", { challenge_id: legacyChallengeId, source_wallet: sourceWallet, signature: legacySignature, terms_version: legacyTermsVersion }, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));
 
   addTool(server, "assetfare_create_session", "Lock one fresh legacy assetfare_quote into a wallet-bound v1 execution session. Use only after legacy wallet authentication for the original Solana-SOL-to-Base/Arbitrum-ETH workflow; for a v2 quote use assetfare_v2_session_create instead. Makes a network request and reserves the caller's one active legacy session slot, but creates no blockchain transaction and never signs or submits.", { access_token: accessToken, quote_id: legacyQuoteId, idempotency_key: idempotencyKey, source_wallet: sourceWallet, destination_wallet: destinationWallet }, stateful(true), ({ access_token, ...body }) => api("/v1/session", { method: "POST", token: access_token, body }));
@@ -608,8 +639,9 @@ function createServer(provenance = {}) {
   addTool(server, "assetfare_observe_cctp", "Verify Circle attestation and the forwarded Base or Arbitrum USDC mint for a caller-submitted legacy v1 burn, then advance the session record. Use only after the CCTP burn is submitted; use assetfare_read_session for inspection without advancement and a v2 session observe tool for v2 routes. Makes a network request but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, burn_signature: legacySignature.describe("Finalized Solana burn signature already submitted by the caller for this legacy CCTP step."), idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-cctp`, { method: "POST", token: access_token, body }));
   addTool(server, "assetfare_prepare_destination_action", "Prepare the exact-cap permit and unsigned ERC-4337 destination settlement plan for the current legacy v1 session. Use only when the legacy workflow reports the destination step and after caller approval; v2 sessions expose their current action through assetfare_v2_session_get. Makes a network request and advances preparation state, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/prepare-destination-action`, { method: "POST", token: access_token, body }));
   addTool(server, "assetfare_observe_destination", "Verify an already-submitted destination UserOperation receipt and finalize the legacy v1 workflow record. Use only after the caller independently submits assetfare_prepare_destination_action; for v2 output observation use assetfare_v2_session_observe_output instead. Makes a network request and advances session state, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, transaction_hash: legacyTransactionHash, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-destination`, { method: "POST", token: access_token, body }));
+  }
 
-  server.registerResource("assetfare-trust-manifest", "assetfare://trust/manifest", { description: "Current signed AssetFare trust manifest." }, async () => ({ contents: [{ uri: "assetfare://trust/manifest", mimeType: "application/json", text: JSON.stringify(await api("/.well-known/assetfare-manifest.json"), null, 2) }] }));
+  if (includeLegacy) server.registerResource("assetfare-trust-manifest", "assetfare://trust/manifest", { description: "Current signed AssetFare trust manifest." }, async () => ({ contents: [{ uri: "assetfare://trust/manifest", mimeType: "application/json", text: JSON.stringify(await api("/.well-known/assetfare-manifest.json"), null, 2) }] }));
   return server;
 }
 
@@ -671,8 +703,9 @@ function createHttpApp() {
     return guardA2AVersion(req,res,()=>rpc(req,res,next));
   });
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
-  app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard()));
-  for (const mcpPath of ["/mcp", "/mcp/bridge"]) {
+  app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard("v2")));
+  app.get("/.well-known/mcp/legacy-server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard("legacy")));
+  for (const [mcpPath,profile] of Object.entries({"/mcp":"v2","/mcp/bridge":"v2","/mcp/legacy":"legacy"})) {
     app.head(mcpPath, (req, res) => {
       if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
       return res.set("allow", "GET, HEAD, POST, OPTIONS").set("cache-control", "no-store").status(200).end();
@@ -680,7 +713,7 @@ function createHttpApp() {
     app.all(mcpPath, async (req, res) => {
       if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });
       try {
-        const server = createServer(provenanceFromHeaders(req.headers));
+        const server = createServer(provenanceFromHeaders(req.headers), profile);
         const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
         res.on("close", () => transport.close().catch(() => {}));
         await server.connect(transport);
@@ -705,7 +738,7 @@ async function serveHttp() {
 
 async function main() {
   if (process.env.ASSETFARE_MCP_TRANSPORT === "stdio") {
-    const server = createServer();
+    const server = createServer({}, "all");
     await server.connect(new StdioServerTransport());
     return;
   }
@@ -714,4 +747,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
 
-export { V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, provenanceFromHeaders, serverCard };
+export { V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, provenanceFromHeaders, serverCard };

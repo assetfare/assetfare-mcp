@@ -70,10 +70,10 @@ assert.deepEqual(compatibilityMcp.mcpServers.assetfare, {
 
 assert.match(skill, /^name:\s*assetfare-route\s*$/m);
 assert.match(readme, /npx plugins add assetfare\/assetfare-mcp/);
-assert.match(readme, /two primary v2 tools are read-only/i);
+assert.match(readme, /primary remote endpoint\s+exposes nine current v2 tools/i);
 assert.match(
   readme,
-  /legacy workflow tools can create wallet-auth or\s+session state/i,
+  /legacy tools remain available at the separate `\/mcp\/legacy`/i,
 );
 
 const serialized = JSON.stringify({

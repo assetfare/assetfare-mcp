@@ -25,10 +25,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.17");
-assert.equal(lockMetadata.version, "0.4.17");
-assert.equal(lockMetadata.packages[""].version, "0.4.17");
-assert.equal(registryMetadata.version, "0.4.17");
+assert.equal(packageMetadata.version, "0.4.18");
+assert.equal(lockMetadata.version, "0.4.18");
+assert.equal(lockMetadata.packages[""].version, "0.4.18");
+assert.equal(registryMetadata.version, "0.4.18");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -207,7 +207,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
-  if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "wf-source-only", step_index: 0, unsigned_action: { transaction: "0xUNSIGNED" }, server_signing: false, server_submission: false, signed: false, submitted: false });
+  if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false });
   throw new Error(`unexpected upstream URL ${url}`);
 };
 
@@ -224,13 +224,13 @@ try {
   const card = serverCard();
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
-  assert.equal(listed.tools.length, 21);
-  assert.equal(card.serverInfo.version, "0.4.17");
-  assert.equal(card.tools.length, 21);
+  assert.equal(listed.tools.length, 9);
+  assert.equal(card.serverInfo.version, "0.4.18");
+  assert.equal(card.tools.length, 9);
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
   const staticNames = new Set(card.tools.map((tool) => tool.name));
-  assert.equal(dynamicNames.size, 21);
+  assert.equal(dynamicNames.size, 9);
   assert.deepEqual([...dynamicNames].sort(), [...staticNames].sort());
   const newTools = ["assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
   for (const name of newTools) assert.ok(dynamicNames.has(name), `missing new tool ${name}`);

@@ -28,7 +28,7 @@ const events = new Map();        // `${session_id}|${key}` -> response
 let forceExpired = false;        // toggles the expired-action path for refresh testing
 
 function action(sessionId, expired) {
-  return expired ? null : { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, step_index: 0, expires_in_seconds: 60, unsigned_action: { transaction: "0xUNSIGNED", chainId: 1 }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  return expired ? null : { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", expires_in_seconds: 60, payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", chainId: 1, signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
 }
 function publicSession(rec, replay = false, observation) {
   const expired = forceExpired && rec.status === "action_ready";
@@ -53,7 +53,7 @@ globalThis.fetch = async (url, init = {}) => {
   // POST /v2/prepare (stateless)
   if (path === "/v2/prepare" && init.method === "POST") {
     if (body.caller_approved !== true) return json(400, { error: "caller_approval_required" });
-    return json(200, { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: uuid(), step_index: 0, expires_in_seconds: 60, unsigned_action: { transaction: "0xUNSIGNED" }, minimum_output_base: 1, server_signing: false, server_submission: false, signed: false, submitted: false });
+    return json(200, { ...action(uuid(),false), minimum_output_base:1 });
   }
   // POST /v2/session (create)
   if (path === "/v2/session" && init.method === "POST") {

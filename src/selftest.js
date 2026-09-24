@@ -56,14 +56,11 @@ await server.connect(serverTransport);
 await client.connect(clientTransport);
 const result = await client.listTools();
 const names = result.tools.map((tool) => tool.name).sort();
-const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_quote", "assetfare_start_wallet_auth", "assetfare_create_session", "assetfare_observe_destination", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
+const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
 if (!required.every((name) => names.includes(name))) throw new Error("required MCP tools missing");
-if (names.length !== 21 || new Set(names).size !== 21) throw new Error("remote MCP tool count mismatch");
+if (names.length !== 9 || new Set(names).size !== 9) throw new Error("remote MCP tool count mismatch");
 if (names.includes("assetfare_v2_new_session_capability")) throw new Error("remote MCP must not generate caller session secrets");
-const quoteTool = result.tools.find((tool) => tool.name === "assetfare_quote");
-if (JSON.stringify(quoteTool?.inputSchema?.properties?.destination_chain?.enum) !== JSON.stringify(["base", "arbitrum"])) throw new Error("quote destination schema mismatch");
-if (quoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || "maximum" in quoteTool.inputSchema.properties.amount_usd) throw new Error("quote amount schema mismatch");
-if (!quoteTool?.description?.startsWith("Legacy v1")) throw new Error("legacy quote is not labeled");
+if (names.some((name) => !name.startsWith("assetfare_v2_") && name !== "assetfare_manifest")) throw new Error("legacy tool leaked into primary MCP");
 const v2CapabilitiesTool = result.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
 const v2QuoteTool = result.tools.find((tool) => tool.name === "assetfare_v2_quote");
 if (Object.keys(v2CapabilitiesTool?.inputSchema?.properties || {}).length !== 0) throw new Error("v2 capabilities must take no arguments");
@@ -83,8 +80,10 @@ if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || 
 if (v2SessionCreateTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2SessionCreateTool.inputSchema.properties.amount_usd) throw new Error("v2 session_create amount schema mismatch");
 const priorTransport = process.env.ASSETFARE_MCP_TRANSPORT;
 process.env.ASSETFARE_MCP_TRANSPORT = "stdio";
-const stdioCard = serverCard();
+const stdioCard = serverCard("all");
 if (!stdioCard.tools.some((tool) => tool.name === "assetfare_v2_new_session_capability") || stdioCard.tools.length !== 22) throw new Error("stdio local capability helper missing");
+const legacyCard = serverCard("legacy");
+if (legacyCard.tools.length !== 13 || legacyCard.tools.some((tool) => tool.name.startsWith("assetfare_v2_"))) throw new Error("legacy MCP profile mismatch");
 if (priorTransport === undefined) delete process.env.ASSETFARE_MCP_TRANSPORT; else process.env.ASSETFARE_MCP_TRANSPORT = priorTransport;
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
 const spoofedProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10, 198.51.100.2", "user-agent": "agent-test/1" });
@@ -113,18 +112,21 @@ try {
   const port = listener.address().port;
   const health = await getJson(port, "/healthz");
   const card = await getJson(port, "/.well-known/mcp/server-card.json");
+  const legacyCardHttp = await getJson(port, "/.well-known/mcp/legacy-server-card.json");
   const canonicalA2ACard = await getJson(port, "/.well-known/agent-card.json");
   const canonicalMcpHead = await headStatus(port, "/mcp");
   const bridgeMcpHead = await headStatus(port, "/mcp/bridge");
+  const legacyMcpHead = await headStatus(port, "/mcp/legacy");
   const discoveryCards = await Promise.all([
     ["/discovery/a2aregistry/agent-card.json", "a2aregistry"],
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "0.4.17" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.17" || card.body?.tools?.length !== 21) throw new Error("remote server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "0.4.18" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "0.4.18" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
+  if (legacyCardHttp.status !== 200 || legacyCardHttp.body?.tools?.length !== 13 || legacyCardHttp.body?.profile !== "legacy") throw new Error("legacy server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
-  if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow) throw new Error("MCP bridge discovery alias mismatch");
+  if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || legacyMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow || canonicalMcpHead.allow !== legacyMcpHead.allow) throw new Error("MCP endpoint discovery mismatch");
   for (const [channel, response] of discoveryCards) {
     if (response.status !== 200 || response.headers["x-assetfare-discovery-channel"] !== channel || JSON.stringify(response.body) !== JSON.stringify(canonicalA2ACard.body)) throw new Error(`A2A discovery channel mismatch:${channel}`);
   }
@@ -148,6 +150,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.17", remote_server_card_tools: 21, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "0.4.18", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

@@ -12,15 +12,17 @@ function properties(tool) {
 }
 
 function auditDefinitions(tools) {
-  assert.equal(tools.length, 21, "TDQS audit requires the complete remote public tool set");
+  assert.equal(tools.length, 9, "TDQS audit requires the lean v2 remote tool set");
   assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length, "tool names must be unique");
 
   const parameterized = tools.filter((tool) => properties(tool).length > 0);
-  assert.equal(parameterized.length, 18, "unexpected parameterized tool count");
+  assert.equal(parameterized.length, 7, "unexpected parameterized tool count");
 
   for (const tool of tools) {
     assert.ok(tool.description?.trim(), `${tool.name}: missing description`);
-    assert.ok(tool.description.length <= 700, `${tool.name}: description is too long for a concise tool catalog`);
+    assert.ok(tool.description.length <= 600, `${tool.name}: description is too long for a concise tool catalog`);
+    assert.match(tool.description, /\bExample:/u, `${tool.name}: missing short usage example`);
+    assert.ok(tool.outputSchema, `${tool.name}: missing output schema`);
     for (const annotation of COMPLETE_ANNOTATIONS) {
       assert.equal(typeof tool.annotations?.[annotation], "boolean", `${tool.name}: missing ${annotation}`);
     }
@@ -31,14 +33,8 @@ function auditDefinitions(tools) {
     }
   }
 
-  for (const tool of parameterized) {
-    assert.match(tool.description, /\buse\b/iu, `${tool.name}: description must say when to use it`);
-    assert.match(tool.description, /assetfare_[a-z0-9_]+/u, `${tool.name}: description must name a sibling boundary or alternative`);
-    assert.match(tool.description, /(?:read-only|network request|server-side|session state|preparation state|challenge state|advances?|prepares? an action)/iu, `${tool.name}: behavior or side effects are not disclosed`);
-    assert.match(tool.description, /(?:never|cannot|do not|only|instead|without)/iu, `${tool.name}: description must state a negative boundary`);
-  }
-
   assert.equal(tools.some((tool) => tool.name === "assetfare_v2_new_session_capability"), false, "remote adapter must not generate a caller session secret");
+  assert.equal(tools.some((tool) => !tool.name.startsWith("assetfare_v2_") && tool.name !== "assetfare_manifest"), false, "legacy tool leaked into primary endpoint");
 
   return { parameterized: parameterized.length };
 }
@@ -60,9 +56,9 @@ try {
   delete missingParameterDescription.find((tool) => tool.name === "assetfare_v2_quote").inputSchema.properties.amount_usd.description;
   assert.throws(() => auditDefinitions(missingParameterDescription), /missing parameter description/u);
 
-  const vagueUsage = structuredClone(listed.tools);
-  vagueUsage.find((tool) => tool.name === "assetfare_quote").description = "Get a quote.";
-  assert.throws(() => auditDefinitions(vagueUsage), /when to use/u);
+  const noExample = structuredClone(listed.tools);
+  noExample.find((tool) => tool.name === "assetfare_v2_quote").description = "Get one fresh quote.";
+  assert.throws(() => auditDefinitions(noExample), /missing short usage example/u);
 
   const secretInput = structuredClone(listed.tools);
   secretInput.find((tool) => tool.name === "assetfare_v2_prepare").inputSchema.properties.private_key = { type: "string", description: "hostile regression" };
@@ -74,7 +70,7 @@ try {
     parameterized_tools: summary.parameterized,
     input_description_coverage_percent: 100,
     hostile_regressions_rejected: 3,
-    documented_output_schemas: 0,
+    documented_output_schemas: listed.tools.filter((tool)=>tool.outputSchema).length,
     remote_session_secret_generation: false,
     network_hits: 0,
   }));

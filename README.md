@@ -74,13 +74,12 @@ independent third-party audit.
 
 Interfaces: MCP + A2A + REST/OpenAPI.
 
-This repository contains an optional MCP adapter. Its primary read-only
-tools expose the full six-chain source v2 quote matrix, and dedicated caller-approved
-v2 tools (`assetfare_v2_prepare` plus the `assetfare_v2_session_*` lifecycle) operate
-the non-custodial `/v2/prepare` and `/v2/session` endpoints for any route the live
-capabilities/quote response reports available. The unversioned wallet authentication, session, preparation, and observation
-tools remain compatibility surfaces for the two original Solana SOL → Base ETH and
-Solana SOL → Arbitrum ETH workflows and must never be mixed with the v2 session tools.
+This repository contains an optional MCP adapter. The primary remote endpoint
+exposes nine current v2 tools: signed manifest, capabilities, quote, one-shot
+caller-approved prepare, and the five session-lifecycle operations. The 13
+unversioned legacy tools remain available at the separate `/mcp/legacy`
+compatibility endpoint for the original Solana SOL → Base/Arbitrum ETH workflow.
+The two profiles never appear together on a remote endpoint.
 Agents can also evaluate any current v2 route without installing or connecting
 MCP:
 
@@ -100,7 +99,7 @@ MCP:
   and network fees are additional and appear in the quote's total token-path cost.
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
 - `assetfare_v2_prepare` and the `assetfare_v2_session_*` lifecycle tools operate the caller-approved `/v2/prepare` and `/v2/session` endpoints. Each requires an explicit `caller_approved:true` and the caller's public wallet addresses, is never auto-called from a quote, and refuses any private key/seed/signed transaction. The session capability token is a sensitive bearer credential (never a private key); remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply the result on every session call. The remote MCP/A2A service never generates that secret. The optional local stdio server retains `assetfare_v2_new_session_capability` as an offline convenience.
-- The unversioned MCP quote/status and all MCP authentication/session/action tools are legacy original-corridor compatibility only.
+- The unversioned MCP quote/status and all MCP authentication/session/action tools are isolated at `/mcp/legacy` for original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
 
@@ -122,8 +121,9 @@ unversioned legacy workflow remains limited to `solana:SOL → base:ETH` and
 `solana:SOL → arbitrum:ETH`; it does not limit the v2 route matrix.
 
 For a new evaluation, call `assetfare_v2_capabilities` and then
-`assetfare_v2_quote`. A v2 quote ID is not valid input to
-`assetfare_create_session` or another legacy workflow tool.
+`assetfare_v2_quote`. The primary endpoint has no legacy tools to misselect.
+Existing unversioned clients can connect to
+`https://api.assetfare.dev/mcp/legacy`; new clients must not use it.
 
 ## REST/OpenAPI first call
 
@@ -148,11 +148,29 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.17 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@0.4.18 assetfare-route-eval \
   --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
+
+For an explicit caller-approved quote → first unsigned-plan flow:
+
+```bash
+npx --yes --package=assetfare-mcp@0.4.18 assetfare-plan \
+  --caller-approved \
+  --from-chain solana --from-token USDC \
+  --to-chain base --to-token USDC --amount 250 \
+  --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
+  --wallet base=<CALLER_BASE_PUBLIC_ADDRESS> \
+  --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY>
+```
+
+`assetfare-plan` obtains a fresh quote, calls `/v2/prepare`, verifies the
+ActionSafetyReceiptV1 intent and fee bindings plus the raw/action/bundle hashes,
+and stops with an unsigned, unsubmitted bundle. It accepts public keys only and
+never generates, reads, stores, signs with, or transmits private keys. The
+caller creates and retains any required event-signer keypair outside AssetFare.
 
 The evaluator defaults to `solana:SOL -> base:USDC` so USDC support is visible
 without extra flags. If `solana:SOL -> base:ETH` is requested explicitly, it
@@ -287,9 +305,10 @@ Add the following server to a project `.cursor/mcp.json` or the global
 }
 ```
 
-Connecting is unauthenticated. The legacy MCP execution tools subsequently require the
-wallet-bound token produced by AssetFare's non-transactional signMessage flow.
-Do not place that token in any MCP configuration file.
+Connecting is unauthenticated. The primary endpoint uses caller-owned public
+wallets and, for session mode, a client-generated capability. Only the separate
+legacy endpoint uses the wallet-bound token produced by the old signMessage
+flow; never place either capability in an MCP configuration file.
 
 ## Agent skill
 
@@ -311,11 +330,9 @@ included compatibility metadata:
 npx plugins add assetfare/assetfare-mcp
 ```
 
-The MCP endpoint's two primary v2 tools are read-only capabilities and quote
-tools. Its separately labeled legacy workflow tools can create wallet-auth or
-session state and prepare unsigned actions only after explicit selection and
-approval. AssetFare never receives private keys, signs, or submits, and the
-skill keeps REST/OpenAPI v2 as the primary evaluation path.
+The primary MCP endpoint is v2-only. Legacy wallet-auth/session tools are
+isolated at `/mcp/legacy`. AssetFare never receives private keys, signs, or
+submits, and the skill keeps REST/OpenAPI v2 as the primary evaluation path.
 
 Circle Agent Stack and other shell-capable agents can use the same skill and
 public REST/OpenAPI flow; see [`integrations/circle-agent-stack`](./integrations/circle-agent-stack/README.md).
@@ -324,17 +341,18 @@ public REST/OpenAPI flow; see [`integrations/circle-agent-stack`](./integrations
 
 Run `npm run first-call-eval` to verify a fresh MCP client can discover the
 primary v2 quote-only tools, validate current capabilities, and obtain a $1
-six-chain source quote without creating a wallet login, session, action, signature,
-or transaction. Legacy workflow tools remain present but are not called.
+six-chain source quote without creating a wallet login, session, action,
+signature, or transaction. Legacy tools are absent from the primary endpoint.
 
-Use Streamable HTTP. The endpoint has no server-side API key. The two v2 tools
-never authenticate a wallet; only an explicitly selected legacy workflow uses
-the separate wallet-auth tools.
+Use Streamable HTTP. The endpoint has no server-side API key. Read-only v2 tools
+never authenticate a wallet; prepare/session tools require explicit caller
+approval and public wallets. Legacy wallet authentication is a separate endpoint.
 
 ## Local stdio
 
-The repository also contains a stdio-compatible wrapper for self-hosting. The
-public Registry entry uses the remote Streamable HTTP endpoint. Package and
+The repository also contains a stdio-compatible all-tools wrapper for
+self-hosting, including the local-only session-capability helper. The public
+Registry entry uses the lean v2-only Streamable HTTP endpoint. Package and
 Registry releases remain separately reviewed from remote deployment.
 
 ## npm release publishing
@@ -394,9 +412,8 @@ The wrapper deliberately contains no AssetFare route engine, wallets, RPC creden
 
 For any supported six-chain source request, an agent first reads v2 capabilities and
 requests a fresh quote through REST/OpenAPI or the read-only
-`assetfare_v2_quote` MCP tool. Only an explicitly requested original-corridor
-legacy workflow should use `assetfare_quote` followed by the wallet-auth/session
-tools. The caller independently signs and submits every on-chain action; this
-MCP server never does.
+`assetfare_v2_quote` MCP tool. Only an existing original-corridor client should
+connect separately to `/mcp/legacy`. The caller independently signs and submits
+every on-chain action; this MCP server never does.
 
 See the first-call evaluation script, the public mainnet evidence at https://assetfare.dev/evidence/, and the end-to-end case study at https://assetfare.dev/case-studies/solana-to-base-mainnet-canary/.

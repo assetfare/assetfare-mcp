@@ -14,6 +14,11 @@ These instructions apply to the entire public MCP wrapper repository.
   or Arbitrum USDC and use the same caller-approved prepare/session boundary.
   The unversioned legacy workflow remains limited to
   `Solana SOL -> Base ETH` and `Solana SOL -> Arbitrum ETH`.
+- The primary remote `https://api.assetfare.dev/mcp` surface is v2-only: nine
+  tools (manifest, capabilities, quote, prepare, and five session operations).
+  The 13 unversioned legacy tools are isolated at `/mcp/legacy`; never mix the
+  two profiles. Local stdio retains the combined compatibility surface and its
+  local-only session-capability helper.
 - Treat AssetFare as one candidate. Never assume or claim that it is
   market-wide best.
 - For a six-chain source route, read `/v2/capabilities`, `/v2/status`, and
