@@ -179,20 +179,48 @@ function settled(result) {
   return { status: "unavailable", error: result.reason instanceof Error ? result.reason.message : "request failed" };
 }
 
+const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
+const SESSION_URL = "https://api.assetfare.dev/v2/session";
+const HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
+
+function exactKeys(value, expected) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
+}
+
+function exactArray(value, expected) {
+  return Array.isArray(value) && value.length === expected.length && value.every((item, index) => item === expected[index]);
+}
+
 export function parseContinuation(quote) {
   const handoff = quote?.caller_action_plan_handoff_v2;
   const prepare = handoff?.options?.[0];
   const session = handoff?.options?.[1];
+  const lifecycle = session?.lifecycle_urls;
+  const topKeys = ["kind", "url", "method", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "request_fields", "assetfare_server_signing", "assetfare_server_submission", "caller_must_verify_sign_and_submit", "requires_fresh_requote", "automatic_prepare_call_forbidden", "schema_version", "selection", "mutually_exclusive", "do_not_call_both", "selection_before_signing", "once_any_action_submitted_do_not_start_other_mode", "enforcement", "options", "note", "available"];
+  const prepareKeys = ["kind", "method", "url", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "preview_or_manual_first_action_only", "not_a_session", "do_not_start_session_after_submission", "note"];
+  const sessionKeys = ["kind", "method", "url", "lifecycle_urls", "requires_explicit_caller_approval", "requires_public_wallet_addresses", "assetfare_never_signs_submits_or_auto_calls", "recommended_for_multistep", "note"];
+  const lifecycleExpected = [
+    ["create", "POST", SESSION_URL],
+    ["read", "GET", `${SESSION_URL}/{session_id}`],
+    ["observe_source", "POST", `${SESSION_URL}/{session_id}/observe-source`],
+    ["observe_output", "POST", `${SESSION_URL}/{session_id}/observe-output`],
+    ["refresh_action", "POST", `${SESSION_URL}/{session_id}/refresh-action`],
+  ];
   const valid = quote?.handoff_schema_version === 2
+    && exactKeys(handoff, topKeys)
     && handoff?.schema_version === 2
     && handoff?.kind === "caller_operated_rest_prepare"
     && handoff?.method === "POST"
-    && handoff?.url === "https://api.assetfare.dev/v2/prepare"
+    && handoff?.url === PREPARE_URL
+    && exactArray(handoff?.request_fields, HANDOFF_REQUEST_FIELDS)
     && handoff?.selection === "choose_exactly_one"
     && handoff?.mutually_exclusive === true
     && handoff?.do_not_call_both === true
     && handoff?.selection_before_signing === true
     && handoff?.once_any_action_submitted_do_not_start_other_mode === true
+    && handoff?.enforcement === "advisory_caller_side"
     && handoff?.requires_explicit_caller_approval === true
     && handoff?.requires_public_wallet_addresses === true
     && handoff?.assetfare_server_signing === false
@@ -201,25 +229,74 @@ export function parseContinuation(quote) {
     && handoff?.requires_fresh_requote === true
     && handoff?.automatic_prepare_call_forbidden === true
     && handoff?.available === true
+    && typeof handoff?.note === "string"
+    && handoff.note.length > 0
     && Array.isArray(handoff?.options)
     && handoff.options.length === 2
+    && exactKeys(prepare, prepareKeys)
     && prepare?.kind === "one_shot_first_unsigned_bundle"
     && prepare?.method === "POST"
-    && prepare?.url === "https://api.assetfare.dev/v2/prepare"
+    && prepare?.url === PREPARE_URL
     && prepare?.requires_explicit_caller_approval === true
     && prepare?.requires_public_wallet_addresses === true
     && prepare?.assetfare_never_signs_submits_or_auto_calls === true
     && prepare?.preview_or_manual_first_action_only === true
     && prepare?.not_a_session === true
     && prepare?.do_not_start_session_after_submission === true
+    && typeof prepare?.note === "string"
+    && prepare.note.length > 0
+    && exactKeys(session, sessionKeys)
     && session?.kind === "caller_approved_full_workflow_session"
     && session?.method === "POST"
-    && session?.url === "https://api.assetfare.dev/v2/session"
+    && session?.url === SESSION_URL
     && session?.requires_explicit_caller_approval === true
     && session?.requires_public_wallet_addresses === true
     && session?.assetfare_never_signs_submits_or_auto_calls === true
-    && session?.recommended_for_multistep === true;
+    && session?.recommended_for_multistep === true
+    && typeof session?.note === "string"
+    && session.note.length > 0
+    && exactKeys(lifecycle, lifecycleExpected.map(([name]) => name))
+    && lifecycleExpected.every(([name, method, url]) => exactKeys(lifecycle[name], ["method", "url"])
+      && lifecycle[name].method === method && lifecycle[name].url === url);
   if (!valid) throw new Error("AssetFare quote has no valid caller-approved continuation");
+  const safeHandoff = {
+    kind: "caller_operated_rest_prepare",
+    url: PREPARE_URL,
+    method: "POST",
+    requires_explicit_caller_approval: true,
+    requires_public_wallet_addresses: true,
+    request_fields: [...HANDOFF_REQUEST_FIELDS],
+    assetfare_server_signing: false,
+    assetfare_server_submission: false,
+    caller_must_verify_sign_and_submit: true,
+    requires_fresh_requote: true,
+    automatic_prepare_call_forbidden: true,
+    schema_version: 2,
+    selection: "choose_exactly_one",
+    mutually_exclusive: true,
+    do_not_call_both: true,
+    selection_before_signing: true,
+    once_any_action_submitted_do_not_start_other_mode: true,
+    enforcement: "advisory_caller_side",
+    options: [
+      {
+        kind: "one_shot_first_unsigned_bundle", method: "POST", url: PREPARE_URL,
+        requires_explicit_caller_approval: true, requires_public_wallet_addresses: true,
+        assetfare_never_signs_submits_or_auto_calls: true, preview_or_manual_first_action_only: true,
+        not_a_session: true, do_not_start_session_after_submission: true,
+        note: "Caller-approved one-shot preview of the first unsigned action; never sign or submit automatically.",
+      },
+      {
+        kind: "caller_approved_full_workflow_session", method: "POST", url: SESSION_URL,
+        lifecycle_urls: Object.fromEntries(lifecycleExpected.map(([name, method, url]) => [name, { method, url }])),
+        requires_explicit_caller_approval: true, requires_public_wallet_addresses: true,
+        assetfare_never_signs_submits_or_auto_calls: true, recommended_for_multistep: true,
+        note: "Caller-approved receipt-driven session for multi-step routes; the caller verifies, signs, and submits.",
+      },
+    ],
+    note: "Choose exactly one caller-operated mode after explicit approval. AssetFare never signs or submits.",
+    available: true,
+  };
   return {
     decision_required: "explicit_caller_approval",
     quote_authorizes_execution: false,
@@ -230,7 +307,7 @@ export function parseContinuation(quote) {
     server_submission: false,
     caller_verifies_signs_and_submits: true,
     handoff_schema_version: 2,
-    caller_action_plan_handoff_v2: structuredClone(handoff),
+    caller_action_plan_handoff_v2: safeHandoff,
   };
 }
 

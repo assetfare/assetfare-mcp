@@ -28,16 +28,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24.19.0
           cache: npm
-      - name: Verify tag and package version
+      - name: Pin npm CLI used by trusted publication
+        run: npm install --global npm@12.1.0
+      - name: Verify immutable tag, release, and package version
         run: |
-          test "v$(node -p 'require("./package.json").version')" = "$RELEASE_TAG"
+          test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "$RELEASE_TAG")"
+          git merge-base --is-ancestor HEAD origin/main
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "false"
+          test "$(npm --version)" = "12.1.0"
       - run: npm ci
-      - run: npm test
+      - name: Verify package before creating release assets
+        run: |
+          npm run check
+          npm test
+          npm run route-eval-selftest
+          npm audit --omit=dev --audit-level=high
       - name: Build deterministic npm release asset
         id: pack
         run: |
@@ -50,8 +63,7 @@ jobs:
         run: |
           gh release upload "$RELEASE_TAG" \
             "${{ steps.pack.outputs.artifact }}" \
-            "${{ steps.pack.outputs.artifact }}.sha256" \
-            --clobber
+            "${{ steps.pack.outputs.artifact }}.sha256"
       - name: Attest release asset provenance
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:

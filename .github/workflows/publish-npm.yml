@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing immutable release tag (for example v0.4.22)
+        description: Existing immutable release tag (for example v1.0.0)
         required: true
         type: string
 
@@ -37,7 +37,8 @@ jobs:
           test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "$RELEASE_TAG")"
           git merge-base --is-ancestor HEAD origin/main
-          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "false"
           test "$(npm --version)" = "12.1.0"
       - name: Install exact dependencies
         run: npm ci
@@ -48,6 +49,19 @@ jobs:
           npm run route-eval-selftest
           npm audit --omit=dev --audit-level=high
           npm pack --dry-run
+      - name: Verify immutable release asset digest
+        id: release_asset
+        run: |
+          npm pack --json > npm-pack.json
+          artifact="$(node -p 'require("./npm-pack.json")[0].filename')"
+          asset_dir="$RUNNER_TEMP/release-assets"
+          mkdir -p "$asset_dir"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$asset_dir" --pattern "$artifact" --pattern "$artifact.sha256"
+          test -f "$asset_dir/$artifact"
+          test -f "$asset_dir/$artifact.sha256"
+          (cd "$asset_dir" && sha256sum -c "$artifact.sha256")
+          test "$(sha256sum "$artifact" | cut -d' ' -f1)" = "$(sha256sum "$asset_dir/$artifact" | cut -d' ' -f1)"
+          echo "artifact_path=$asset_dir/$artifact" >> "$GITHUB_OUTPUT"
       - name: Refuse an existing registry version
         run: |
           package_name="$(node -p 'require("./package.json").name')"
@@ -57,4 +71,18 @@ jobs:
             exit 1
           fi
       - name: Publish with short-lived npm OIDC credentials
-        run: npm publish --access public
+        run: npm publish "${{ steps.release_asset.outputs.artifact_path }}" --access public
+      - name: Verify npm latest dist-tag
+        run: |
+          package_name="$(node -p 'require("./package.json").name')"
+          package_version="$(node -p 'require("./package.json").version')"
+          expected_shasum="$(sha1sum "${{ steps.release_asset.outputs.artifact_path }}" | cut -d' ' -f1)"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if test "$(npm view "$package_name" dist-tags.latest 2>/dev/null)" = "$package_version"; then
+              test "$(npm view "$package_name@$package_version" dist.shasum)" = "$expected_shasum"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "npm latest did not converge to $package_version" >&2
+          exit 1

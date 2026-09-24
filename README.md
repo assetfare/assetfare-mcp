@@ -117,7 +117,13 @@ MCP:
 
 `https://api.assetfare.dev/mcp`
 
-Official MCP Registry server: `io.github.odaiin/assetfare` (legacy registry namespace; the canonical source owner is the `assetfare` GitHub organization).
+Official MCP Registry server: `io.github.odaiin/assetfare` (legacy registry
+namespace; the canonical source owner is the `assetfare` GitHub organization).
+The Registry listing is externally blocked at `0.4.11` while
+[namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
+is unresolved; npm, the public source, and the hosted server are the current
+`1.0.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
 with a $1 minimum and no adapter-enforced maximum; live upstream availability
@@ -164,7 +170,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.22 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.0.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
@@ -173,7 +179,7 @@ From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 For an explicit caller-approved quote → first unsigned-plan flow:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.22 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.0.0 assetfare-plan \
   --caller-approved \
   --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --amount 1000 \
