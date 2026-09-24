@@ -18,6 +18,12 @@ routes; installation never implies preference.
 Quote amounts must be finite and at least USD 1; this plugin imposes no
 maximum, while live upstream availability and liquidity still apply.
 
+USD 1 is reachability/schema smoke only. For native-USDC economic comparison,
+start at USD 50 based on dated 2026-09-23 evidence; this does not guarantee
+AssetFare is cheapest. Use USD 1,000 as the primary representative amount.
+SOL-input routes include a swap and use USD 1,000 for representative evaluation
+too. Always compare fresh executable candidates at the actual intended amount.
+
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";
 import { createAssetFarePlugin } from "assetfare-solana-agent-kit-plugin";
@@ -25,6 +31,10 @@ import { createAssetFarePlugin } from "assetfare-solana-agent-kit-plugin";
 const agent = new SolanaAgentKit(wallet, rpcUrl, {}).use(
   createAssetFarePlugin(),
 );
+
+// Representative quote intent for the action:
+// { fromChain: "solana", fromToken: "USDC", toChain: "base",
+//   toToken: "USDC", amountUsd: 1000 }
 ```
 
 The package is a public reference and is not yet published to npm. From this

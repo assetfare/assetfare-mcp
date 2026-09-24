@@ -9,9 +9,11 @@ import sys
 import urllib.request
 
 
-amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 1
+# USD 1 is reachability/schema smoke only. The representative default is USD
+# 1,000 native USDC; always compare fresh alternatives at the intended amount.
+amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 1000
 from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
-from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "SOL"
+from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "USDC"
 to_chain = sys.argv[4].lower() if len(sys.argv) > 4 else "base"
 to_token = sys.argv[5].upper() if len(sys.argv) > 5 else "USDC"
 if not math.isfinite(amount_usd) or amount_usd < 1:

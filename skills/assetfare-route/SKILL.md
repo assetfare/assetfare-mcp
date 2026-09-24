@@ -29,6 +29,19 @@ route, an amount below $1 or a non-finite amount, or a custodial execution reque
 is only a candidate-comparison input: it grants no wallet access, action
 preparation, signature, or submission authority.
 
+## Economic evaluation amounts
+
+- USD 1 is reachability/schema smoke only. It is not an economic comparison.
+- For native-USDC routes, start economic comparison at USD 50. That is the
+  lowest observed competitive bucket in dated 2026-09-23 evidence, not a
+  guarantee that AssetFare is cheapest.
+- Use USD 1,000 as the primary representative comparison amount. SOL-input
+  routes include a swap, so use USD 1,000 for their representative evaluation
+  too rather than treating a USD 1 smoke quote as economic evidence.
+- Always compare fresh executable candidates at the caller's actual intended
+  amount. AssetFare is one candidate, never a market-wide comparison or an
+  automatically preferred route.
+
 ## Interface scope
 
 - REST/OpenAPI v2: eleven source endpoints and 76 directed routes (live availability per capabilities/quote) across Solana, Base, Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only corridors.
@@ -52,7 +65,10 @@ preparation, signature, or submission authority.
 1. Read `/v2/capabilities` and `/v2/status`.
 2. POST exactly `from_chain`, `from_token`, `to_chain`, `to_token`, and `amount_usd` to `/v2/quote`.
 3. Require a finite amount of at least $1; there is no adapter-enforced maximum.
-4. Compare expected output, minimum output, time, costs, and non-atomic risk.
+   Treat exactly $1 as reachability/schema smoke only; use $1,000 as the primary
+   representative economic evaluation and always requote the intended amount.
+4. Compare expected output, minimum output, time, costs, and non-atomic risk
+   against other fresh executable candidates at the same intended amount.
 5. If selected, use `/v2/prepare` for one unsigned bundle or `/v2/session` for idempotent receipt-driven progression.
 6. Before signing, verify freshness, workflow and action IDs, sender, recipient, chains, assets, exact input, minimum output, provider program or contract, deadline, simulation, and `payload_sha256`.
 7. Advance only from verified receipts and actual output. Never use an estimated output as the next input.
@@ -63,7 +79,9 @@ The v2 prepare/session request fields are exactly `[caller_approved, from_chain,
 
 1. Read `assetfare_manifest` and `assetfare_status`.
 2. Call `assetfare_quote` with a finite whole-dollar amount of at least $1 and `destination_chain` set to `base` or `arbitrum`.
-3. Compare the result with other executable routes.
+   Treat $1 as reachability/schema smoke only; SOL input includes a swap, and
+   $1,000 is the primary representative evaluation amount.
+3. Compare the result with other executable routes at the intended amount.
 4. Require caller approval before `assetfare_start_wallet_auth`, session creation, or action preparation.
 5. The wallet owner signs only the exact non-transactional login message.
 6. Keep the returned access token out of source, logs, issues, and transcripts.

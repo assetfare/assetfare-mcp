@@ -16,6 +16,16 @@ live availability; server never signs/submits. Solana SOL → Base USDC and
 Optimism USDC → Base USDC are also supported. AssetFare never receives private
 keys, signs, or submits.
 
+For economic evaluation, use **USD 1,000** as the primary representative
+amount and always requote every candidate at the amount actually intended.
+The API still accepts USD 1, but **USD 1 is reachability/schema smoke only**,
+not a meaningful competitiveness test. For native-USDC routes, USD 50 is the
+lowest observed competitive bucket and a reasonable evaluation starting point
+based on dated 2026-09-23 evidence; it does not guarantee AssetFare is cheapest.
+SOL-input routes include a swap, so evaluate their full swap-and-bridge path at
+USD 1,000 or the actual intended amount. AssetFare is always one candidate, not
+an automatically preferred route.
+
 Verify before trusting: [public source](https://github.com/assetfare/assetfare-mcp),
 [Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
 [public key](https://assetfare.dev/.well-known/assetfare-manifest.pub),
@@ -120,6 +130,12 @@ directional native-USDC source-only routes to Base and Arbitrum USDC. The
 unversioned legacy workflow remains limited to `solana:SOL → base:ETH` and
 `solana:SOL → arbitrum:ETH`; it does not limit the v2 route matrix.
 
+The USD 1 API minimum is for reachability/schema smoke only. Start native-USDC
+economic comparisons at USD 50 based on the dated 2026-09-23 evidence, without
+assuming AssetFare will be cheapest. Use USD 1,000 as the primary representative
+comparison amount, including for SOL-input routes whose path includes a swap,
+and always compare fresh executable quotes at the actual intended amount.
+
 For a new evaluation, call `assetfare_v2_capabilities` and then
 `assetfare_v2_quote`. The primary endpoint has no legacy tools to misselect.
 Existing unversioned clients can connect to
@@ -134,22 +150,22 @@ required for this read-only evaluation call:
 ```bash
 curl -sS https://api.assetfare.dev/v2/quote \
   -H 'content-type: application/json' \
-  -d '{"from_chain":"solana","from_token":"SOL","to_chain":"base","to_token":"USDC","amount_usd":1}'
+  -d '{"from_chain":"solana","from_token":"USDC","to_chain":"base","to_token":"USDC","amount_usd":1000}'
 ```
 
 From a cloned repository, the dependency-free examples are:
 
 ```bash
-node examples/rest-quote.mjs 1 solana SOL base USDC
-python3 examples/rest_quote.py 1 solana SOL base USDC
+node examples/rest-quote.mjs 1000 solana USDC base USDC
+python3 examples/rest_quote.py 1000 solana USDC base USDC
 ```
 
 For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.19 assetfare-route-eval \
-  --amount 1 --from-chain solana --from-token SOL --to-chain base --to-token USDC
+npx --yes --package=assetfare-mcp@0.4.20 assetfare-route-eval \
+  --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
@@ -157,7 +173,7 @@ From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 For an explicit caller-approved quote → first unsigned-plan flow:
 
 ```bash
-npx --yes --package=assetfare-mcp@0.4.19 assetfare-plan \
+npx --yes --package=assetfare-mcp@0.4.20 assetfare-plan \
   --caller-approved \
   --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --amount 250 \
@@ -174,11 +190,13 @@ string alone cannot prove that a caller did not mislabel secret material, so the
 caller must provide only public addresses and retain every required signer
 keypair outside AssetFare.
 
-The evaluator defaults to `solana:SOL -> base:USDC` so USDC support is visible
-without extra flags. If `solana:SOL -> base:ETH` is requested explicitly, it
-also requests same-input Relay and Mayan snapshots with placeholder public
-addresses. Those comparison rows are not executable orders; every provider
-must be requoted with the caller's real addresses before selection or signing.
+The evaluator defaults to the representative USD 1,000
+`solana:USDC -> base:USDC` request. That USDC result is one AssetFare candidate,
+not a cross-provider market comparison. If `solana:SOL -> base:ETH` is requested
+explicitly, it also requests same-input Relay and Mayan snapshots with
+placeholder public addresses. Those comparison rows are not executable orders;
+every provider must be requoted with the caller's real addresses and actual
+intended amount before selection or signing.
 
 Read-only framework integrations are available for
 [Coinbase AgentKit](./integrations/coinbase-agentkit/) and
@@ -342,9 +360,11 @@ public REST/OpenAPI flow; see [`integrations/circle-agent-stack`](./integrations
 ## First-call evaluation
 
 Run `npm run first-call-eval` to verify a fresh MCP client can discover the
-primary v2 quote-only tools, validate current capabilities, and obtain a $1
-six-chain source quote without creating a wallet login, session, action,
-signature, or transaction. Legacy tools are absent from the primary endpoint.
+primary v2 quote-only tools, validate current capabilities, and obtain a
+representative USD 1,000 Solana-native-USDC to Base-native-USDC quote without
+creating a wallet login, session, action, signature, or transaction. Legacy
+tools are absent from the primary endpoint. Use USD 1 only for a deliberate
+reachability/schema smoke test.
 
 Use Streamable HTTP. The endpoint has no server-side API key. Read-only v2 tools
 never authenticate a wallet; prepare/session tools require explicit caller

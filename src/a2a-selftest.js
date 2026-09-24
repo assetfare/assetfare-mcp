@@ -26,7 +26,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.1.8");
+assert.equal(card.version, "0.1.9");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -36,11 +36,13 @@ assert.match(card.description,/non-custodial native-USDC bridge.*76 directed rou
 assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
 assert.match(card.description,/Solana native USDC to Base native USDC.*Solana SOL to Base USDC.*Optimism USDC to Base USDC/i);
 assert.match(card.description,/caller approval.*unsigned plan.*server never signs or submits/i);
+assert.match(card.description,/USD 1 is reachability\/schema smoke only.*USD 50.*2026-09-23.*not a cheapest guarantee.*USD 1,000.*SOL input.*swap.*intended amount/i);
 assert.deepEqual(card.skills[0].tags.slice(0,5),["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]);
 assert.match(card.skills[0].description,/Solana native USDC to Base native USDC.*caller-approved unsigned transaction-plan/i);
-assert.deepEqual(card.skills[0].examples[0],'{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":250}');
+assert.deepEqual(card.skills[0].examples[0],'{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}');
 for (const tag of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(card.skills[0].tags.includes(tag));
-assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,250);
+assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1000);
+assert.equal(JSON.parse(card.skills[0].examples[1]).amountUsd,1000);
 assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-]?key|api[_-]?key|bearer [A-Za-z0-9]/i), null);
 
 let observedBody;let observedHeaders;
@@ -60,6 +62,12 @@ assert.equal(observedHeaders.get("x-assetfare-channel"), "a2a");
 assert.equal(result.result.message.role, "ROLE_AGENT");
 assert.ok(result.result.message.parts[0].data.quote);
 assert.equal(result.result.message.parts[0].data.guidance.transactionSubmitted, false);
+assert.equal(result.result.message.parts[0].data.guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
+assert.equal(result.result.message.parts[0].data.guidance.nativeUsdcComparisonStartUsd, 50);
+assert.equal(result.result.message.parts[0].data.guidance.representativeComparisonAmountUsd, 1000);
+assert.equal(result.result.message.parts[0].data.guidance.solInputIncludesSwap, true);
+assert.equal(result.result.message.parts[0].data.guidance.cheapestGuaranteed, false);
+assert.equal(result.result.message.parts[0].data.guidance.compareAtIntendedAmount, true);
 
 const uncappedIntent = { ...intent, amountUsd: 2500.25 };
 const uncappedResult = await transport.handle(request([data(uncappedIntent)], "uncapped"), context());

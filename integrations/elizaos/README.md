@@ -16,12 +16,20 @@ validates the exact six-chain, 76-route endpoints and finite `$1` minimum with n
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 
+USD 1 is reachability/schema smoke only. For native-USDC economic comparison,
+start at USD 50 based on dated 2026-09-23 evidence; this does not guarantee
+AssetFare is cheapest. Use USD 1,000 as the primary representative amount,
+including for SOL-input routes that include a swap, and always compare fresh
+executable candidates at the actual intended amount.
+
 ```ts
 import { assetFareElizaPlugin } from "assetfare-elizaos-route-plugin";
 
 export const character = {
   plugins: [assetFareElizaPlugin],
 };
+
+// Representative request: USD 1,000 Solana native USDC -> Base native USDC.
 ```
 
 Every quote must be compared with other fresh executable routes. Installation

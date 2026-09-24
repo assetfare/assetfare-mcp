@@ -80,7 +80,7 @@ const intentJsonSchema = {
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
 Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG; polygon USDC and optimism USDC as source-only to Base/Arbitrum USDC.
-The USD amount must be finite and at least 1; there is no adapter-enforced maximum. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
+The USD amount must be finite and at least 1; there is no adapter-enforced maximum. USD 1 is reachability/schema smoke only. Native-USDC economic comparison starts at USD 50 based on dated 2026-09-23 evidence, not a cheapest guarantee. USD 1,000 is the primary representative amount, including for SOL input, which includes a swap. Preserve the user's actual intended amount. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
 {{recentMessages}}`;
@@ -157,7 +157,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. USD 1 is reachability/schema smoke only. Start native-USDC economic comparison at USD 50 based on dated 2026-09-23 evidence, without assuming AssetFare is cheapest. USD 1,000 is the primary representative amount; SOL input includes a swap. Always compare fresh candidates at the actual intended amount, including total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {
@@ -181,6 +181,13 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
           guidance: {
             compareWithOtherRoutes: true,
             requoteBeforeSelection: true,
+            compareAtIntendedAmount: true,
+            oneDollarPurpose: "reachability_and_schema_smoke_only",
+            nativeUsdcComparisonStartUsd: 50,
+            evidenceAsOf: "2026-09-23",
+            cheapestGuaranteed: false,
+            representativeComparisonAmountUsd: 1000,
+            solInputIncludesSwap: input.fromToken === "SOL",
             walletAccessed: false,
             sessionCreated: false,
             actionPrepared: false,
@@ -198,8 +205,8 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
       }
     },
     examples: [[
-      { name: "{{userName}}", content: { text: "Compare a $1 route from Solana SOL to Base USDC", actions: [] } },
-      { name: "{{agentName}}", content: { text: "I will request one read-only quote and stop before execution.", actions: ["ASSETFARE_QUOTE_ROUTE"] } },
+      { name: "{{userName}}", content: { text: "Compare a USD 1,000 route from Solana native USDC to Base native USDC", actions: [] } },
+      { name: "{{agentName}}", content: { text: "I will request one representative read-only quote, compare at the intended amount, and stop before execution.", actions: ["ASSETFARE_QUOTE_ROUTE"] } },
     ]],
   };
 

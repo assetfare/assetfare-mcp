@@ -245,10 +245,10 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain route service: six chains, eleven source endpoints, and 76 directed routes. Solana native USDC to Base native USDC is the canonical example. AssetFare service fee 1bp; Circle/provider/network fees additional; each quote exposes total token-path cost and live availability. Only after caller approval, AssetFare returns an unsigned plan the caller verifies and signs; the server never signs or submits. Solana SOL to Base USDC and Optimism USDC to Base USDC are also supported. MCP, A2A, and OpenAPI are available.",
+    description: "AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain route service: six chains, eleven source endpoints, and 76 directed routes. Solana native USDC to Base native USDC is the canonical example. AssetFare service fee 1bp; Circle/provider/network fees additional; each quote exposes total token-path cost and live availability. Only after caller approval, AssetFare returns an unsigned plan the caller verifies and signs; the server never signs or submits. Solana SOL to Base USDC and Optimism USDC to Base USDC are also supported. USD 1 is reachability/schema smoke only. Native-USDC economic comparison starts at USD 50 based on dated 2026-09-23 evidence, not a cheapest guarantee. USD 1,000 is the primary representative amount, including for SOL input, which includes a swap. Always compare fresh candidates at the intended amount. MCP, A2A, and OpenAPI are available.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
-    version: "0.1.8",
+    version: "0.1.9",
     documentationUrl: "https://assetfare.dev/llms-full.txt",
     capabilities: { streaming: false, pushNotifications: false, extensions: [], extendedAgentCard: false },
     securitySchemes: {},
@@ -258,9 +258,9 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one fresh quote for eleven source endpoints and 76 routes with a USD 1 minimum and no adapter-enforced maximum, subject to live upstream availability, with total token-path cost (AssetFare service fee 1bp; Circle/provider/network fees additional). The canonical example is $250 Solana native USDC to Base native USDC with a caller-approved unsigned transaction-plan handoff. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission.",
+      description: "Return one fresh quote for eleven source endpoints and 76 routes with a USD 1 minimum and no adapter-enforced maximum, subject to live upstream availability, with total token-path cost (AssetFare service fee 1bp; Circle/provider/network fees additional). USD 1 is reachability/schema smoke only. Start native-USDC economic comparison at USD 50 based on dated 2026-09-23 evidence, without assuming AssetFare is cheapest. USD 1,000 Solana native USDC to Base native USDC is the primary representative example with a caller-approved unsigned transaction-plan handoff. SOL input includes a swap and uses USD 1,000 as its representative example too. Always compare fresh candidates at the intended amount. Polygon and Optimism are native-USDC source-only origins to Base or Arbitrum. Stop before authentication, preparation, signing, or submission.",
       tags: ["native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
-      examples: ['{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":250}', '{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":10}'],
+      examples: ['{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}', '{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1000}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],
@@ -269,7 +269,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
       name: "Prepare the first unsigned action (caller-approved)",
       description: "Caller-approved one-shot POST /v2/prepare for a route the live quote reports available. Solana-CCTP requires eventSignerPublic from a fresh caller-generated ephemeral Ed25519 keypair: send only its on-curve public key, keep the private key client-side, and co-sign the returned unsigned event-account transaction. Never auto-called; AssetFare never signs or submits.",
       tags: ["prepare", "unsigned-action", "cross-chain", "non-custodial", "caller-approved"],
-      examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
+      examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],
@@ -278,7 +278,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
       name: "Run the caller-approved session lifecycle",
       description: "Full receipt-driven /v2/session lifecycle for a route the live quote reports available. Before calling A2A, the caller locally generates 32 CSPRNG bytes encoded as base64url; the remote adapter never generates that secret. Requires callerApproved:true and sessionToken on create/read/observe/refresh. Operations: session_create, session_get, observe_source, observe_output, refresh_action. Never auto-chains, signs, or submits.",
       tags: ["session", "lifecycle", "observe", "receipts", "non-custodial", "caller-approved"],
-      examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":25,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
+      examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],
@@ -331,7 +331,7 @@ class QuoteExecutor {
         const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
         validateCapabilities(capabilitiesRaw); Status.parse(statusRaw);
         const quote = validateQuote(await request("/v2/quote", { method: "POST", body: JSON.stringify({ from_chain: intent.fromChain, from_token: intent.fromToken, to_chain: intent.toChain, to_token: intent.toToken, amount_usd: intent.amountUsd }) }), intent);
-        this.publish(context, bus, { quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } });
+        this.publish(context, bus, { quote, guidance: { compareWithOtherRoutes: true, requoteBeforeSelection: true, compareAtIntendedAmount: true, oneDollarPurpose: "reachability_and_schema_smoke_only", nativeUsdcComparisonStartUsd: 50, evidenceAsOf: "2026-09-23", cheapestGuaranteed: false, representativeComparisonAmountUsd: 1000, solInputIncludesSwap: intent.fromToken === "SOL", walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false } });
         return;
       }
       if (operation === "prepare") {

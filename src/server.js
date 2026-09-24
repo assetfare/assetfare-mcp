@@ -12,7 +12,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.19";
+const VERSION = "0.4.20";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -70,7 +70,7 @@ const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and origi
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
 const V2_CAPABILITIES_DESCRIPTION = "Read the current 76-route capability and live-availability matrix before quoting. Example: confirm solana:USDC->base:USDC is prepare-ready and server_signing/server_submission are false. Read-only; creates no wallet login, session, or action.";
-const V2_QUOTE_DESCRIPTION = "Get one fresh fee-inclusive quote and caller-operated unsigned-plan handoff. Example: from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=250. Read-only; never authenticates, prepares, signs, or submits.";
+const V2_QUOTE_DESCRIPTION = "Get one fresh fee-inclusive quote and caller-operated unsigned-plan handoff. Example: representative from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=1000. USD 1 is reachability/schema smoke only. Native-USDC economic comparison starts at USD 50 based on dated 2026-09-23 evidence, not a guarantee AssetFare is cheapest. SOL input includes a swap. Always compare fresh candidates at the actual intended amount. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
 const V2_PREPARE_DESCRIPTION = "Return the exact validated versioned Core bundle for the first caller-approved unsigned action after a fresh re-quote. Its payload_sha256 covers the Core bundle with only payload_sha256 omitted; the MCP adapter does not append fields to that hash scope. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved receipt-driven workflow and return its current unsigned action. Example: pass a locally generated 256-bit base64url session_token, public wallets, and idempotency_key='create-0001'. Use for multi-step execution, never alongside one-shot prepare; AssetFare never signs or submits.";
@@ -110,7 +110,7 @@ const v2QuoteFields = {
   from_token: z.enum(V2_TOKENS).describe("Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities."),
   to_chain: z.enum(V2_DESTINATION_CHAINS).describe("Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Polygon and Optimism are not destinations."),
   to_token: z.enum(V2_TOKENS).describe("Output token symbol on to_chain. The chain-token pair must appear in current v2 capabilities."),
-  amount_usd: z.number().finite().min(1).describe("Requested input value in USD, minimum 1. Obtain a fresh quote because availability, fees, and receive amounts can change."),
+  amount_usd: z.number().finite().min(1).describe("Requested input value in USD, minimum 1. USD 1 is reachability/schema smoke only; USD 50 is the native-USDC economic-comparison start based on dated 2026-09-23 evidence, not a cheapest guarantee; USD 1,000 is the primary representative amount. SOL input includes a swap. Always quote the actual intended amount."),
 };
 const emptyStrictInput = z.object({}).strict();
 const v2QuoteIntent = z.object(v2QuoteFields).strict();

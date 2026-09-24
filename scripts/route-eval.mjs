@@ -2,9 +2,9 @@
 import { createPublicKey, verify } from "node:crypto";
 
 const DEFAULTS = {
-  amount: 1,
+  amount: 1000,
   fromChain: "solana",
-  fromToken: "SOL",
+  fromToken: "USDC",
   toChain: "base",
   toToken: "USDC",
 };
@@ -22,12 +22,19 @@ Options:
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
   --to-token <token>      SOL | ETH | USDC | USDG
-  --assetfare-only        Skip Relay and Mayan comparison
+  --assetfare-only        Skip eligible Relay and Mayan comparison snapshots
   --compact               Emit compact JSON
   --help                  Show this message
 
-Defaults: $1 solana:SOL -> base:USDC. The evaluator never authenticates a
-wallet, creates a session, prepares an action, signs, or submits a transaction.`;
+Defaults: $1,000 solana:USDC -> base:USDC. USD 1 is reachability/schema smoke
+only. For native-USDC economic comparison, start at USD 50 based on dated
+2026-09-23 evidence; this does not guarantee AssetFare is cheapest. SOL-input
+routes include a swap. USD 1,000 is the primary representative comparison
+amount for either route type; always compare at the actual intended amount.
+
+The default USDC path returns one AssetFare candidate, not a cross-provider
+market comparison. The evaluator never authenticates a wallet, creates a
+session, prepares an action, signs, or submits a transaction.`;
 }
 
 function option(argv, name, fallback) {
@@ -221,8 +228,18 @@ async function main() {
   const expiresAt = new Date(Date.parse(quote.as_of) + Number(quote.ttl_seconds) * 1000).toISOString();
   const output = {
     status: "pass",
-    evaluation_kind: "read_only_external_route_quote",
+    evaluation_kind: "read_only_assetfare_candidate_quote",
     requested_intent: { from_chain: fromChain, from_token: fromToken, to_chain: toChain, to_token: toToken, amount_usd: amountUsd },
+    economic_evaluation: {
+      api_minimum_usd: 1,
+      one_dollar_purpose: "reachability_and_schema_smoke_only",
+      native_usdc_comparison_start_usd: 50,
+      evidence_as_of: "2026-09-23",
+      cheapest_guaranteed: false,
+      sol_input_includes_swap: fromToken === "SOL",
+      representative_comparison_amount_usd: 1000,
+      always_compare_at_intended_amount: true,
+    },
     manifest,
     assetfare: {
       quote_id: quote.quote_id,
@@ -242,7 +259,9 @@ async function main() {
     },
     alternatives: {
       status: "not_requested",
-      reason: "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
+      reason: toToken === "USDC"
+        ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Compare fresh executable alternatives at the intended amount."
+        : "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
     },
     safety: {
       wallet_authentication_performed: false,

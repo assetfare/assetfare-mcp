@@ -3,7 +3,7 @@ import test from "node:test";
 import type { HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
 import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin } from "./index.js";
 
-const message = { content: { text: "Compare a $1 route from Solana SOL to Base USDC", source: "test" } } as Memory;
+const message = { content: { text: "Compare a USD 1,000 route from Solana native USDC to Base native USDC", source: "test" } } as Memory;
 const state = { recentMessages: message.content.text } as unknown as State;
 
 test("intent schema accepts the gap route and rejects unsupported inputs", () => {
@@ -31,7 +31,7 @@ test("quote action sends five fields and never reads wallet settings", async () 
   }});
   const runtime = new Proxy({
     composeState: async () => state,
-    useModel: async () => ({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 }),
+    useModel: async () => ({ fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 }),
   }, {
     get(target, property, receiver) {
       if (property === "getSetting") throw new Error("plugin must not read wallet settings");
@@ -43,8 +43,15 @@ test("quote action sends five fields and never reads wallet settings", async () 
   const result = await plugin.actions?.[1].handler(runtime, message, state, {}, callback);
   assert.equal(result?.success, true);
   assert.equal(observed?.url, "https://api.assetfare.dev/v2/quote");
-  assert.deepEqual(JSON.parse(String(observed?.init?.body)), { from_chain: "solana", from_token: "SOL", to_chain: "base", to_token: "USDC", amount_usd: 1 });
+  assert.deepEqual(JSON.parse(String(observed?.init?.body)), { from_chain: "solana", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 1000 });
   assert.equal(responses.length, 1);
+  const guidance = (result?.data as { guidance?: Record<string, unknown> } | undefined)?.guidance;
+  assert.equal(guidance?.oneDollarPurpose, "reachability_and_schema_smoke_only");
+  assert.equal(guidance?.nativeUsdcComparisonStartUsd, 50);
+  assert.equal(guidance?.representativeComparisonAmountUsd, 1000);
+  assert.equal(guidance?.cheapestGuaranteed, false);
+  assert.equal(guidance?.compareAtIntendedAmount, true);
+  assert.equal(guidance?.solInputIncludesSwap, false);
 });
 
 test("quote action fails closed if server submission is enabled", async () => {

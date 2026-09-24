@@ -1,7 +1,9 @@
 const endpoint = "https://api.assetfare.dev/v2/quote";
-const amountUsd = Number(process.argv[2] || 1);
+// USD 1 is reachability/schema smoke only. The representative default is USD
+// 1,000 native USDC; always compare fresh alternatives at the intended amount.
+const amountUsd = Number(process.argv[2] || 1000);
 const fromChain = String(process.argv[3] || "solana").toLowerCase();
-const fromToken = String(process.argv[4] || "SOL").toUpperCase();
+const fromToken = String(process.argv[4] || "USDC").toUpperCase();
 const toChain = String(process.argv[5] || "base").toLowerCase();
 const toToken = String(process.argv[6] || "USDC").toUpperCase();
 

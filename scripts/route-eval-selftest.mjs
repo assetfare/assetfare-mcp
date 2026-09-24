@@ -49,7 +49,7 @@ const server = createServer(async (request, response) => {
     public_api_enabled: true,
     server_signing: false,
     server_submission: false,
-    asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "base", token: "USDC" }],
+    asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "solana", token: "USDC" }, { chain: "base", token: "USDC" }],
   });
   if (url.pathname === "/v2/status") return send(200, { status: "capped_public_agent_release", server_signing: false, server_submission: false });
   if (url.pathname === "/v2/quote") {
@@ -59,7 +59,7 @@ const server = createServer(async (request, response) => {
       status: "capped_public_agent_release",
       as_of: new Date().toISOString(),
       ttl_seconds: 20,
-      intent: { from: "solana:SOL", to: "base:USDC", amount_usd: intent.amount_usd, estimated_input_base: 10000000 },
+      intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 10000000 },
       offer: { expected_receive_amount: intent.amount_usd - 0.0001, estimated_min_receive_amount: intent.amount_usd - 0.0051, output_symbol: "USDC", expected_receive_usd: intent.amount_usd - 0.0001, estimated_min_receive_usd: intent.amount_usd - 0.0051, estimated_time_seconds: 21, assetfare_fee_bps: 1 },
       route: { steps: [{ provider: "selftest" }] },
       risk: { non_atomic: true, server_signing: false, server_submission: false },
@@ -74,7 +74,7 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 origin = `http://127.0.0.1:${server.address().port}`;
 
-const child = spawn(process.execPath, [new URL("./route-eval.mjs", import.meta.url).pathname, "--compact", "--amount", "2500.25"], {
+const child = spawn(process.execPath, [new URL("./route-eval.mjs", import.meta.url).pathname, "--compact"], {
   env: {
     ...process.env,
     ASSETFARE_API_BASE: origin,
@@ -100,8 +100,9 @@ const checks = {
   status_pass: result.status === "pass",
   manifest_verified: result.manifest?.valid === true,
   quote_read_only: result.safety?.wallet_authentication_performed === false && result.safety?.session_created === false && result.safety?.action_prepared === false && result.safety?.transaction_signed === false && result.safety?.transaction_submitted === false,
-  assetfare_quote_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 2500.25,
-  usdc_default_is_assetfare_only: result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested",
+  representative_default_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).from_token === "USDC" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 1000,
+  usdc_default_is_single_assetfare_candidate: result.requested_intent?.from_token === "USDC" && result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested" && /not a cross-provider market comparison/i.test(result.alternatives?.reason || ""),
+  economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true,
   no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));

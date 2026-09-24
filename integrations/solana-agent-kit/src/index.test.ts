@@ -39,11 +39,18 @@ test("quote posts exactly five public fields without reading the wallet", async 
     },
   });
   const quote = plugin.actions[1];
-  const result = await quote.handler(inaccessibleAgent, { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 });
+  const result = await quote.handler(inaccessibleAgent, { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 });
   assert.equal(observed?.url, "https://api.assetfare.dev/v2/quote");
   assert.equal(observed?.init?.method, "POST");
-  assert.deepEqual(JSON.parse(String(observed?.init?.body)), { from_chain: "solana", from_token: "SOL", to_chain: "base", to_token: "USDC", amount_usd: 1 });
-  assert.equal((result.agentGuidance as Record<string, unknown>).transactionSubmitted, false);
+  assert.deepEqual(JSON.parse(String(observed?.init?.body)), { from_chain: "solana", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 1000 });
+  const guidance = result.agentGuidance as Record<string, unknown>;
+  assert.equal(guidance.transactionSubmitted, false);
+  assert.equal(guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
+  assert.equal(guidance.nativeUsdcComparisonStartUsd, 50);
+  assert.equal(guidance.representativeComparisonAmountUsd, 1000);
+  assert.equal(guidance.cheapestGuaranteed, false);
+  assert.equal(guidance.compareAtIntendedAmount, true);
+  assert.equal(guidance.solInputIncludesSwap, false);
 });
 
 test("capabilities fail closed if the server can submit", async () => {

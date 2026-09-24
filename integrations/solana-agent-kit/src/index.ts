@@ -141,12 +141,12 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability with other executable routes. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. USD 1 is reachability/schema smoke only. Start native-USDC economic comparison at USD 50 based on dated 2026-09-23 evidence, without assuming AssetFare is cheapest. USD 1,000 is the primary representative amount; SOL input includes a swap. Always compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability with other executable routes at the actual intended amount. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
-      input: { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 },
+      input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },
       output: { status: "success", transactionSubmitted: false },
-      explanation: "Obtain a one-dollar read-only route quote and stop before execution.",
+      explanation: "Obtain a representative native-USDC read-only route quote, compare at the intended amount, and stop before execution.",
     }]],
     schema: AssetFareQuoteSchema,
     handler: async (_agent: SolanaAgentKit, rawInput: Record<string, unknown>) => {
@@ -173,6 +173,13 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
         agentGuidance: {
           compareWithOtherRoutes: true,
           requoteBeforeSelection: true,
+          compareAtIntendedAmount: true,
+          oneDollarPurpose: "reachability_and_schema_smoke_only",
+          nativeUsdcComparisonStartUsd: 50,
+          evidenceAsOf: "2026-09-23",
+          cheapestGuaranteed: false,
+          representativeComparisonAmountUsd: 1000,
+          solInputIncludesSwap: input.fromToken === "SOL",
           walletAuthenticationPerformed: false,
           sessionCreated: false,
           actionPrepared: false,
