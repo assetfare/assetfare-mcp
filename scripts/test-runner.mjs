@@ -21,6 +21,7 @@ const packaged=[
 ];
 const sourceOnly=[
   "scripts/agent-plugin-selftest.mjs",
+  "scripts/pilot-request-selftest.mjs",
   "scripts/publish-workflow-selftest.mjs",
   "scripts/integration-publish-workflow-selftest.mjs",
 ];

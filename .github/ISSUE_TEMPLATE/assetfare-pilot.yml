@@ -1,0 +1,98 @@
+name: Request a read-only AssetFare pilot
+description: Share one real agent-wallet funding or cross-chain route intent without wallet data.
+title: "[Pilot] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with one read-only quote. Do not include any wallet address, balance screenshot, API token, session token, credential, seed phrase, private key, signature, signed transaction, or payment header.
+
+        AssetFare never signs or submits. A quote is an unranked candidate and grants no preparation or execution authority.
+  - type: input
+    id: agent_runtime
+    attributes:
+      label: Agent framework or runtime
+      description: Name the agent, wallet framework, MCP client, or automation runtime with this need.
+      placeholder: OpenClaw, AgentKit, a custom x402 buyer, or another runtime
+    validations:
+      required: true
+  - type: dropdown
+    id: source_chain
+    attributes:
+      label: Source chain with spendable funds
+      description: Choose the chain where the caller already has a supported spendable asset.
+      options:
+        - Solana
+        - Base
+        - Arbitrum
+        - Robinhood Chain
+        - Polygon (native USDC source-only)
+        - Optimism (native USDC source-only)
+    validations:
+      required: true
+  - type: input
+    id: source_asset
+    attributes:
+      label: Source asset
+      description: Use the exact public symbol only. Do not include an address or balance.
+      placeholder: USDC, SOL, ETH, or USDG
+    validations:
+      required: true
+  - type: dropdown
+    id: destination_chain
+    attributes:
+      label: Destination chain the agent actually needs
+      options:
+        - Solana
+        - Base
+        - Arbitrum
+        - Robinhood Chain
+    validations:
+      required: true
+  - type: input
+    id: destination_asset
+    attributes:
+      label: Destination asset
+      description: Use the exact public symbol only. Do not include a recipient or wallet address.
+      placeholder: USDC, SOL, ETH, or USDG
+    validations:
+      required: true
+  - type: input
+    id: amount_usd
+    attributes:
+      label: Actual intended amount in USD
+      description: USD 1 is smoke-only, USD 1,000 is representative, and neither is a minimum or maximum. Enter the amount the workflow actually needs to evaluate.
+      placeholder: "250"
+    validations:
+      required: true
+  - type: dropdown
+    id: use_case
+    attributes:
+      label: Current blocker or use case
+      options:
+        - Underfunded agent or x402 payment wallet
+        - Cross-chain treasury rebalance
+        - Fresh route and fee comparison
+        - Other concrete transfer intent
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: What would make the quote useful?
+      description: Describe the decision this quote would support and any fee, minimum-receive, ETA, or route constraint. Do not include private or wallet-specific data.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety and intent confirmation
+      options:
+        - label: I have a real route intent and a known spendable source asset; this is not a directory, audit, or listing test.
+          required: true
+        - label: I am requesting a read-only quote first and understand that it cannot prepare, sign, submit, or transfer funds.
+          required: true
+        - label: I did not include wallet addresses, balances, credentials, private keys, signatures, signed transactions, or payment headers.
+          required: true
