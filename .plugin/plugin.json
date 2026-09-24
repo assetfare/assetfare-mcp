@@ -1,7 +1,7 @@
 {
   "name": "assetfare",
-  "version": "1.0.0",
-  "description": "Agent-native, non-custodial native-USDC bridge quotes, including Solana USDC to Base USDC; caller-approved unsigned plans; never signs or submits transactions.",
+  "version": "1.1.0",
+  "description": "Non-custodial bridge quotes with validated ordered provider paths and direct/Across external-intent classification; caller-approved unsigned plans; never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",

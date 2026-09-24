@@ -1,0 +1,2143 @@
+{
+  "route_count": 76,
+  "routes": {
+    "arbitrum:ETH->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "arbitrum:ETH->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "arbitrum:ETH->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "arbitrum:ETH->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "arbitrum:ETH->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "arbitrum:ETH->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "arbitrum:ETH->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "arbitrum:ETH->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "arbitrum:USDC->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "arbitrum:USDC->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "arbitrum:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "arbitrum:USDC->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "arbitrum:USDC->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "arbitrum:USDC->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "arbitrum:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "arbitrum:USDC->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "base:ETH->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "base:ETH->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "base:ETH->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "base:ETH->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "base:ETH->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "base:ETH->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "base:ETH->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "base:ETH->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "base:USDC->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "base:USDC->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "base:USDC->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "base:USDC->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "base:USDC->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "base:USDC->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "base:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "base:USDC->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "optimism:USDC->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "optimism_source_cctp",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "optimism:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "optimism:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "optimism_source_cctp",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "optimism:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "polygon:USDC->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "polygon_source_cctp",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "polygon:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "polygon:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "polygon_source_cctp",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "polygon:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "robinhood:ETH->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 3,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 4,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "robinhood:ETH->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 3,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "robinhood:ETH->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 3,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 4,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "robinhood:ETH->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 3,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "robinhood:ETH->robinhood:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "robinhood:ETH->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 3,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "robinhood:ETH->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 2,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "robinhood:ETH->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:ETH",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 1,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "robinhood:USDG->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 3,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "robinhood:USDG->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "robinhood:USDG->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 3,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "robinhood:USDG->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "robinhood:USDG->robinhood:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "robinhood:USDG->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 2,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "robinhood:USDG->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "robinhood:USDG->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "robinhood_paxos_egress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 0,
+          "provider": "paxos_usdg_layerzero_oft",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "solana:SOL->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "solana:SOL->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "solana:SOL->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "solana:SOL->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "solana:SOL->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 3,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "solana:SOL->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "solana:SOL->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "solana:SOL->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:SOL",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "solana:USDC->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "solana:USDC->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "solana:USDC->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "solana:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "solana:USDC->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "solana:USDC->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "solana:USDC->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "solana:USDC->solana:USDG": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDG"
+        }
+      ]
+    },
+    "solana:USDG->arbitrum:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "arbitrum:ETH"
+        }
+      ]
+    },
+    "solana:USDG->arbitrum:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "arbitrum:USDC"
+        }
+      ]
+    },
+    "solana:USDG->base:ETH": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "uniswap_v3",
+          "to": "base:ETH"
+        }
+      ]
+    },
+    "solana:USDG->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "solana:USDG->robinhood:ETH": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "robinhood:USDG",
+          "index": 3,
+          "provider": "uniswap_v3",
+          "to": "robinhood:ETH"
+        }
+      ]
+    },
+    "solana:USDG->robinhood:USDG": {
+      "classification": "external_intent",
+      "mode": "robinhood_across_ingress_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": false,
+          "external_intent_protocol": true,
+          "from": "base:USDC",
+          "index": 2,
+          "provider": "across_intent_bridge",
+          "to": "robinhood:USDG"
+        }
+      ]
+    },
+    "solana:USDG->solana:SOL": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct_composition",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        },
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDC",
+          "index": 1,
+          "provider": "raydium_clmm",
+          "to": "solana:SOL"
+        }
+      ]
+    },
+    "solana:USDG->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "same_chain_direct",
+      "steps": [
+        {
+          "action": "swap",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "solana:USDG",
+          "index": 0,
+          "provider": "orca_whirlpool",
+          "to": "solana:USDC"
+        }
+      ]
+    }
+  },
+  "step_count": 168,
+  "version": "assetfare-direct-route-contract-v1"
+}

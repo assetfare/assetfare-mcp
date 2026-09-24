@@ -16,6 +16,23 @@ validates the exact six-chain, 76-route endpoints and finite `$1` minimum with n
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 
+## Verified direct path on every quote
+
+The quote action fails closed unless `quote.direct_route_summary` exactly
+matches the requested intent and AssetFare's disclosed route contract. Agents
+can show the ordered provider path and normalized `chain:asset` endpoints
+directly from `steps`. The adapter also proves expected/minimum base-unit
+amount continuity between steps and identifies the one exact step that charges
+the AssetFare 1bp service fee.
+
+`classification: direct_protocol_only` means every step uses a disclosed
+direct protocol and excludes Across. `classification: external_intent` marks
+Across Robinhood ingress; provider-internal liquidity sourcing or aggregation
+can still occur there. `route_aggregator_used: false` describes AssetFare's
+own routing engine only and must not be presented as a claim about every
+provider's internals. Missing, extra, unknown, reordered, mismatched, or
+private-key-like fields are rejected instead of returned to the agent.
+
 USD 1 is reachability/schema smoke only. For native-USDC economic comparison,
 start at USD 50 based on dated 2026-09-23 evidence; this does not guarantee
 AssetFare is cheapest. Use USD 1,000 as the primary representative amount,

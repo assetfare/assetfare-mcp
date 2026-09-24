@@ -21,6 +21,12 @@ These instructions apply to the entire public MCP wrapper repository.
   local-only session-capability helper.
 - Treat AssetFare as one candidate. Never assume or claim that it is
   market-wide best.
+- Require and inspect `direct_route_summary` on every v2 quote. It is the
+  intent-bound ordered provider/from/to path with exact base-unit bounds and
+  the AssetFare fee step. `direct_protocol_only` excludes Across;
+  `external_intent` marks Across Robinhood ingress. `route_aggregator_used=false`
+  is scoped to AssetFare's engine and does not rule out provider-internal
+  liquidity sourcing or aggregation.
 - For a six-chain source route, read `/v2/capabilities`, `/v2/status`, and
   `/v2/openapi.json`, then use `/v2/quote`. For an original MCP corridor, read
   `assetfare_status` and `assetfare_manifest`, then obtain a fresh

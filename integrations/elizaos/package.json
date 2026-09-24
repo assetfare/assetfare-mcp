@@ -1,8 +1,8 @@
 {
   "name": "assetfare-elizaos-route-plugin",
   "version": "0.1.1",
-  "description": "Read-only AssetFare bridge and cross-chain swap quotes for elizaOS across 6 chains and 76 routes",
-  "keywords": ["elizaos", "plugin", "bridge", "cross-chain", "usdc", "solana", "base", "ai-agents", "non-custodial"],
+  "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for elizaOS",
+  "keywords": ["elizaos", "plugin", "bridge", "cross-chain", "direct-route", "usdc", "solana", "base", "ai-agents", "non-custodial"],
   "homepage": "https://assetfare.dev/agents/",
   "type": "module",
   "main": "dist/index.js",

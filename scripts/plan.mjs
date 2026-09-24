@@ -31,7 +31,9 @@ function usage() {
     --event-signer-public <caller-owned-public-key>
 
 Returns one freshly requoted unsigned first-action bundle after verifying its
-ActionSafetyReceiptV1, raw/action/bundle SHA-256 bindings, intent, fee formula,
+validated direct_route_summary (ordered provider/from/to path, amount bounds,
+fee step, direct versus Across external-intent), ActionSafetyReceiptV1,
+raw/action/bundle SHA-256 bindings, intent, fee formula,
 and no-sign/no-submit flags. It defines no private-key input and never signs,
 submits, or moves funds. A base58 string cannot prove whether a caller
 mislabeled secret material: Solana CCTP callers must generate and retain the
@@ -215,7 +217,7 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
   const body={caller_approved:true,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{})};
   const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now());
-  const result={status:"pass",mode:"caller_approved_unsigned_plan",intent,quote_summary:{quote_id:quote.quote_id,expires_in_seconds:quote.ttl_seconds,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,bundle,server_signing:false,server_submission:false,signed:false,submitted:false};
+  const result={status:"pass",mode:"caller_approved_unsigned_plan",intent,quote_summary:{quote_id:quote.quote_id,expires_in_seconds:quote.ttl_seconds,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,bundle,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
+import { DIRECT_ROUTE_CONTRACT_COUNTS, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
 
 const ENDPOINTS = [
   ["solana", "SOL"], ["solana", "USDC"], ["solana", "USDG"],
@@ -38,12 +38,16 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const bridgeRegistryMetadata = JSON.parse(readFileSync(new URL("../server.bridge.json", import.meta.url), "utf8"));
+const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.0.0");
-assert.equal(lockMetadata.version, "1.0.0");
-assert.equal(lockMetadata.packages[""].version, "1.0.0");
-assert.equal(registryMetadata.version, "1.0.0");
-assert.equal(bridgeRegistryMetadata.version, "1.0.0");
+assert.equal(packageMetadata.version, "1.1.0");
+assert.equal(lockMetadata.version, "1.1.0");
+assert.equal(lockMetadata.packages[""].version, "1.1.0");
+assert.equal(registryMetadata.version, "1.1.0");
+assert.equal(bridgeRegistryMetadata.version, "1.1.0");
+assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
+assert.equal(directRouteContract.route_count,76);
+assert.equal(directRouteContract.step_count,168);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -99,6 +103,7 @@ function capabilities(overrides = {}) {
     temporarily_unavailable_routes: [],
     temporarily_unavailable_route_count: 0,
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
+    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:168,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -121,6 +126,22 @@ function quote(intent, overrides = {}) {
   const expectedCost = intent.amount_usd - expectedReceive;
   const maximumCost = intent.amount_usd - minimumReceive;
   const smallWarning=maximumCost/intent.amount_usd>=.01;
+  const routeName=`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`,contract=directRouteContract.routes[routeName];
+  assert.ok(contract,`missing direct route contract ${routeName}`);
+  let expectedInput=2_500_000,minimumInput=2_500_000;
+  const summarySteps=[],rawSteps=[];
+  for(const planned of contract.steps){
+    const expectedOutput=Math.max(1,expectedInput-1_000),minimumOutput=Math.max(1,minimumInput-2_000),[fromChain,fromAsset]=planned.from.split(":"),[toChain,toAsset]=planned.to.split(":");
+    const evidence={status:"pass",inputAmount:String(expectedInput),aggregatorApiUsed:false,signed:false,submitted:false};
+    let raw;
+    if(planned.action==="swap")raw={kind:"direct_swap",chain:fromChain,provider:planned.provider,from:fromAsset,to:toAsset,route_fee_bps:planned.assetfare_fee_bps};
+    else if(planned.provider==="across_intent_bridge")raw={kind:"direct_bridge",provider:planned.provider,from:fromChain,to:toChain,from_asset:fromAsset,to_asset:toAsset,external_intent_protocol:true,route_fee_bps:planned.assetfare_fee_bps};
+    else raw={kind:"direct_bridge",provider:planned.provider,from:fromChain,to:toChain,asset:fromAsset,route_fee_bps:planned.assetfare_fee_bps,...(planned.provider==="circle_cctp"&&["polygon","optimism"].includes(fromChain)?{cctp_mode:"no_forward",finality_threshold:2000,destination_native_gas_required:true,economics_informational_only:true}:{})};
+    rawSteps.push({index:planned.index,...raw,expected_input_base:expectedInput,floor_input_base:minimumInput,expected_output_base:expectedOutput,minimum_output_base:minimumOutput,expected_evidence:evidence,floor_evidence:null});
+    summarySteps.push({...planned,expected_input_base:String(expectedInput),minimum_input_base:String(minimumInput),expected_output_base:String(expectedOutput),minimum_output_base:String(minimumOutput),aggregator_api_used:false});
+    expectedInput=expectedOutput;minimumInput=minimumOutput;
+  }
+  const external=contract.classification==="external_intent",feeIndex=contract.steps.findIndex((step)=>step.assetfare_fee_bps===1);
   return {
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
@@ -130,9 +151,10 @@ function quote(intent, overrides = {}) {
     intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 2_500_000 },
     cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:smallWarning,warning:smallWarning?"fixed provider fee":null},
     eta:{estimated_time_seconds:23,estimated_time_range_seconds:[8,23],complete_route_estimate:true,sources:["https://github.com/circlefin/cctp-go/blob/main/transfer.go"],note:"estimate"},
-    offer: { expected_receive_amount: expectedReceive, estimated_min_receive_amount: minimumReceive, expected_receive_usd:expectedReceive, estimated_min_receive_usd:minimumReceive, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [0], fee_collection: "only_on_eligible_successful_executor_step" },
-    route: { steps: [{ index: 0, provider: "fixture" }], server_signing: false, server_submission: false },
-    risk: { non_atomic: true, server_signing: false, server_submission: false },
+    offer: { expected_receive_amount: expectedReceive, estimated_min_receive_amount: minimumReceive, expected_receive_usd:expectedReceive, estimated_min_receive_usd:minimumReceive, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [feeIndex], fee_collection: "only_on_eligible_successful_executor_step" },
+    route: { status:"pass",version:"assetfare-direct-multichain-quote-v2",route:routeName,mode:contract.mode,input_base:2_500_000,expected_output_base:expectedInput,minimum_output_base:minimumInput,steps:rawSteps,quote_latency_ms:1,aggregator_api_used:false,external_intent_protocol_used:external,server_signing:false,server_submission:false },
+    direct_route_summary:{version:"assetfare-direct-route-summary-v1",route:routeName,from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,classification:contract.classification,mode:contract.mode,route_aggregator_used:false,external_intent_protocol_used:external,provider_internal_dex_aggregation_possible:external,assetfare_fee_bps:1,fee_collection_step_index:feeIndex,server_signing:false,server_submission:false,step_count:summarySteps.length,steps:summarySteps},
+    risk: { non_atomic: true, external_intent_protocol_used:external, provider_internal_dex_aggregation_possible:external, server_signing: false, server_submission: false },
     execution: { supported: true, first_unsigned_action_supported: true, blocker: null },
     caller_action_plan_handoff: executableHandoff(),
     caller_action_plan_handoff_v2: executableHandoffV2(),
@@ -170,7 +192,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (mode === "invalid-json") return new Response("<secret>", { status: 200, headers: { "content-type": "text/html" } });
   if (mode === "wrong-content-type") return new Response(JSON.stringify(quote(validIntent)), { status: 200, headers: { "content-type": "text/plain" } });
   if (mode === "unsafe-error") return new Response(JSON.stringify({ error: "SECRET leak\n", reason_class: "unsafe detail!", retry_after_seconds: 99999 }), { status: 502, headers: { "content-type": "application/json" } });
-  if (String(url).endsWith("/v2/capabilities")) return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : mode === "fake-unavailable-route" ? capabilities({currently_prepare_ready_routes:75,temporarily_unavailable_routes:["evil:USDC->base:USDC"],temporarily_unavailable_route_count:1,execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:false,guarantees_future_availability:false}}) : mode === "availability-status-inconsistent" ? capabilities({execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false}}) : capabilities());
+  if (String(url).endsWith("/v2/capabilities")) {if(mode==="missing-direct-summary-contract"){const value=capabilities();delete value.direct_route_summary;return Response.json(value);}if(mode==="wrong-direct-summary-contract")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,step_count:167}}));if(mode==="wrong-direct-summary-scope")return Response.json(capabilities({direct_route_summary:{...capabilities().direct_route_summary,external_intent:"No external provider"}}));return Response.json(mode === "unsafe-capabilities" ? capabilities({ server_submission: true }) : mode === "wrong-source-only" ? capabilities({ source_only_routes: ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC"] }) : mode === "partial-current-availability" ? (()=>{const value=capabilities();delete value.execution_availability;return value;})() : mode === "fake-unavailable-route" ? capabilities({currently_prepare_ready_routes:75,temporarily_unavailable_routes:["evil:USDC->base:USDC"],temporarily_unavailable_route_count:1,execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:false,guarantees_future_availability:false}}) : mode === "availability-status-inconsistent" ? capabilities({execution_availability:{status:"degraded",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false}}) : capabilities());}
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
@@ -178,6 +200,20 @@ globalThis.fetch = async (url, init = {}) => {
     if(mode==="quote-seed-phrase"){const value=quote(intent);value.route.steps[0].seedPhrase="alpha beta gamma";return Response.json(value);}
     if(mode==="quote-signed-transaction"){const value=quote(intent);value.route.steps[0].signedTransaction="0xdead";return Response.json(value);}
     if(mode==="quote-signed-true"){const value=quote(intent);value.route.steps[0].signed=true;return Response.json(value);}
+    if(mode==="direct-summary-missing"){const value=quote(intent);delete value.direct_route_summary;return Response.json(value);}
+    if(mode==="direct-summary-extra"){const value=quote(intent);value.direct_route_summary.extra="forbidden";return Response.json(value);}
+    if(mode==="direct-summary-private"){const value=quote(intent);value.direct_route_summary.steps[0].private_key="forbidden";return Response.json(value);}
+    if(mode==="direct-summary-mode"){const value=quote(intent);value.direct_route_summary.mode="evil_mode";return Response.json(value);}
+    if(mode==="direct-summary-top-aggregator"){const value=quote(intent);value.direct_route_summary.route_aggregator_used=true;return Response.json(value);}
+    if(mode==="direct-summary-step-aggregator"){const value=quote(intent);value.direct_route_summary.steps[0].aggregator_api_used=true;return Response.json(value);}
+    if(mode==="direct-summary-known-wrong-provider"){const value=quote(intent);value.direct_route_summary.steps[0].provider="paxos_usdg_layerzero_oft";value.route.steps[0].provider="paxos_usdg_layerzero_oft";return Response.json(value);}
+    if(mode==="direct-summary-intent-input"){const value=quote(intent);value.intent.estimated_input_base+=1;return Response.json(value);}
+    if(mode==="direct-summary-risk-external"){const value=quote(intent);value.risk.external_intent_protocol_used=!value.risk.external_intent_protocol_used;return Response.json(value);}
+    if(mode==="direct-summary-fee-index"){const value=quote(intent);value.direct_route_summary.fee_collection_step_index=7;return Response.json(value);}
+    if(mode==="direct-summary-raw-extra"){const value=quote(intent);value.route.steps[0].unexpected="forbidden";return Response.json(value);}
+    if(mode==="direct-summary-across-false"){const value=quote(intent);value.direct_route_summary.classification="direct_protocol_only";value.direct_route_summary.external_intent_protocol_used=false;value.direct_route_summary.provider_internal_dex_aggregation_possible=false;return Response.json(value);}
+    if(mode==="direct-summary-intermediate-input"){const value=quote(intent);value.direct_route_summary.steps[1].expected_input_base=String(Number(value.direct_route_summary.steps[1].expected_input_base)+1);value.route.steps[1].expected_input_base+=1;return Response.json(value);}
+    if(mode==="direct-summary-fee-move"){const value=quote(intent),fee=value.direct_route_summary.fee_collection_step_index;value.direct_route_summary.steps[fee].assetfare_fee_bps=0;value.route.steps[fee].route_fee_bps=0;value.direct_route_summary.steps[0].assetfare_fee_bps=1;value.route.steps[0].route_fee_bps=1;value.direct_route_summary.fee_collection_step_index=0;value.offer.fee_collection_steps=[0];return Response.json(value);}
     if (mode === "missing-handoff") { const value = quote(intent); delete value.caller_action_plan_handoff; return Response.json(value); }
     if (mode === "null-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: null }));
     if (mode === "array-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: [] }));
@@ -246,7 +282,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.0.0");
+  assert.equal(card.serverInfo.version, "1.1.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -367,12 +403,15 @@ try {
   assert.equal(calls.length, beforeUncapped + 1, "uncapped quote did not reach upstream exactly once");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
     const result = await call(client, "assetfare_v2_quote", executableIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
+  }
+  for (const [failureMode,intent] of [["direct-summary-across-false",{from_chain:"base",from_token:"USDC",to_chain:"robinhood",to_token:"USDG",amount_usd:25}],["direct-summary-intermediate-input",{from_chain:"solana",from_token:"SOL",to_chain:"base",to_token:"ETH",amount_usd:25}],["direct-summary-fee-move",{from_chain:"solana",from_token:"SOL",to_chain:"base",to_token:"ETH",amount_usd:25}]]) {
+    mode=failureMode;const result=await call(client,"assetfare_v2_quote",intent);assert.equal(result.isError,true,`${failureMode} did not fail closed`);
   }
   // Rollback/transition: a Core that omits the v2 sibling (v1-only) must STILL quote successfully.
   mode = "rollback-core-no-v2";
@@ -392,9 +431,9 @@ try {
   assert.equal(feeReadiness.isError, true, "source-only fee_collectible_now:false was not rejected");
 
   mode = "success";
-  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
+  for (const failureMode of ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "wrong-direct-summary-contract", "wrong-direct-summary-scope", "unsafe-quote", "nested-signing", "oversized", "invalid-json", "wrong-content-type", "unsafe-error", "network"]) {
     mode = failureMode;
-    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent"].includes(failureMode);
+    const capabilityFailure = ["unsafe-capabilities", "wrong-source-only", "partial-current-availability", "fake-unavailable-route", "availability-status-inconsistent", "missing-direct-summary-contract", "wrong-direct-summary-contract", "wrong-direct-summary-scope"].includes(failureMode);
     const result = await call(client, capabilityFailure ? "assetfare_v2_capabilities" : "assetfare_v2_quote", capabilityFailure ? {} : validIntent);
     assert.equal(result.isError, true, `${failureMode} did not fail closed`);
     const value = parse(result);

@@ -1,8 +1,8 @@
 {
   "name": "assetfare-agentkit-action-provider",
   "version": "0.1.1",
-  "description": "Read-only AssetFare bridge and cross-chain swap quotes for Coinbase AgentKit across 6 chains and 76 routes",
-  "keywords": ["coinbase-agentkit", "agentkit", "bridge", "cross-chain", "usdc", "solana", "base", "ai-agents", "non-custodial"],
+  "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for Coinbase AgentKit",
+  "keywords": ["coinbase-agentkit", "agentkit", "bridge", "cross-chain", "direct-route", "usdc", "solana", "base", "ai-agents", "non-custodial"],
   "homepage": "https://assetfare.dev/agents/",
   "type": "module",
   "main": "dist/index.js",

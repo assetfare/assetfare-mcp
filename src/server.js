@@ -10,9 +10,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
+import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -69,8 +70,8 @@ const V2_BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact sepa
 const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every six-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
-const V2_CAPABILITIES_DESCRIPTION = "Read the current 76-route capability and live-availability matrix before quoting. Example: confirm solana:USDC->base:USDC is prepare-ready and server_signing/server_submission are false. Read-only; creates no wallet login, session, or action.";
-const V2_QUOTE_DESCRIPTION = "Get one fresh fee-inclusive quote and caller-operated unsigned-plan handoff. Example: representative from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=1000. USD 1 is reachability/schema smoke only. Native-USDC economic comparison starts at USD 50 based on dated 2026-09-23 evidence, not a guarantee AssetFare is cheapest. SOL input includes a swap. Always compare fresh candidates at the actual intended amount. Read-only; never authenticates, prepares, signs, or submits.";
+const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, and required direct_route_summary contract before quoting. Example: confirm solana:USDC->base:USDC is ready, ordered provider-path summaries are required, and signing/submission are false. Read-only; creates no wallet login, session, or action.";
+const V2_QUOTE_DESCRIPTION = "Get a fresh fee-inclusive quote plus direct_route_summary: ordered provider/from/to steps, base-unit bounds, and the AssetFare fee step. direct_protocol_only means disclosed direct protocols; external_intent marks Across Robinhood ingress, where provider-internal sourcing may occur. route_aggregator_used=false scopes only AssetFare's engine. Example: from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=1000. USD 1 is smoke-only; compare fresh at the intended amount. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
 const V2_PREPARE_DESCRIPTION = "Return the exact validated versioned Core bundle for the first caller-approved unsigned action after a fresh re-quote. Its payload_sha256 covers the Core bundle with only payload_sha256 omitted; the MCP adapter does not append fields to that hash scope. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved receipt-driven workflow and return its current unsigned action. Example: pass a locally generated 256-bit base64url session_token, public wallets, and idempotency_key='create-0001'. Use for multi-step execution, never alongside one-shot prepare; AssetFare never signs or submits.";
@@ -161,6 +162,7 @@ const v2CapabilitiesResponse = z.object({
   temporarily_unavailable_routes: z.array(z.string().min(1)).max(76).optional(),
   temporarily_unavailable_route_count: z.number().int().min(0).max(76).optional(),
   execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(76), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
+  direct_route_summary:z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(168),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
   phase_b_blocked_routes: z.literal(0),
   blocked_source_only_routes: z.array(z.never()).length(0),
   server_signing: z.literal(false),
@@ -174,6 +176,11 @@ const v2CostSummary = z.object({
 }).strict();
 const v2EtaShape={estimated_time_seconds:z.number().int().positive().nullable(),estimated_time_range_seconds:z.tuple([z.number().int().nonnegative(),z.number().int().positive()]).nullable(),complete_route_estimate:z.boolean(),sources:z.array(z.string().url()),note:z.string().min(1)};
 const v2Eta = z.object(v2EtaShape).strict().superRefine((value,context)=>{if(value.complete_route_estimate){if(value.estimated_time_seconds===null||value.estimated_time_range_seconds===null||value.estimated_time_range_seconds[0]>value.estimated_time_range_seconds[1]||value.estimated_time_range_seconds[1]!==value.estimated_time_seconds)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_complete_inconsistent"});}else if(value.estimated_time_seconds!==null||value.estimated_time_range_seconds!==null)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_incomplete_inconsistent"});});
+const v2DirectRouteProviders=["raydium_clmm","orca_whirlpool","uniswap_v3","circle_cctp","paxos_usdg_layerzero_oft","across_intent_bridge"];
+const v2DirectRouteModes=["cctp_direct_composition","optimism_source_cctp","polygon_source_cctp","robinhood_across_ingress_composition","robinhood_paxos_egress_composition","same_chain_direct","same_chain_direct_composition"];
+const v2EndpointNames=[...V2_ENDPOINTS],v2DestinationEndpointNames=v2EndpointNames.filter((value)=>!value.startsWith("polygon:")&&!value.startsWith("optimism:"));
+const v2DirectRouteStep=z.object({index:z.number().int().min(0).max(7),action:z.enum(["swap","bridge"]),provider:z.enum(v2DirectRouteProviders),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),expected_input_base:z.string().regex(/^[1-9][0-9]*$/),minimum_input_base:z.string().regex(/^[1-9][0-9]*$/),expected_output_base:z.string().regex(/^[1-9][0-9]*$/),minimum_output_base:z.string().regex(/^[1-9][0-9]*$/),assetfare_fee_bps:z.union([z.literal(0),z.literal(1)]),direct_protocol:z.boolean(),external_intent_protocol:z.boolean(),aggregator_api_used:z.literal(false)}).strict();
+const v2DirectRouteSummary=z.object({version:z.literal("assetfare-direct-route-summary-v1"),route:z.enum([...V2_ROUTE_NAMES]),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),classification:z.enum(["direct_protocol_only","external_intent"]),mode:z.enum(v2DirectRouteModes),route_aggregator_used:z.literal(false),external_intent_protocol_used:z.boolean(),provider_internal_dex_aggregation_possible:z.boolean(),assetfare_fee_bps:z.literal(1),fee_collection_step_index:z.number().int().min(0).max(7),server_signing:z.literal(false),server_submission:z.literal(false),step_count:z.number().int().min(1).max(8),steps:z.array(v2DirectRouteStep).min(1).max(8)}).strict();
 const v2QuoteResponse = z.object({
   quote_id: z.string().uuid(),
   status: z.literal("capped_public_agent_release"),
@@ -200,6 +207,7 @@ const v2QuoteResponse = z.object({
     server_signing: z.literal(false),
     server_submission: z.literal(false),
   }).passthrough(),
+  direct_route_summary: v2DirectRouteSummary,
   risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
   execution: z.object({
     supported: z.boolean(),
@@ -546,6 +554,8 @@ function parseV2Quote(payload, intent) {
   if (!value.eta) value.eta={estimated_time_seconds:value.offer.estimated_time_seconds,estimated_time_range_seconds:null,complete_route_estimate:false,sources:[],note:"Legacy-core fallback; full ETA provenance unavailable"};
   if (value.execution.supported !== true || value.execution.first_unsigned_action_supported !== true || ("blocker" in value.execution && value.execution.blocker !== null)) throw new Error("assetfare_v2_execution_boundary_failed");
   validateFee(value.offer, value.route.steps.length);
+  const directRouteSummary=validateDirectRouteSummary(value.direct_route_summary,value.route,value.risk,value.intent,value.offer);
+  if(canonicalJson(directRouteSummary)!==canonicalJson(value.direct_route_summary))throw new Error("assetfare_v2_direct_route_summary_invalid");
   validateHandoff(value.caller_action_plan_handoff);
   // Transition-safe: v1 is ALWAYS validated (exact old shape). The v2 sibling and its schema_version are strictly
   // coupled — both present (version===2, sibling a non-null object) or both absent (rollback Core still quotes).
@@ -813,4 +823,4 @@ async function main() {
 
 if (isMain(import.meta.url)) main().catch(() => process.exit(1));
 
-export { V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, provenanceFromHeaders, serverCard };
+export { DIRECT_ROUTE_CONTRACT_COUNTS, V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, provenanceFromHeaders, serverCard };

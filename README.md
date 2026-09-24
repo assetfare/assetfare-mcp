@@ -33,6 +33,16 @@ Verify before trusting: [public source](https://github.com/assetfare/assetfare-m
 [on-chain execution evidence](https://assetfare.dev/evidence/). Quotes are
 estimates; compare fresh executable route outputs.
 
+Every v2 quote includes `direct_route_summary`, an intent-bound ordered
+provider path with normalized `chain:asset` endpoints, exact base-unit amount
+bounds as decimal strings, the single AssetFare 1bp fee step, and
+server-signing/server-submission=false. `direct_protocol_only` means every step
+uses a disclosed direct protocol. `external_intent` marks Across for Robinhood
+ingress, where provider-internal liquidity sourcing may occur.
+`route_aggregator_used=false` describes AssetFare's own engine and does not
+claim every provider avoids internal aggregation. Circle/provider costs remain
+in `cost_summary.provider_fee_components`; network gas is in `unpriced_costs`.
+
 ### Independent agent verifier
 
 The dependency-free `assetfare-verify` CLI verifies evidence instead of
@@ -122,7 +132,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.0.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.1.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -170,7 +180,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.0.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.1.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
 ```
 
@@ -179,7 +189,7 @@ From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 For an explicit caller-approved quote → first unsigned-plan flow:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.0.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.1.0 assetfare-plan \
   --caller-approved \
   --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --amount 1000 \

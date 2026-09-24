@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
-import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin } from "./index.js";
+import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin, validateQuoteDirectRoute } from "./index.js";
+import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const message = { content: { text: "Compare a USD 1,000 route from Solana native USDC to Base native USDC", source: "test" } } as Memory;
 const state = { recentMessages: message.content.text } as unknown as State;
@@ -27,7 +28,7 @@ test("quote action sends five fields and never reads wallet settings", async () 
   let observed: { url: string; init?: RequestInit } | undefined;
   const plugin = createAssetFareElizaPlugin({ fetch: async (input, init) => {
     observed = { url: String(input), init };
-    return Response.json({ status: "capped_public_agent_release", execution: { supported: true }, risk: { server_signing: false, server_submission: false }, offer: { expected_receive_usd: 0.98 } });
+    return Response.json(solanaUsdcToBaseUsdcQuote());
   }});
   const runtime = new Proxy({
     composeState: async () => state,
@@ -47,11 +48,38 @@ test("quote action sends five fields and never reads wallet settings", async () 
   assert.equal(responses.length, 1);
   const guidance = (result?.data as { guidance?: Record<string, unknown> } | undefined)?.guidance;
   assert.equal(guidance?.oneDollarPurpose, "reachability_and_schema_smoke_only");
+  assert.equal(guidance?.directRouteSummaryVerified, true);
   assert.equal(guidance?.nativeUsdcComparisonStartUsd, 50);
   assert.equal(guidance?.representativeComparisonAmountUsd, 1000);
   assert.equal(guidance?.cheapestGuaranteed, false);
   assert.equal(guidance?.compareAtIntendedAmount, true);
   assert.equal(guidance?.solInputIncludesSwap, false);
+});
+
+test("direct route contract rejects provider, amount, fee, aggregator, and private-field hostiles", () => {
+  const mutations: Array<(quote: any) => void> = [
+    quote => { quote.direct_route_summary.steps[0].provider = "unknown_provider"; quote.route.steps[0].provider = "unknown_provider"; },
+    quote => { quote.direct_route_summary.steps[0].provider = "uniswap_v3"; quote.route.steps[0].provider = "uniswap_v3"; },
+    quote => { quote.direct_route_summary.steps[1].expected_input_base = "900001"; quote.route.steps[1].expected_input_base = 900001; },
+    quote => { quote.direct_route_summary.fee_collection_step_index = 0; },
+    quote => { quote.direct_route_summary.route_aggregator_used = true; },
+    quote => { quote.direct_route_summary.steps[0].aggregator_api_used = true; },
+    quote => { quote.direct_route_summary.private_key = "forbidden"; },
+  ];
+  assert.equal((validateQuoteDirectRoute(solanaSolToBaseUsdcQuote(), solToBaseIntent).direct_route_summary as any).fee_collection_step_index, 1);
+  for (const mutate of mutations) { const hostile = clone(solanaSolToBaseUsdcQuote()); mutate(hostile); assert.throws(() => validateQuoteDirectRoute(hostile, solToBaseIntent)); }
+});
+
+test("Across ingress is external_intent and cannot be relabeled false-direct", () => {
+  assert.equal((validateQuoteDirectRoute(acrossQuote(), acrossIntent).direct_route_summary as any).classification, "external_intent");
+  const hostile = clone(acrossQuote());
+  hostile.direct_route_summary.classification = "direct_protocol_only";
+  hostile.direct_route_summary.external_intent_protocol_used = false;
+  hostile.direct_route_summary.provider_internal_dex_aggregation_possible = false;
+  hostile.route.external_intent_protocol_used = false;
+  hostile.risk.external_intent_protocol_used = false;
+  hostile.risk.provider_internal_dex_aggregation_possible = false;
+  assert.throws(() => validateQuoteDirectRoute(hostile, acrossIntent));
 });
 
 test("quote action fails closed if server submission is enabled", async () => {

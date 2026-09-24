@@ -1,5 +1,6 @@
 import { ActionProvider, CreateAction, Network } from "@coinbase/agentkit";
 import { z } from "zod";
+import { validateQuoteDirectRoute } from "./directRouteSummary.js";
 import { AssetFareQuoteSchema } from "./schemas.js";
 
 const EmptySchema = z.object({}).strict();
@@ -73,11 +74,13 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
     name: "quote_route",
     description: `Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, including Solana to Base USDC and Polygon/Optimism native-USDC source-only routes.
 
+Every accepted result includes a fail-closed, intent-bound direct_route_summary: the ordered provider path, normalized chain:asset endpoints, continuous expected/minimum base-unit amounts, and the exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal liquidity sourcing. route_aggregator_used=false describes AssetFare's route engine only, not every provider's internals.
+
 This action is read-only: it does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Compare total token-path cost, expected and minimum receive, ETA, current availability, step count, source gas exclusions, and non-atomic risk against other fresh executable routes. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
     schema: AssetFareQuoteSchema,
   })
   async quoteRoute(args: z.infer<typeof AssetFareQuoteSchema>): Promise<string> {
-    const quote = await this.request("/v2/quote", {
+    const quoteRaw = await this.request("/v2/quote", {
       method: "POST",
       body: JSON.stringify({
         from_chain: args.fromChain,
@@ -87,22 +90,27 @@ This action is read-only: it does not authenticate a wallet, create a session, p
         amount_usd: args.amountUsd,
       }),
     });
-    const execution = quote.execution as JsonRecord | undefined;
-    const risk = quote.risk as JsonRecord | undefined;
-    if (
-      quote.status !== "capped_public_agent_release" ||
-      execution?.supported !== true ||
-      risk?.server_signing !== false ||
-      risk?.server_submission !== false
-    ) {
-      throw new Error("AssetFare quote is outside the public safety boundary");
+    let quote: JsonRecord;
+    try {
+      quote = validateQuoteDirectRoute(quoteRaw, args);
+    } catch (error) {
+      throw new Error("AssetFare quote is outside the public safety boundary", { cause: error });
     }
+    const summary = quote.direct_route_summary as JsonRecord;
     return JSON.stringify({
       success: true,
       quote,
       agent_guidance: {
         compare_with_other_routes: true,
         require_fresh_quote_before_selection: true,
+        direct_route_summary_verified: true,
+        ordered_provider_path_verified: true,
+        normalized_chain_asset_endpoints_verified: true,
+        amount_continuity_verified: true,
+        assetfare_fee_step_verified: true,
+        route_classification: summary.classification,
+        assetfare_engine_route_aggregator_used: false,
+        provider_internal_dex_aggregation_possible: summary.provider_internal_dex_aggregation_possible,
         wallet_authentication_performed: false,
         session_created: false,
         action_prepared: false,

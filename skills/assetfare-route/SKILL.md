@@ -51,6 +51,13 @@ preparation, signature, or submission authority.
 
 ## Safety boundary
 
+Every v2 quote must include a validated `direct_route_summary`. Show its
+ordered provider/from/to steps, normalized chain:asset endpoints, amount bounds,
+and AssetFare fee step before recommending the candidate. Treat
+`direct_protocol_only` as direct disclosed protocols; treat `external_intent`
+as Across Robinhood ingress where provider-internal liquidity sourcing may
+occur. `route_aggregator_used=false` describes only AssetFare's engine.
+
 - Never request, transmit, store, or fabricate a private key.
 - AssetFare never signs or submits transactions.
 - Every live route carries an AssetFare service fee of exactly 1bp, collected at

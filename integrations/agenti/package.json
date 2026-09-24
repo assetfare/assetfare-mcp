@@ -1,7 +1,7 @@
 {
   "name": "@assetfare/agenti-route-tools",
   "version": "0.2.0",
-  "description": "Read-only AssetFare route tools that compose with Agenti",
+  "description": "Read-only AssetFare route tools with a fail-closed, verified direct provider path for Agenti",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SolanaAgentKit } from "solana-agent-kit";
-import { AssetFareQuoteSchema, createAssetFarePlugin } from "./index.js";
+import { AssetFareQuoteSchema, createAssetFarePlugin, validateQuoteDirectRoute } from "./index.js";
+import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const inaccessibleAgent = new Proxy({}, {
   get() { throw new Error("read-only actions must not access the agent wallet"); },
@@ -30,12 +31,7 @@ test("quote posts exactly five public fields without reading the wallet", async 
   const plugin = createAssetFarePlugin({
     fetch: async (input, init) => {
       observed = { url: String(input), init };
-      return Response.json({
-        status: "capped_public_agent_release",
-        execution: { supported: true },
-        risk: { server_signing: false, server_submission: false },
-        offer: { expected_receive_usd: 0.98, estimated_min_receive_usd: 0.95 },
-      });
+      return Response.json(solanaUsdcToBaseUsdcQuote());
     },
   });
   const quote = plugin.actions[1];
@@ -45,12 +41,39 @@ test("quote posts exactly five public fields without reading the wallet", async 
   assert.deepEqual(JSON.parse(String(observed?.init?.body)), { from_chain: "solana", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 1000 });
   const guidance = result.agentGuidance as Record<string, unknown>;
   assert.equal(guidance.transactionSubmitted, false);
+  assert.equal(guidance.directRouteSummaryVerified, true);
   assert.equal(guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
   assert.equal(guidance.nativeUsdcComparisonStartUsd, 50);
   assert.equal(guidance.representativeComparisonAmountUsd, 1000);
   assert.equal(guidance.cheapestGuaranteed, false);
   assert.equal(guidance.compareAtIntendedAmount, true);
   assert.equal(guidance.solInputIncludesSwap, false);
+});
+
+test("direct route contract rejects provider, amount, fee, aggregator, and private-field hostiles", () => {
+  const mutations: Array<(quote: any) => void> = [
+    quote => { quote.direct_route_summary.steps[0].provider = "unknown_provider"; quote.route.steps[0].provider = "unknown_provider"; },
+    quote => { quote.direct_route_summary.steps[0].provider = "uniswap_v3"; quote.route.steps[0].provider = "uniswap_v3"; },
+    quote => { quote.direct_route_summary.steps[1].expected_input_base = "900001"; quote.route.steps[1].expected_input_base = 900001; },
+    quote => { quote.direct_route_summary.fee_collection_step_index = 0; },
+    quote => { quote.direct_route_summary.route_aggregator_used = true; },
+    quote => { quote.direct_route_summary.steps[0].aggregator_api_used = true; },
+    quote => { quote.direct_route_summary.private_key = "forbidden"; },
+  ];
+  assert.equal((validateQuoteDirectRoute(solanaSolToBaseUsdcQuote(), solToBaseIntent).direct_route_summary as any).fee_collection_step_index, 1);
+  for (const mutate of mutations) { const hostile = clone(solanaSolToBaseUsdcQuote()); mutate(hostile); assert.throws(() => validateQuoteDirectRoute(hostile, solToBaseIntent)); }
+});
+
+test("Across ingress is external_intent and cannot be relabeled false-direct", () => {
+  assert.equal((validateQuoteDirectRoute(acrossQuote(), acrossIntent).direct_route_summary as any).classification, "external_intent");
+  const hostile = clone(acrossQuote());
+  hostile.direct_route_summary.classification = "direct_protocol_only";
+  hostile.direct_route_summary.external_intent_protocol_used = false;
+  hostile.direct_route_summary.provider_internal_dex_aggregation_possible = false;
+  hostile.route.external_intent_protocol_used = false;
+  hostile.risk.external_intent_protocol_used = false;
+  hostile.risk.provider_internal_dex_aggregation_possible = false;
+  assert.throws(() => validateQuoteDirectRoute(hostile, acrossIntent));
 });
 
 test("capabilities fail closed if the server can submit", async () => {

@@ -1,5 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+
+export { validateQuoteDirectRoute } from "./directRouteSummary.js";
 
 type Fetch = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -49,13 +52,6 @@ const StatusSchema = z.object({
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
-const QuoteSchema = z.object({
-  status: z.literal("capped_public_agent_release"),
-  execution: z.object({ supported: z.literal(true) }).passthrough(),
-  risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).passthrough(),
-  offer: z.record(z.unknown()),
-}).passthrough();
-
 export interface AssetFareToolsConfig {
   apiBaseUrl?: string;
   fetch?: Fetch;
@@ -120,7 +116,7 @@ export function createAssetFareClient(config: AssetFareToolsConfig = {}) {
         }),
       });
       try {
-        return QuoteSchema.parse(quoteRaw);
+        return validateQuoteDirectRoute(quoteRaw, input);
       } catch (error) {
         throw new Error("AssetFare quote is outside the public safety boundary", { cause: error });
       }
@@ -137,21 +133,33 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes and stop. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes and stop. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal sourcing. route_aggregator_used=false applies only to AssetFare's engine. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       inputSchema: AssetFareQuoteSchema,
-      execute: async (input) => ({
-        success: true,
-        quote: await client.quote(input),
-        guidance: {
+      execute: async (input) => {
+        const quote = await client.quote(input);
+        const summary = quote.direct_route_summary as JsonRecord;
+        return {
+          success: true,
+          quote,
+          guidance: {
           compareWithOtherRoutes: true,
           requoteBeforeSelection: true,
+          directRouteSummaryVerified: true,
+          orderedProviderPathVerified: true,
+          normalizedChainAssetEndpointsVerified: true,
+          amountContinuityVerified: true,
+          assetfareFeeStepVerified: true,
+          routeClassification: summary.classification,
+          assetfareEngineRouteAggregatorUsed: false,
+          providerInternalDexAggregationPossible: summary.provider_internal_dex_aggregation_possible,
           walletAccessed: false,
           sessionCreated: false,
           actionPrepared: false,
           transactionSigned: false,
           transactionSubmitted: false,
-        },
-      }),
+          },
+        };
+      },
     }),
   };
 }

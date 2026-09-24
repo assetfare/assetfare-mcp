@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["odaiin"],
   "name": "AssetFare USDC Bridge",
-  "description": "Non-custodial bridge and cross-chain swap quotes for AI agents across six chains and 76 routes, including Solana to Base USDC. Returns caller-approved unsigned actions; never receives private keys, signs, or submits.",
+  "description": "Non-custodial bridge quotes across six chains and 76 routes. Every quote shows a validated ordered provider path, direct versus Across external-intent classification, exact fee step, and no-sign/no-submit flags.",
   "repository": "https://github.com/assetfare/assetfare-mcp",
   "homepage": "https://assetfare.dev/agents/",
   "license": "MIT",

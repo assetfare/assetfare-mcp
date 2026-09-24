@@ -10,6 +10,9 @@ import {
   type State,
 } from "@elizaos/core";
 import { z } from "zod";
+import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+
+export { validateQuoteDirectRoute } from "./directRouteSummary.js";
 
 type Fetch = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -58,13 +61,6 @@ const StatusSchema = z.object({
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).loose();
-const QuoteSchema = z.object({
-  status: z.literal("capped_public_agent_release"),
-  execution: z.object({ supported: z.literal(true) }).loose(),
-  risk: z.object({ server_signing: z.literal(false), server_submission: z.literal(false) }).loose(),
-  offer: z.record(z.string(), z.unknown()),
-}).loose();
-
 const intentJsonSchema = {
   type: "object",
   properties: {
@@ -157,7 +153,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. USD 1 is reachability/schema smoke only. Start native-USDC economic comparison at USD 50 based on dated 2026-09-23 evidence, without assuming AssetFare is cheapest. USD 1,000 is the primary representative amount; SOL input includes a swap. Always compare fresh candidates at the actual intended amount, including total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal sourcing. route_aggregator_used=false applies only to AssetFare's engine. USD 1 is reachability/schema smoke only. Start native-USDC economic comparison at USD 50 based on dated 2026-09-23 evidence, without assuming AssetFare is cheapest. USD 1,000 is the primary representative amount; SOL input includes a swap. Always compare fresh candidates at the actual intended amount, including total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {
@@ -175,12 +171,26 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
             amount_usd: input.amountUsd,
           }),
         });
-        const quote = QuoteSchema.parse(quoteRaw);
+        let quote: JsonRecord;
+        try {
+          quote = validateQuoteDirectRoute(quoteRaw, input);
+        } catch (error) {
+          throw new Error("AssetFare quote is outside the public safety boundary", { cause: error });
+        }
+        const summary = quote.direct_route_summary as JsonRecord;
         const data = {
           quote,
           guidance: {
             compareWithOtherRoutes: true,
             requoteBeforeSelection: true,
+            directRouteSummaryVerified: true,
+            orderedProviderPathVerified: true,
+            normalizedChainAssetEndpointsVerified: true,
+            amountContinuityVerified: true,
+            assetfareFeeStepVerified: true,
+            routeClassification: summary.classification,
+            assetfareEngineRouteAggregatorUsed: false,
+            providerInternalDexAggregationPossible: summary.provider_internal_dex_aggregation_possible,
             compareAtIntendedAmount: true,
             oneDollarPurpose: "reachability_and_schema_smoke_only",
             nativeUsdcComparisonStartUsd: 50,
