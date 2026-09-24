@@ -46,6 +46,14 @@ assert.equal(plugin.license, "MIT");
 assert.equal(plugin.author?.email, "support@assetfare.dev");
 assert.match(plugin.description, /never signs or submits transactions/i);
 assert.doesNotMatch(plugin.description, /^read-only/i);
+for (const keyword of [
+  "agent-wallet-funding",
+  "payment-wallet-funding",
+  "x402-wallet-funding",
+]) {
+  assert.ok(plugin.keywords.includes(keyword));
+  assert.ok(packageMetadata.keywords.includes(keyword));
+}
 
 assert.equal(
   mcp.$schema,
@@ -69,6 +77,13 @@ assert.deepEqual(compatibilityMcp.mcpServers.assetfare, {
 });
 
 assert.match(skill, /^name:\s*assetfare-route\s*$/m);
+assert.match(skill, /agent or x402 payment wallet/i);
+assert.match(skill, /does not inspect balances/i);
+assert.match(
+  skill,
+  /does not inspect balances[\s\S]{0,80}automatically react to an x402 `402 Payment Required`/i,
+);
+assert.match(skill, /when the wallet is already funded on an accepted\s+payment rail/i);
 assert.match(readme, /npx plugins add assetfare\/assetfare-mcp/);
 assert.match(readme, /primary remote endpoint\s+exposes nine current v2 tools/i);
 assert.match(

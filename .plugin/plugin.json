@@ -12,6 +12,9 @@
   "license": "MIT",
   "keywords": [
     "ai-agents",
+    "agent-wallet-funding",
+    "payment-wallet-funding",
+    "x402-wallet-funding",
     "route-quotes",
     "cross-chain",
     "cross-chain-swap",

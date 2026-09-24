@@ -21,7 +21,7 @@ const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
 const SOURCE_ONLY_ROUTES = ["optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
-const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "mcp", "a2a", "openapi", "non-custodial"];
+const EXPECTED_KEYWORDS = ["ai-agents", "agent-wallet-funding", "payment-wallet-funding", "x402-wallet-funding", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "mcp", "a2a", "openapi", "non-custodial"];
 const BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
 const BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
 function canonical(value) {

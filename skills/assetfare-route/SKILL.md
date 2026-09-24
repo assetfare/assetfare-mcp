@@ -1,6 +1,6 @@
 ---
 name: assetfare-route
-description: Use for agent-native, non-custodial native-USDC bridge and cross-chain routes across six chains and 76 directed routes (1bp service fee plus Circle/provider/network fees), led by Solana native USDC to Base native USDC. Returns quotes and caller-approved unsigned plans; never signs or submits.
+description: Use for agent-native, non-custodial native-USDC bridge and cross-chain routes across six chains and 76 directed routes, including read-only funding quotes when an agent or x402 payment wallet has spendable funds on another supported chain. The 1bp service fee is additional to Circle/provider/network fees. Returns unranked quotes and caller-approved unsigned plans; never checks balances, signs, or submits.
 ---
 
 # AssetFare Route
@@ -12,6 +12,10 @@ Use REST/OpenAPI v2 at `https://api.assetfare.dev/v2/openapi.json` as the primar
 Request one fresh AssetFare quote when all of these are true:
 
 - The intent is a swap or bridge between different live AssetFare endpoints.
+- Or the caller explicitly wants to fund an agent/payment wallet with native
+  USDC on a supported destination and already knows the spendable source chain,
+  asset, target chain, and intended amount. AssetFare does not inspect balances
+  or automatically react to an x402 `402 Payment Required` response.
 - The route amount is finite and at least $1. The adapter imposes no maximum;
   live upstream availability and liquidity still apply.
 - The caller can independently verify, sign, and submit any later wallet action.
@@ -25,7 +29,10 @@ Arbitrum USDC and use the same caller-approved prepare/session boundary. The unv
 legacy MCP workflow remains limited to two original Solana-origin corridors.
 
 Do not request an AssetFare quote for an unsupported chain or asset, an identity
-route, an amount below $1 or a non-finite amount, or a custodial execution request. A quote
+route, an amount below $1 or a non-finite amount, or a custodial execution request.
+Do not request one merely because a payment wallet is empty when no spendable
+source asset is known, or when the wallet is already funded on an accepted
+payment rail. A quote
 is only a candidate-comparison input: it grants no wallet access, action
 preparation, signature, or submission authority.
 
