@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createPublicKey, verify } from "node:crypto";
+import { isMain } from "../src/is-main.js";
 
 const DEFAULTS = {
   amount: 1000,
@@ -299,7 +300,7 @@ async function main() {
   console.log(JSON.stringify(output, null, argv.includes("--compact") ? 0 : 2));
 }
 
-main().catch((error) => {
+if (isMain(import.meta.url)) main().catch((error) => {
   console.error(JSON.stringify({ status: "error", error: error instanceof Error ? error.message : "unknown error" }));
   process.exitCode = 1;
 });

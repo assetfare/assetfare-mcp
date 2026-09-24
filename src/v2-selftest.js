@@ -38,10 +38,10 @@ const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", impor
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.20");
-assert.equal(lockMetadata.version, "0.4.20");
-assert.equal(lockMetadata.packages[""].version, "0.4.20");
-assert.equal(registryMetadata.version, "0.4.20");
+assert.equal(packageMetadata.version, "0.4.21");
+assert.equal(lockMetadata.version, "0.4.21");
+assert.equal(lockMetadata.packages[""].version, "0.4.21");
+assert.equal(registryMetadata.version, "0.4.21");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -243,7 +243,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "0.4.20");
+  assert.equal(card.serverInfo.version, "0.4.21");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

@@ -2,7 +2,7 @@
 
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { isMain } from "../src/is-main.js";
 
 const MANIFEST_URL = "https://api.assetfare.dev/.well-known/assetfare-manifest.json";
 const BUNDLE_URL = "https://api.assetfare.dev/.well-known/assetfare-safety.json";
@@ -594,4 +594,4 @@ export {
   verifyRpcQuorum,
 };
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();
+if (isMain(import.meta.url)) await main();

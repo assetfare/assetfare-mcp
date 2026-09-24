@@ -2,7 +2,6 @@
 import express from "express";
 import { isIP } from "node:net";
 import { createHash, randomBytes } from "node:crypto";
-import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -11,8 +10,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
+import { isMain } from "./is-main.js";
 
-const VERSION = "0.4.20";
+const VERSION = "0.4.21";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -799,6 +799,10 @@ async function serveHttp() {
 }
 
 async function main() {
+  if (process.argv.slice(2).includes("--help")) {
+    process.stdout.write("AssetFare MCP server\n\nUsage:\n  assetfare-mcp [--help]\n\nConfigure HTTP or stdio transport with the documented ASSETFARE_MCP_* environment variables.\n");
+    return;
+  }
   if (process.env.ASSETFARE_MCP_TRANSPORT === "stdio") {
     const server = createServer({}, "all");
     await server.connect(new StdioServerTransport());
@@ -807,6 +811,6 @@ async function main() {
   await serveHttp();
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(() => process.exit(1));
+if (isMain(import.meta.url)) main().catch(() => process.exit(1));
 
 export { V2_API_BASE, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, a2aVersionGuard, allowedHost, createHttpApp, createServer, normalizeA2AVersion, parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote, provenanceFromHeaders, serverCard };

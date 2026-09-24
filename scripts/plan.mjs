@@ -2,7 +2,7 @@
 /** Caller-approved quote -> first unsigned plan. Never signs or submits. */
 
 import { createHash } from "node:crypto";
-import { pathToFileURL } from "node:url";
+import { isMain } from "../src/is-main.js";
 import { parseV2Bundle, parseV2Capabilities, parseV2Intent, parseV2Quote } from "../src/server.js";
 
 const DEFAULT_API_BASE = "https://api.assetfare.dev";
@@ -219,6 +219,6 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
+if(isMain(import.meta.url))runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
 
 export { canonical, parseArgs, runPlan, sha256, usage, verifyPlanBundle };
