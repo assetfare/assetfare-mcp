@@ -9,6 +9,18 @@ const DEFAULT_API_BASE = "https://api.assetfare.dev";
 const MAX_RESPONSE_BYTES = 1_048_576;
 const TIMEOUT_MS = 45_000;
 const CHAINS = new Set(["solana","base","arbitrum","robinhood","polygon","optimism"]);
+const SELECTORS={approve:"0x095ea7b3",swapNative:"0xc6fa57fb",swapStable:"0xfee8180b",bridgeUsdc:"0xa17f6982",bridgeUsdg:"0xedf202ce",across:"0xad5425c6"};
+const PROGRAMS={system:"11111111111111111111111111111111",compute:"ComputeBudget111111111111111111111111111111",token:"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",token2022:"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",ata:"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",memo:"MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",cctp:"CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",raydium:"CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",orca:"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",paxos:"paxosVkYuJBKUQoZGAidRA47Qt4uidqG5fAt5kmr1nR"};
+const PINS={
+  base:{chain_id:8453,USDC:"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",swap:"0x5F18acc45792e1A7C67A12b7E5186bc3CF88aCB0",cctp:"0x3671647267E8b1b66ef03A219CdFcC7E2C5ca998",domain:6},
+  arbitrum:{chain_id:42161,USDC:"0xaf88d065e77c8cC2239327C5EDb3A432268e5831",swap:"0x7F565f732F4e4F43f2ed66f7cb5536dD5F353B2a",cctp:"0xDefDd6444Bb1eBCF7c269158A9aF4251D94eB8E0",domain:3},
+  robinhood:{chain_id:4663,USDG:"0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",swap:"0x3d5E2AdE64f7f317b113fea18317BA7f05fe3912",usdgOft:"0x0879976eC6F84cF8551Ff66f61A54CEBfd7c2b53"},
+  polygon:{chain_id:137,USDC:"0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",cctp:"0xDFBDAC5fdb3587c9Fb0b8d939cF990873E1d5e85",domain:7},
+  optimism:{chain_id:10,USDC:"0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",cctp:"0xbff0Ac1Bd5A41144afEAeA2592415dD66E662eaD",domain:2},
+  solana:{chain_id:"mainnet-beta",USDC:"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",USDG:"2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",feeRecipient:"J98ACstZN41f5k79ccceXHn1mDD2SPg5UwnWW2pgSVfu",domain:5},
+};
+const EVM_FEE_RECIPIENT="0x8b01BCD3f4D832c1ab27dD4abb04B4F216E27409";
+const ACROSS={base:{pool:"0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64",token:PINS.base.USDC},arbitrum:{pool:"0xe35e9842fceaCA96570B734083f4a58e8F7C5f2A",token:PINS.arbitrum.USDC}};
 
 function usage() {
   return `Usage:
@@ -20,9 +32,10 @@ function usage() {
 
 Returns one freshly requoted unsigned first-action bundle after verifying its
 ActionSafetyReceiptV1, raw/action/bundle SHA-256 bindings, intent, fee formula,
-and no-sign/no-submit flags. It never accepts a private key, signs, submits, or
-moves funds. Solana CCTP callers generate and retain the event-signer keypair
-outside AssetFare and pass only its public key.
+and no-sign/no-submit flags. It defines no private-key input and never signs,
+submits, or moves funds. A base58 string cannot prove whether a caller
+mislabeled secret material: Solana CCTP callers must generate and retain the
+event-signer keypair outside AssetFare and pass only its public key.
 `;
 }
 
@@ -66,10 +79,11 @@ function withoutKey(value,key){const result=structuredClone(value);delete result
 function hasSubjectiveSafetyKey(value){if(Array.isArray(value))return value.some(hasSubjectiveSafetyKey);if(value&&typeof value==="object")return Object.entries(value).some(([key,item])=>["safe","is_safe"].includes(key.toLowerCase())||hasSubjectiveSafetyKey(item));return false;}
 
 function rawActionRows(action){
-  if(Array.isArray(action.transactions))return action.transactions;
-  if(action.transaction&&typeof action.transaction==="object")return [action.transaction];
-  if(Array.isArray(action.instructions))return action.instructions;
-  if(action.instruction&&typeof action.instruction==="object")return [action.instruction];
+  const transactions=Array.isArray(action.transactions)?action.transactions:action.transaction&&typeof action.transaction==="object"?[action.transaction]:null;
+  const instructions=Array.isArray(action.instructions)?action.instructions:action.instruction&&typeof action.instruction==="object"?[action.instruction]:null;
+  if(transactions&&instructions)throw new Error("assetfare_plan_mixed_action_families");
+  if(transactions){if(!transactions.length||transactions.length>4||transactions.some((row)=>!row||typeof row!=="object"||Array.isArray(row)))throw new Error("assetfare_plan_transactions_invalid");return transactions;}
+  if(instructions){if(!instructions.length||instructions.length>32||instructions.some((row)=>!row||typeof row!=="object"||Array.isArray(row)))throw new Error("assetfare_plan_instructions_invalid");return instructions;}
   throw new Error("assetfare_plan_raw_action_missing");
 }
 
@@ -88,38 +102,96 @@ function rawDataBytes(row,kind){
   return Buffer.from(data,"base64");
 }
 
+function integer(value,label,minimum=0){if(typeof value==="boolean"||value===null||value===undefined||!/^\d+$/.test(String(value)))throw new Error(`assetfare_plan_${label}_invalid`);const parsed=BigInt(String(value));if(parsed<BigInt(minimum))throw new Error(`assetfare_plan_${label}_invalid`);return parsed;}
+function dataWord(data,index){if(!/^0x(?:[0-9a-fA-F]{2})*$/.test(data)||data.length<10+64*(index+1))throw new Error("assetfare_plan_calldata_invalid");return data.slice(10+64*index,10+64*(index+1)).toLowerCase();}
+function dataUint(data,index){return BigInt(`0x${dataWord(data,index)}`);}
+function dataAddress(data,index){return `0x${dataWord(data,index).slice(-40)}`;}
+function dataBytes32(data,index){return `0x${dataWord(data,index)}`;}
+function exactStringSet(actual,expected){return Array.isArray(actual)&&actual.length===expected.length&&new Set(actual).size===actual.length&&[...actual].sort().every((value,index)=>value===[...expected].sort()[index]);}
+function actionInput(action){for(const key of ["inputAmount","inputLamports","inputUsdcBase"])if(action[key]!==undefined)return integer(action[key],"input_amount",1);throw new Error("assetfare_plan_input_amount_missing");}
+function actionMinimum(action){for(const key of ["minimumOutput","minimumOutputAmount","minimumUsdcBase","minimumSolLamports"])if(action[key]!==undefined)return integer(action[key],"minimum_output",1);throw new Error("assetfare_plan_minimum_output_missing");}
+function actionDeadline(action){for(const key of ["deadline","fillDeadline"])if(action[key]!==undefined&&action[key]!==null)return integer(action[key],"deadline",1);return null;}
+function stepScope(step){if(step.chain)return {sourceChain:step.chain,destinationChain:step.chain,sourceToken:step.from,destinationToken:step.to};return {sourceChain:step.from,destinationChain:step.to,sourceToken:step.from_asset||step.asset,destinationToken:step.to_asset||step.asset};}
+function expectedToken(chain,symbol){if(["ETH","SOL"].includes(symbol))return `native:${symbol}`;const value=PINS[chain]?.[symbol];if(!value)throw new Error("assetfare_plan_token_pin_missing");return value;}
+function actionKind(provider,family){if(provider==="circle_cctp")return `${family}_cctp`;if(provider==="paxos_usdg_layerzero_oft")return `${family}_layerzero`;if(provider==="across_intent_bridge"&&family==="evm")return "evm_across";if(["uniswap_v3","raydium_clmm","orca_whirlpool"].includes(provider))return `${family}_dex`;throw new Error("assetfare_plan_provider_invalid");}
+function actionCaller(action,rows,family){for(const key of ["sender","owner","sourceWallet","feePayer"])if(typeof action[key]==="string"&&action[key])return action[key];const signers=action.requiredSigners||action.signers;if(Array.isArray(signers)&&typeof signers[0]==="string")return signers[0];if(family==="evm")return String(rows[0]?.from||"");throw new Error("assetfare_plan_caller_missing");}
+function actionFeeAmount(action){for(const key of ["routeFeeStable","routeFeeInput","routeFeeUsdcBase","assetfareFeeBase","routeFee"])if(action[key]!==undefined&&action[key]!==null)return integer(action[key],"fee_amount");return null;}
+
 function verifyPlanBundle(bundle,intent,nowMs=Date.now()){
   parseV2Bundle(bundle);
   const checks=[];const check=(condition,label)=>{if(!condition)throw new Error(`assetfare_plan_verification_failed:${label}`);checks.push(label);};
   check(bundle.payload_sha256===sha256(withoutKey(bundle,"payload_sha256")),"bundle_payload_sha256");
-  check(Date.parse(bundle.expires_at)>nowMs,"bundle_not_expired");
+  const expires=Date.parse(bundle.expires_at),prepared=Date.parse(bundle.prepared_at);check(Number.isFinite(expires)&&expires>nowMs&&expires<=nowMs+120_000,"bundle_fresh_expiry");
+  check(Number.isFinite(prepared)&&prepared<=nowMs+5_000&&prepared>=nowMs-120_000&&expires>=prepared&&expires-prepared<=120_000,"bundle_prepared_at");
   const action=bundle.unsigned_action,receipt=action?.safety_receipt;
   check(receipt?.schema==="https://assetfare.dev/schemas/action-safety-receipt-v1"&&receipt?.schema_version===1,"receipt_version");
   check(receipt?.generation==="decoded_built_action_only"&&!hasSubjectiveSafetyKey(receipt),"receipt_objective_only");
   check(receipt?.custody?.server_signing===false&&receipt?.custody?.server_submission===false,"receipt_noncustodial");
-  check(action.signed===false&&action.submitted===false,"action_unsigned_unsubmitted");
-  check(receipt.network?.source_chain===intent.from_chain&&receipt.network?.destination_chain===intent.to_chain,"receipt_route");
-  check(receipt.spend?.token?.symbol===intent.from_token&&typeof receipt.spend?.token?.address_or_mint==="string"&&receipt.spend.token.address_or_mint.length>0,"receipt_spend_asset");
-  check(receipt.receive?.token?.symbol===intent.to_token&&typeof receipt.receive?.token?.address_or_mint==="string"&&receipt.receive.token.address_or_mint.length>0,"receipt_receive_asset");
-  check(receipt.spend?.exact_amount_base===receipt.spend?.maximum_amount_base&&/^[0-9]+$/.test(receipt.spend?.exact_amount_base||"")&&BigInt(receipt.spend.exact_amount_base)>0n,"receipt_exact_spend");
-  check(/^[0-9]+$/.test(receipt.receive?.minimum_amount_base||"")&&BigInt(receipt.receive.minimum_amount_base)>0n,"receipt_minimum_receive");
-  check(sameParty(receipt.parties?.caller,intent.wallets[intent.from_chain]),"receipt_caller_wallet");
-  check(sameParty(receipt.destination?.recipient,intent.wallets[intent.to_chain]),"receipt_destination_wallet");
-  const fee=receipt.assetfare_service_fee;check(fee?.bps===1&&fee?.formula==="floor(fee_basis_base * bps / 10000)"&&typeof fee?.recipient==="string"&&fee.recipient.length>0,"receipt_fee_policy");
-  if(fee.basis?.amount_base!==null&&fee.exact_amount_base!==null){check(BigInt(fee.exact_amount_base)===BigInt(fee.basis.amount_base)/10000n,"receipt_fee_formula");}
-  check(Array.isArray(receipt.target_or_program_allowlist)&&receipt.target_or_program_allowlist.length>0&&Array.isArray(receipt.selector_or_instruction_allowlist)&&receipt.selector_or_instruction_allowlist.length>0,"receipt_allowlists");
+  check(action.signed===false&&action.submitted===false&&action.aggregatorApiUsed===false&&action.serverSigning!==true&&action.serverSubmission!==true,"action_unsigned_unsubmitted");
+  check(bundle.route===`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`&&bundle.workflow?.route===bundle.route,"bundle_route");
+  check(bundle.workflow?.workflow_id===bundle.workflow_id&&bundle.workflow?.current_step===bundle.step_index&&Array.isArray(bundle.workflow?.steps),"workflow_binding");
+  check(canonical(bundle.workflow?.wallets)===canonical(intent.wallets),"workflow_wallets");
+  const step=bundle.workflow.steps[bundle.step_index];check(step&&typeof step==="object","workflow_step");const scope=stepScope(step);
+  check(receipt.network?.source_chain===scope.sourceChain&&receipt.network?.destination_chain===scope.destinationChain,"receipt_step_route");
+  check(receipt.spend?.token?.symbol===scope.sourceToken&&sameParty(receipt.spend?.token?.address_or_mint,expectedToken(scope.sourceChain,scope.sourceToken)),"receipt_spend_asset");
+  check(receipt.receive?.token?.symbol===scope.destinationToken&&sameParty(receipt.receive?.token?.address_or_mint,expectedToken(scope.destinationChain,scope.destinationToken)),"receipt_receive_asset");
+  const rows=rawActionRows(action),family=rows[0]?.chainId!==undefined?"evm":"solana",caller=actionCaller(action,rows,family),inputAmount=actionInput(action),minimumOutput=actionMinimum(action);
+  check(receipt.action?.kind===actionKind(step.provider,family)&&receipt.action?.provider===step.provider,"receipt_action_kind");
+  check(sameParty(caller,step.caller_wallet)&&sameParty(receipt.parties?.caller,caller)&&sameParty(receipt.parties?.fee_payer,action.feePayer||caller),"receipt_caller_wallet");
+  check(inputAmount===integer(step.actual_input_base,"workflow_input",1)&&minimumOutput>=integer(step.minimum_output_base,"workflow_minimum",1),"workflow_amounts");
+  check(receipt.spend?.exact_amount_base===String(inputAmount)&&receipt.spend?.maximum_amount_base===String(inputAmount),"receipt_exact_spend");
+  check(receipt.receive?.minimum_amount_base===String(minimumOutput),"receipt_minimum_receive");
   check(receipt.timing?.bundle_expires_at===bundle.expires_at,"receipt_expiry_binding");
+  const deadline=actionDeadline(action);if(deadline!==null){const nowSeconds=BigInt(Math.floor(nowMs/1000));check(deadline>=nowSeconds-5n&&deadline<=nowSeconds+600n,"action_deadline_fresh");}
   check(receipt.risks?.caller_verification_required===true,"receipt_caller_verification");
   check(receipt.payload_binding?.canonicalization==="UTF-8 JSON sorted keys compact separators; omit safety_receipt","receipt_canonicalization");
   check(receipt.payload_binding?.action_sha256===sha256(withoutKey(action,"safety_receipt")),"receipt_action_sha256");
-  const rows=rawActionRows(action),bindings=receipt.payload_binding?.raw_payloads;check(Array.isArray(bindings)&&bindings.length===rows.length,"receipt_raw_count");
-  for(const binding of bindings){const row=rows[binding.index];check(Boolean(row)&&binding.raw_sha256===sha256(row),`receipt_raw_${binding.index}`);check(binding.data_sha256===sha256(rawDataBytes(row,binding.kind)),`receipt_data_${binding.index}`);}
-  return {verified:true,checks,simulation_performed:false,simulation_note:"Simulate the returned unsigned action with the caller's wallet/RPC immediately before signing."};
+  const bindings=receipt.payload_binding?.raw_payloads;check(Array.isArray(bindings)&&bindings.length===rows.length&&bindings.map((row)=>row.index).sort((a,b)=>a-b).every((value,index)=>value===index),"receipt_raw_coverage");
+  const targets=[],calls=[],nativeValues=[];
+  for(const binding of bindings){const row=rows[binding.index],kind=family==="evm"?"evm_transaction":"solana_instruction";check(binding.kind===kind&&binding.raw_sha256===sha256(row),`receipt_raw_${binding.index}`);const bytes=rawDataBytes(row,kind);check(binding.data_sha256===sha256(bytes),`receipt_data_${binding.index}`);
+    if(family==="evm"){
+      check(Number(row.chainId)===PINS[scope.sourceChain]?.chain_id&&sameParty(row.from,caller)&&/^0x[0-9a-fA-F]{40}$/.test(String(row.to||"")),`evm_party_chain_${binding.index}`);
+      const selector=String(row.data).slice(0,10).toLowerCase(),value=integer(row.value??0,"native_value");targets.push(row.to);calls.push(selector);nativeValues.push(value);
+      check(binding.chain_id===Number(row.chainId)&&sameParty(binding.target,row.to)&&binding.selector===selector&&binding.native_value_base===String(value),`receipt_evm_row_${binding.index}`);
+    }else{
+      check(typeof row.programId==="string"&&Array.isArray(row.keys)&&row.keys.every((key)=>typeof key.pubkey==="string"&&typeof key.isSigner==="boolean"&&typeof key.isWritable==="boolean"),`solana_row_${binding.index}`);
+      const prefix=bytes.subarray(0,8).toString("hex"),call=`${row.instruction_type?`${row.instruction_type}@`:""}${row.programId}:${prefix}`;targets.push(row.programId);calls.push(call);
+      check(binding.program_id===row.programId&&binding.data_prefix_hex===prefix&&(binding.instruction_type??null)===(row.instruction_type??null),`receipt_solana_row_${binding.index}`);
+    }
+  }
+  check(exactStringSet(receipt.target_or_program_allowlist,[...new Set(targets)])&&exactStringSet(receipt.selector_or_instruction_allowlist,[...new Set(calls)]),"receipt_allowlists");
+  let derivedApproval={required:false,token:null,target:null,exact_allowance_base:null},destinationRecipient=action.recipient??null,destinationDomain=action.destinationDomain??null;
+  if(family==="evm"){
+    const approvals=rows.map((row,index)=>[row,index]).filter(([row])=>String(row.data).slice(0,10).toLowerCase()===SELECTORS.approve);check(approvals.length<=1,"approval_count");
+    if(approvals.length){const [row,index]=approvals[0],spender=dataAddress(row.data,0),amount=dataUint(row.data,1);check(amount===inputAmount,"approval_amount");derivedApproval={required:true,token:row.to,target:spender,exact_allowance_base:String(amount),transaction_index:index};}
+    check(canonical(receipt.approval)===canonical(derivedApproval),"receipt_approval");
+    const values=nativeValues.map(String),maximum=nativeValues.reduce((a,b)=>a>b?a:b,0n);check(canonical(receipt.native_value_cap)===canonical({maximum_base:String(maximum),unit:"wei",per_transaction_base:values}),"receipt_native_value_cap");
+    const selectors=calls,main=rows.at(-1),data=main.data,pin=PINS[scope.sourceChain];
+    if(receipt.action.kind==="evm_dex"){
+      const direction=String(action.direction||""),expected=direction==="native_to_stable"?[SELECTORS.swapNative]:direction==="stable_to_native"?[SELECTORS.approve,SELECTORS.swapStable]:[];check(canonical(selectors)===canonical(expected)&&sameParty(action.executor,pin?.swap)&&sameParty(main.to,action.executor),"evm_swap_target");check(sameParty(dataAddress(data,0),action.recipient),"evm_swap_recipient");
+      if(direction==="native_to_stable"){check(integer(main.value??0,"native_value")===inputAmount&&!derivedApproval.required,"evm_swap_native_value");check(dataUint(data,2)===BigInt(action.routeFeeBps)&&dataUint(data,3)===minimumOutput&&dataUint(data,4)===deadline,"evm_swap_arguments");}
+      else{check(integer(main.value??0,"native_value")===0n&&derivedApproval.required&&sameParty(derivedApproval.token,pin?.USDC)&&sameParty(derivedApproval.target,action.executor)&&dataUint(data,1)===inputAmount,"evm_swap_stable_input");check(dataUint(data,3)===BigInt(action.routeFeeBps)&&dataUint(data,4)===minimumOutput&&dataUint(data,5)===deadline,"evm_swap_arguments");}
+    }else if(receipt.action.kind==="evm_cctp"){
+      check(canonical(selectors)===canonical([SELECTORS.approve,SELECTORS.bridgeUsdc])&&derivedApproval.required&&sameParty(action.executor,pin?.cctp)&&sameParty(main.to,action.executor)&&sameParty(derivedApproval.token,pin?.USDC)&&sameParty(derivedApproval.target,action.executor),"evm_cctp_target");check(dataUint(data,0)===inputAmount&&dataUint(data,1)===BigInt(PINS[scope.destinationChain]?.domain)&&dataUint(data,4)===integer(action.maxCctpFee??0,"max_cctp_fee")&&dataUint(data,5)===integer(action.finality??action.finalityThreshold,"finality")&&dataUint(data,7)===deadline,"evm_cctp_arguments");destinationRecipient=dataBytes32(data,2);destinationDomain=Number(dataUint(data,1));if(action.mintRecipient)check(action.mintRecipient.toLowerCase()===destinationRecipient,"evm_cctp_mint_recipient");
+    }else if(receipt.action.kind==="evm_layerzero"){
+      check(canonical(selectors)===canonical([SELECTORS.approve,SELECTORS.bridgeUsdg])&&derivedApproval.required&&sameParty(action.executor,PINS.robinhood.usdgOft)&&sameParty(main.to,action.executor)&&sameParty(derivedApproval.token,pin?.USDG)&&sameParty(derivedApproval.target,action.executor),"evm_layerzero_target");const native=integer(action.nativeFee,"native_fee");check(dataUint(data,0)===inputAmount&&dataUint(data,2)===minimumOutput&&dataUint(data,3)===native&&dataUint(data,4)===deadline&&integer(main.value??0,"native_value")===native,"evm_layerzero_arguments");destinationRecipient=dataBytes32(data,1);
+    }else if(receipt.action.kind==="evm_across"){
+      const across=ACROSS[scope.sourceChain];check(canonical(selectors)===canonical([SELECTORS.approve,SELECTORS.across])&&derivedApproval.required&&action.providerApprovalDiscarded===true&&sameParty(action.spokePool,across?.pool)&&sameParty(main.to,across?.pool)&&sameParty(derivedApproval.token,across?.token)&&sameParty(derivedApproval.target,across?.pool),"across_target");check(action.semanticValidation&&Object.values(action.semanticValidation).length>0&&Object.values(action.semanticValidation).every((value)=>value===true),"across_semantics");check(dataUint(data,4)===inputAmount&&dataUint(data,5)===integer(action.grossDepositOutputAmount,"gross_output")&&dataUint(data,6)===BigInt(PINS[scope.destinationChain].chain_id)&&dataUint(data,9)===integer(action.fillDeadline,"fill_deadline"),"across_arguments");destinationRecipient=dataBytes32(data,1);destinationDomain=Number(dataUint(data,6));
+    }
+  }else{
+    check(canonical(receipt.approval)===canonical(derivedApproval),"receipt_approval");const allowed=step.provider==="raydium_clmm"?new Set([PROGRAMS.system,PROGRAMS.compute,PROGRAMS.token,PROGRAMS.token2022,PROGRAMS.ata,PROGRAMS.memo,PROGRAMS.raydium]):step.provider==="orca_whirlpool"?new Set([PROGRAMS.token,PROGRAMS.token2022,PROGRAMS.ata,PROGRAMS.orca]):step.provider==="circle_cctp"?new Set([PROGRAMS.token,PROGRAMS.ata,PROGRAMS.cctp]):step.provider==="paxos_usdg_layerzero_oft"?new Set([PROGRAMS.paxos,PROGRAMS.token,PROGRAMS.token2022]):new Set();check(allowed.size>0&&rows.every((row)=>allowed.has(row.programId)),"solana_program_pins");
+    const rawSigners=new Set(rows.flatMap((row)=>row.keys.filter((key)=>key.isSigner).map((key)=>key.pubkey))),required=action.requiredSigners||action.signers;check(Array.isArray(required)&&exactStringSet(required,[...rawSigners])&&rawSigners.has(caller),"solana_signers");if(intent.event_signer_public&&receipt.action.kind==="solana_cctp")check(rawSigners.has(intent.event_signer_public),"solana_event_signer");
+    const bps=Number(action.routeFeeBps??step.route_fee_bps),feeAmount=actionFeeAmount(action)??0n,transfers=[];for(const row of rows){const bytes=rawDataBytes(row,"solana_instruction");if([PROGRAMS.token,PROGRAMS.token2022].includes(row.programId)&&bytes.length===10&&bytes[0]===12)transfers.push(bytes.readBigUInt64LE(1));}if(bps===1)check(transfers.length===1&&transfers[0]===feeAmount,"solana_fee_transfer");else check(transfers.length===0,"solana_no_fee_transfer");if(receipt.action.kind==="solana_cctp")check(rows.length===(bps?3:1),"solana_cctp_instruction_count");if(receipt.action.kind==="solana_layerzero")check(rows.length===1,"solana_layerzero_instruction_count");const nativeCap=scope.sourceChain==="solana"&&scope.sourceToken==="SOL"?inputAmount:0n;check(canonical(receipt.native_value_cap)===canonical({maximum_base:String(nativeCap),unit:"lamports",per_transaction_base:[]}),"receipt_native_value_cap");destinationRecipient=action.recipient??(receipt.action.kind==="solana_dex"?caller:null);if(receipt.action.kind==="solana_cctp"&&destinationDomain===null)destinationDomain=PINS[scope.destinationChain]?.domain??null;
+  }
+  check((destinationRecipient===null&&receipt.destination?.recipient===null)||sameParty(receipt.destination?.recipient,String(destinationRecipient)),"receipt_protocol_recipient");check((destinationDomain??null)===(receipt.destination?.domain??null),"receipt_destination_domain");
+  const bps=Number(action.routeFeeBps??action.effectiveRouteFeeBps??step.route_fee_bps),fee=receipt.assetfare_service_fee,explicitFee=actionFeeAmount(action);check([0,1].includes(bps)&&fee?.bps===bps&&fee?.formula==="floor(fee_basis_base * bps / 10000)","receipt_fee_policy");let basis=inputAmount;if(action.grossDepositOutputAmount!==undefined&&action.assetfareFeeBase!==undefined)basis=integer(action.grossDepositOutputAmount,"fee_basis",1);else if(action.routeFeeBasisExpectedUsdcBase!==undefined)basis=integer(action.routeFeeBasisExpectedUsdcBase,"fee_basis",1);else if(action.direction==="native_to_stable")basis=null;const exact=basis===null?null:basis*BigInt(bps)/10000n;if(explicitFee!==null&&exact!==null)check(explicitFee===exact,"action_fee_formula");const expectedFee=explicitFee??exact;check(fee.exact_amount_base===(expectedFee===null?null:String(expectedFee))&&fee.basis?.amount_base===(basis===null?null:String(basis)),"receipt_fee_amount");const expectedFeeRecipient=bps===0?null:scope.sourceChain==="solana"?PINS.solana.feeRecipient:EVM_FEE_RECIPIENT;check((expectedFeeRecipient===null&&fee.recipient===null)||sameParty(fee.recipient,expectedFeeRecipient),"receipt_fee_recipient");
+  return {verified:true,verification_scope:"decoded_current_action_and_intent",checks,simulation_performed:false,safe_to_sign:false,simulation_note:"Decode and simulate again in the caller's wallet/RPC immediately before signing; this verifier does not authorize a signature."};
 }
 
 async function responseText(response){
   const declared=Number(response.headers.get("content-length"));if(Number.isFinite(declared)&&declared>MAX_RESPONSE_BYTES)throw new Error("assetfare_plan_response_too_large");
-  const text=await response.text();if(Buffer.byteLength(text,"utf8")>MAX_RESPONSE_BYTES)throw new Error("assetfare_plan_response_too_large");return text;
+  if(!response.body?.getReader){const text=await response.text();if(Buffer.byteLength(text,"utf8")>MAX_RESPONSE_BYTES)throw new Error("assetfare_plan_response_too_large");return text;}
+  const reader=response.body.getReader(),chunks=[];let total=0;while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>MAX_RESPONSE_BYTES){await reader.cancel().catch(()=>{});throw new Error("assetfare_plan_response_too_large");}chunks.push(Buffer.from(value));}return Buffer.concat(chunks,total).toString("utf8");
 }
 async function requestJson(fetchImpl,url,options={}){
   const response=await fetchImpl(url,{...options,headers:{accept:"application/json",...(options.body?{"content-type":"application/json"}:{}),"x-assetfare-channel":"npm_plan_cli",...(options.headers||{})},redirect:"error",signal:AbortSignal.timeout(TIMEOUT_MS)});
@@ -140,7 +212,7 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs=Date.no
   const quote=parseV2Quote(await requestJson(fetchImpl,`${apiBase}/v2/quote`,{method:"POST",body:JSON.stringify(intent)}),intent);
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
   const body={caller_approved:true,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{})};
-  const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets},nowMs);
+  const bundle=await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)});const verification=verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs);
   const result={status:"pass",mode:"caller_approved_unsigned_plan",intent,quote_summary:{quote_id:quote.quote_id,expires_in_seconds:quote.ttl_seconds,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,bundle,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }

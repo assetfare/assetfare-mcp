@@ -158,6 +158,10 @@ globalThis.fetch = async (url, init = {}) => {
   if (String(url).endsWith("/v2/quote")) {
     const intent = JSON.parse(String(init.body));
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
+    if(mode==="quote-private-key"){const value=quote(intent);value.route.steps[0].private_key="secret";return Response.json(value);}
+    if(mode==="quote-seed-phrase"){const value=quote(intent);value.route.steps[0].seedPhrase="alpha beta gamma";return Response.json(value);}
+    if(mode==="quote-signed-transaction"){const value=quote(intent);value.route.steps[0].signedTransaction="0xdead";return Response.json(value);}
+    if(mode==="quote-signed-true"){const value=quote(intent);value.route.steps[0].signed=true;return Response.json(value);}
     if (mode === "missing-handoff") { const value = quote(intent); delete value.caller_action_plan_handoff; return Response.json(value); }
     if (mode === "null-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: null }));
     if (mode === "array-handoff") return Response.json(quote(intent, { caller_action_plan_handoff: [] }));
@@ -207,7 +211,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
-  if (String(url).endsWith("/v2/prepare")) return Response.json({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false });
+  if (String(url).endsWith("/v2/prepare")) {const value={ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };if(mode==="unsafe-bundle-signed")value.unsigned_action.signed=true;if(mode==="unsafe-bundle-secret")value.unsigned_action.private_key="secret";if(mode==="unsafe-bundle-camel")value.unsigned_action.serverSigning=true;if(mode==="unsafe-bundle-nested-secret")value.unsigned_action.transactions=[{seedPhrase:"alpha beta gamma"}];if(mode==="unsafe-bundle-nested-signed")value.unsigned_action.transactions=[{signedTransaction:"0xdead",nested:{signed:true}}];if(mode==="unsafe-bundle-signature")value.unsigned_action.transactions=[{signature:"0xdead"}];return Response.json(value);}
   throw new Error(`unexpected upstream URL ${url}`);
 };
 
@@ -221,7 +225,7 @@ try {
   const listed = await client.listTools();
   const dynamicCapabilities = listed.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const dynamicQuote = listed.tools.find((tool) => tool.name === "assetfare_v2_quote");
-  const card = serverCard();
+  const card = await serverCard();
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
@@ -341,7 +345,7 @@ try {
   assert.equal(calls.length, beforeUncapped + 1, "uncapped quote did not reach upstream exactly once");
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
@@ -418,6 +422,11 @@ try {
   const secretPrepare = await call(client, "assetfare_v2_prepare", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" } });
   assert.equal(secretPrepare.isError, true, "prepare accepted a non-public-address (private-key-shaped) wallet value");
   assert.equal(calls.length, beforeSecret, "secret-material hostile reached upstream");
+  const beforeExtraSecret=calls.length;
+  const extraSecret=await call(client,"assetfare_v2_prepare",{...uncappedPrepareArgs,private_key:"secret"});
+  assert.equal(extraSecret.isError,true,"prepare silently stripped an extra private_key field");
+  assert.equal(calls.length,beforeExtraSecret,"extra secret field reached upstream");
+  for(const unsafeMode of ["unsafe-bundle-signed","unsafe-bundle-secret","unsafe-bundle-camel","unsafe-bundle-nested-secret","unsafe-bundle-nested-signed","unsafe-bundle-signature"]){mode=unsafeMode;const before=calls.length;const unsafe=await call(client,"assetfare_v2_prepare",uncappedPrepareArgs);assert.equal(unsafe.isError,true,`${unsafeMode} upstream output was accepted`);assert.equal(calls.length,before+1);}mode="success";
 
   // The remote adapter never generates a caller session secret. The client
   // generates 32 CSPRNG bytes locally and supplies the token only on session calls.

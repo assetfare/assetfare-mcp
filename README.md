@@ -168,9 +168,11 @@ npx --yes --package=assetfare-mcp@0.4.18 assetfare-plan \
 
 `assetfare-plan` obtains a fresh quote, calls `/v2/prepare`, verifies the
 ActionSafetyReceiptV1 intent and fee bindings plus the raw/action/bundle hashes,
-and stops with an unsigned, unsubmitted bundle. It accepts public keys only and
-never generates, reads, stores, signs with, or transmits private keys. The
-caller creates and retains any required event-signer keypair outside AssetFare.
+and stops with an unsigned, unsubmitted bundle. It defines no private-key input
+and never generates, stores, signs with, or transmits private keys. A base58
+string alone cannot prove that a caller did not mislabel secret material, so the
+caller must provide only public addresses and retain every required signer
+keypair outside AssetFare.
 
 The evaluator defaults to `solana:SOL -> base:USDC` so USDC support is visible
 without extra flags. If `solana:SOL -> base:ETH` is requested explicitly, it

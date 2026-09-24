@@ -6,6 +6,8 @@ import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
@@ -90,6 +92,17 @@ const legacyDestinationChain = z.enum(["base", "arbitrum"]).default("base").desc
 const legacySessionView = z.enum(["session", "workflow", "receipt", "next_action"]).default("session").describe("Legacy read projection: session summary, workflow state, receipt, or next_action. This selection never advances the workflow.");
 const legacyEventSignerPublic = sourceWallet.describe("Fresh caller-generated ephemeral Solana event signer public key for the legacy CCTP burn. Keep the matching private key client-side; never send it.");
 const legacyTransactionHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/).describe("Destination EVM transaction hash already submitted by the caller, formatted as 0x plus 64 hex characters.");
+const legacyQuoteIntent=z.object({amount_usd:legacyAmountUsd,destination_chain:legacyDestinationChain}).strict();
+const legacyStartAuthIntent=z.object({source_wallet:sourceWallet}).strict();
+const legacyFinishAuthIntent=z.object({challenge_id:legacyChallengeId,source_wallet:sourceWallet,signature:legacySignature,terms_version:legacyTermsVersion}).strict();
+const legacyCreateSessionIntent=z.object({access_token:accessToken,quote_id:legacyQuoteId,idempotency_key:idempotencyKey,source_wallet:sourceWallet,destination_wallet:destinationWallet}).strict();
+const legacyReadSessionIntent=z.object({access_token:accessToken,session_id:legacySessionId,view:legacySessionView}).strict();
+const legacyPrepareSourceIntent=z.object({access_token:accessToken,session_id:legacySessionId}).strict();
+const legacyVerifySourceIntent=z.object({access_token:accessToken,session_id:legacySessionId,signature:legacySignature,idempotency_key:idempotencyKey}).strict();
+const legacyPrepareCctpIntent=z.object({access_token:accessToken,session_id:legacySessionId,event_signer_public:legacyEventSignerPublic,idempotency_key:idempotencyKey}).strict();
+const legacyObserveCctpIntent=z.object({access_token:accessToken,session_id:legacySessionId,burn_signature:legacySignature.describe("Finalized Solana burn signature already submitted by the caller for this legacy CCTP step."),idempotency_key:idempotencyKey}).strict();
+const legacyPrepareDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,idempotency_key:idempotencyKey}).strict();
+const legacyObserveDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,transaction_hash:legacyTransactionHash,idempotency_key:idempotencyKey}).strict();
 const v2QuoteFields = {
   from_chain: z.enum(V2_SOURCE_CHAINS).describe("Source chain for the v2 route. Polygon and Optimism are source-only and cannot be used as to_chain."),
   from_token: z.enum(V2_TOKENS).describe("Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities."),
@@ -335,6 +348,17 @@ function rejectSecretMaterial(value) {
   }
 }
 
+function rejectPrivateOutputMaterial(value) {
+  const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase"]);
+  const stack=[[value,0]];let seen=0;
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of Object.keys(node))if(forbidden.has(String(key).toLowerCase().replaceAll("_","").replaceAll("-","")))throw new Error("assetfare_v2_secret_material_rejected");for(const child of Object.values(node))stack.push([child,depth+1]);}}
+}
+
+function rejectUnsignedActionMaterial(value) {
+  const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase","signature","signatures"]),stack=[[value,0]];let seen=0;
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_bundle_unsafe");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if(forbidden.has(normalized))throw new Error("assetfare_v2_bundle_unsafe");if(["signed","submitted"].includes(normalized)&&child!==false)throw new Error("assetfare_v2_bundle_unsafe");stack.push([child,depth+1]);}}}
+}
+
 function deepEqualArray(actual, expected) {
   return Array.isArray(actual) && actual.length === expected.length && actual.every((item, index) => item === expected[index]);
 }
@@ -416,10 +440,11 @@ function validateFee(offer, stepCount) {
 
 function rejectSigningClaims(value) {
   const stack=[[value,0]];let seen=0;
-  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>512||depth>12)throw new Error("assetfare_v2_safety_boundary_failed");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of ["server_signing","server_submission"])if(key in node&&node[key]!==false)throw new Error("assetfare_v2_safety_boundary_failed");for(const child of Object.values(node))stack.push([child,depth+1]);}}
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_safety_boundary_failed");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of ["server_signing","server_submission","serverSigning","serverSubmission"])if(key in node&&node[key]!==false)throw new Error("assetfare_v2_safety_boundary_failed");for(const child of Object.values(node))stack.push([child,depth+1]);}}
 }
 
 function parseV2Capabilities(payload) {
+  rejectPrivateOutputMaterial(payload);
   rejectSigningClaims(payload);
   let value;
   try { value = v2CapabilitiesResponse.parse(payload); }
@@ -442,18 +467,24 @@ function parseV2Capabilities(payload) {
 // by /v2/session create. Fail-closed on any server signing/submission claim.
 function parseV2Bundle(payload) {
   rejectSigningClaims(payload);
+  rejectPrivateOutputMaterial(payload);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("assetfare_v2_bundle_invalid");
   if (payload.server_signing !== false || payload.server_submission !== false || payload.signed !== false || payload.submitted !== false) throw new Error("assetfare_v2_bundle_unsafe");
   if (!payload.unsigned_action || typeof payload.unsigned_action !== "object") throw new Error("assetfare_v2_bundle_missing_action");
+  rejectUnsignedActionMaterial(payload.unsigned_action);
+  if (payload.unsigned_action.signed !== false || payload.unsigned_action.submitted !== false) throw new Error("assetfare_v2_bundle_unsafe");
+  for(const key of ["signature","signatures","signed_transaction","signed_tx","raw_transaction","private_key","seed_phrase","mnemonic"])if(Object.prototype.hasOwnProperty.call(payload.unsigned_action,key))throw new Error("assetfare_v2_bundle_unsafe");
   return payload;
 }
 
 // Validate a v2 session workflow-state response. It must never assert signing/submission.
 function parseV2Session(payload) {
   rejectSigningClaims(payload);
+  rejectPrivateOutputMaterial(payload);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("assetfare_v2_session_invalid");
   if (typeof payload.session_id !== "string" || !payload.session_id) throw new Error("assetfare_v2_session_invalid");
   if (payload.server_signing !== false || payload.server_submission !== false || payload.signed !== false || payload.submitted !== false) throw new Error("assetfare_v2_session_unsafe");
+  if(payload.current_action!==null&&payload.current_action!==undefined)parseV2Bundle(payload.current_action);
   return payload;
 }
 
@@ -476,6 +507,8 @@ function generateSessionCapability() {
 
 function parseV2Quote(payload, intent) {
   rejectSigningClaims(payload);
+  rejectPrivateOutputMaterial(payload);
+  rejectUnsignedActionMaterial(payload);
   let value;
   try { value = v2QuoteResponse.parse(payload); }
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
@@ -513,7 +546,14 @@ function parseV2Quote(payload, intent) {
 // Wallet-bound workflow tools use an access token produced by the preceding
 // non-transactional signMessage flow. They never require a server-side API key
 // or give the server signing/submission authority.
-function serverCard(profile = "v2") {
+async function serverCard(profile = "v2") {
+  // Obtain definitions through the SDK's own wire path. This keeps the static
+  // card byte-semantically aligned with tools/list, including refs, defaults,
+  // propertyNames, annotations, output schemas, and registered resources.
+  const [clientTransport,serverTransport]=InMemoryTransport.createLinkedPair(),profileServer=createServer({},profile),client=new Client({name:"assetfare-server-card",version:VERSION});
+  try{await profileServer.connect(serverTransport);await client.connect(clientTransport);const tools=(await client.listTools()).tools;let resources=[];if(profile!=="v2")resources=(await client.listResources()).resources;return {serverInfo:{name:"AssetFare",version:VERSION},authentication:{required:false,schemes:[]},profile,tools,resources,prompts:[]};}
+  finally{await client.close().catch(()=>{});await profileServer.close().catch(()=>{});}
+  /* istanbul ignore next -- retained only as a readable schema reference */
   const token = { type: "string", minLength: 20, maxLength: 512 };
   const uuid = { type: "string", format: "uuid" };
   const wallet = { type: "string", minLength: 32, maxLength: 64 };
@@ -594,8 +634,8 @@ function createServer(provenance = {}, profile = "v2") {
       : "Current AssetFare v2 endpoint: 76 non-custodial routes across six chains. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
   );
 
-  if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, {}, readonly(), () => api("/v1/status"));
-  addTool(server, "assetfare_manifest", V2_MANIFEST_DESCRIPTION, {}, readonly(), () => api("/.well-known/assetfare-manifest.json"), v2ManifestOutput);
+  if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, emptyStrictInput, readonly(), () => api("/v1/status"));
+  addTool(server, "assetfare_manifest", V2_MANIFEST_DESCRIPTION, emptyStrictInput, readonly(), async ()=>{const value=await api("/.well-known/assetfare-manifest.json");rejectSigningClaims(value);rejectPrivateOutputMaterial(value);return value;}, v2ManifestOutput);
   if (includeV2) addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await v2Api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2CapabilitiesResponse);
   if (includeV2) addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
     const intent = parseV2Intent(args);
@@ -606,7 +646,7 @@ function createServer(provenance = {}, profile = "v2") {
     return { ...quote, guidance: { legacyWorkflowCompatible: false, walletAuthenticationPerformed: false, sessionCreated: false, actionPrepared: false, transactionSigned: false, transactionSubmitted: false, compareWithOtherRoutes: true, requoteBeforeSelection: true, caller_action_plan: executionHandoff } };
   }, v2QuoteOutput);
   if (includeV2 && process.env.ASSETFARE_MCP_TRANSPORT === "stdio") addTool(server, "assetfare_v2_new_session_capability", V2_NEW_SESSION_CAPABILITY_DESCRIPTION, emptyStrictInput, { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false }, async () => generateSessionCapability(), v2SessionCapabilityOutput);
-  if (includeV2) addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareFields, stateful(false), async (args) => {
+  if (includeV2) addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareIntent, stateful(false), async (args) => {
     const intent = v2PrepareIntent.parse(args);
     rejectSecretMaterial(intent);
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
@@ -614,31 +654,31 @@ function createServer(provenance = {}, profile = "v2") {
     const bundle = parseV2Bundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
     return { ...bundle, guidance: { freshRequoted: true, callerApprovalHonored: true, actionPrepared: true, transactionSigned: false, transactionSubmitted: false, callerMustVerifySignAndSubmit: true } };
   }, v2BundleOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, { ...v2PrepareFields, session_token: v2SessionToken, idempotency_key: idempotencyKey }, stateful(true), async (args) => {
+  if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, v2SessionCreateIntent, stateful(true), async (args) => {
     const intent = v2SessionCreateIntent.parse(args);
     rejectSecretMaterial({ ...intent, session_token: undefined });
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
     const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, idempotency_key: intent.idempotency_key, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
     return parseV2Session(await v2Api("/v2/session", { method: "POST", body, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: intent.session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
   }, v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId }, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hashes: v2TransactionHashes }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey, transaction_hash: v2OutputTransactionHash }, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeV2) addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, { session_token: v2SessionToken, session_id: v2SessionId, idempotency_key: idempotencyKey }, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
-  if (includeLegacy) addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, { amount_usd: legacyAmountUsd, destination_chain: legacyDestinationChain }, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
+  if (includeV2) addTool(server, "assetfare_v2_session_get", V2_SESSION_GET_DESCRIPTION, v2SessionReadIntent, readonly(), async ({ session_token, session_id }) => parseV2Session(await v2Api(`/v2/session/${session_id}`, { extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_source", V2_SESSION_OBSERVE_SOURCE_DESCRIPTION, v2SessionObserveSourceIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hashes }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-source`, { method: "POST", body: { idempotency_key, transaction_hashes }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_observe_output", V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION, v2SessionObserveOutputIntent, stateful(true), async ({ session_token, session_id, idempotency_key, transaction_hash }) => parseV2Session(await v2Api(`/v2/session/${session_id}/observe-output`, { method: "POST", body: { idempotency_key, ...(transaction_hash ? { transaction_hash } : {}) }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_session_refresh_action", V2_SESSION_REFRESH_ACTION_DESCRIPTION, v2SessionRefreshIntent, stateful(true), async ({ session_token, session_id, idempotency_key }) => parseV2Session(await v2Api(`/v2/session/${session_id}/refresh-action`, { method: "POST", body: { idempotency_key }, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2SessionOutput);
+  if (includeLegacy) addTool(server, "assetfare_quote", LEGACY_QUOTE_DESCRIPTION, legacyQuoteIntent, readonly(), ({ amount_usd, destination_chain }) => api("/v1/quote", { method: "POST", body: { from_chain: "solana", from_token: "SOL", to_chain: destination_chain, to_token: "ETH", amount_usd } }));
 
-  if (includeLegacy) addTool(server, "assetfare_start_wallet_auth", "Create a short-lived, non-transactional Solana signMessage challenge for the legacy v1 workflow. Use only after selecting a fresh legacy assetfare_quote and obtaining caller approval; v2 quote and session tools do not use wallet authentication. Makes a network request and creates login-challenge state, but cannot move funds, sign, or submit.", { source_wallet: sourceWallet }, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
+  if (includeLegacy) addTool(server, "assetfare_start_wallet_auth", "Create a short-lived, non-transactional Solana signMessage challenge for the legacy v1 workflow. Use only after selecting a fresh legacy assetfare_quote and obtaining caller approval; v2 quote and session tools do not use wallet authentication. Makes a network request and creates login-challenge state, but cannot move funds, sign, or submit.", legacyStartAuthIntent, stateful(false), ({ source_wallet }) => api("/v1/auth/challenge", { method: "POST", body: { source_wallet } }));
   if (includeLegacy) {
-  addTool(server, "assetfare_finish_wallet_auth", "Verify the caller's signature over the exact legacy login challenge and return a sensitive wallet-bound access token. Use only after assetfare_start_wallet_auth; do not use for a v2 session, transaction signature, or arbitrary message. Makes a network request and consumes login-challenge state, but never signs or submits.", { challenge_id: legacyChallengeId, source_wallet: sourceWallet, signature: legacySignature, terms_version: legacyTermsVersion }, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));
+  addTool(server, "assetfare_finish_wallet_auth", "Verify the caller's signature over the exact legacy login challenge and return a sensitive wallet-bound access token. Use only after assetfare_start_wallet_auth; do not use for a v2 session, transaction signature, or arbitrary message. Makes a network request and consumes login-challenge state, but never signs or submits.", legacyFinishAuthIntent, stateful(false), (args) => api("/v1/auth/verify", { method: "POST", body: args }));
 
-  addTool(server, "assetfare_create_session", "Lock one fresh legacy assetfare_quote into a wallet-bound v1 execution session. Use only after legacy wallet authentication for the original Solana-SOL-to-Base/Arbitrum-ETH workflow; for a v2 quote use assetfare_v2_session_create instead. Makes a network request and reserves the caller's one active legacy session slot, but creates no blockchain transaction and never signs or submits.", { access_token: accessToken, quote_id: legacyQuoteId, idempotency_key: idempotencyKey, source_wallet: sourceWallet, destination_wallet: destinationWallet }, stateful(true), ({ access_token, ...body }) => api("/v1/session", { method: "POST", token: access_token, body }));
-  addTool(server, "assetfare_read_session", "Read a legacy v1 session summary, workflow state, receipt, or current unsigned action. Use to inspect or resume a session created by assetfare_create_session; for a v2 session use assetfare_v2_session_get instead and do not use this call to advance state. Read-only and makes a network request; never signs or submits.", { access_token: accessToken, session_id: legacySessionId, view: legacySessionView }, readonly(), ({ access_token, session_id, view }) => api(`/v1/session/${session_id}${view === "session" ? "" : `/${view === "next_action" ? "next-action" : view}`}`, { token: access_token }));
-  addTool(server, "assetfare_prepare_source_action", "Prepare the bounded unsigned Solana source action for the current legacy v1 session step. Use only after assetfare_create_session and explicit caller approval; for a v2 route use assetfare_v2_prepare or assetfare_v2_session_create instead. Makes a network request and advances preparation state, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId }, stateful(true), ({ access_token, session_id }) => api(`/v1/session/${session_id}/prepare-source-action`, { method: "POST", token: access_token, body: {} }));
-  addTool(server, "assetfare_verify_source_receipt", "Verify a finalized Solana source signature already submitted by the caller and advance the legacy v1 workflow. Use only after the caller independently submits assetfare_prepare_source_action; for a v2 session use assetfare_v2_session_observe_source instead. Requires caller approval and makes a network request, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, signature: legacySignature, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/verify-source`, { method: "POST", token: access_token, body }));
-  addTool(server, "assetfare_prepare_cctp_action", "Prepare the unsigned CCTP burn for the current legacy v1 session using a caller-owned event signer public key. Use only when the legacy workflow reports this as the next action; for v2 routes use assetfare_v2_prepare or assetfare_v2_session_create instead. Requires caller approval and advances preparation state, but never receives the event signer private key, signs, or submits.", { access_token: accessToken, session_id: legacySessionId, event_signer_public: legacyEventSignerPublic, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/prepare-cctp-action`, { method: "POST", token: access_token, body }));
-  addTool(server, "assetfare_observe_cctp", "Verify Circle attestation and the forwarded Base or Arbitrum USDC mint for a caller-submitted legacy v1 burn, then advance the session record. Use only after the CCTP burn is submitted; use assetfare_read_session for inspection without advancement and a v2 session observe tool for v2 routes. Makes a network request but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, burn_signature: legacySignature.describe("Finalized Solana burn signature already submitted by the caller for this legacy CCTP step."), idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-cctp`, { method: "POST", token: access_token, body }));
-  addTool(server, "assetfare_prepare_destination_action", "Prepare the exact-cap permit and unsigned ERC-4337 destination settlement plan for the current legacy v1 session. Use only when the legacy workflow reports the destination step and after caller approval; v2 sessions expose their current action through assetfare_v2_session_get. Makes a network request and advances preparation state, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/prepare-destination-action`, { method: "POST", token: access_token, body }));
-  addTool(server, "assetfare_observe_destination", "Verify an already-submitted destination UserOperation receipt and finalize the legacy v1 workflow record. Use only after the caller independently submits assetfare_prepare_destination_action; for v2 output observation use assetfare_v2_session_observe_output instead. Makes a network request and advances session state, but never signs or submits.", { access_token: accessToken, session_id: legacySessionId, transaction_hash: legacyTransactionHash, idempotency_key: idempotencyKey }, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-destination`, { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_create_session", "Lock one fresh legacy assetfare_quote into a wallet-bound v1 execution session. Use only after legacy wallet authentication for the original Solana-SOL-to-Base/Arbitrum-ETH workflow; for a v2 quote use assetfare_v2_session_create instead. Makes a network request and reserves the caller's one active legacy session slot, but creates no blockchain transaction and never signs or submits.", legacyCreateSessionIntent, stateful(true), ({ access_token, ...body }) => api("/v1/session", { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_read_session", "Read a legacy v1 session summary, workflow state, receipt, or current unsigned action. Use to inspect or resume a session created by assetfare_create_session; for a v2 session use assetfare_v2_session_get instead and do not use this call to advance state. Read-only and makes a network request; never signs or submits.", legacyReadSessionIntent, readonly(), ({ access_token, session_id, view }) => api(`/v1/session/${session_id}${view === "session" ? "" : `/${view === "next_action" ? "next-action" : view}`}`, { token: access_token }));
+  addTool(server, "assetfare_prepare_source_action", "Prepare the bounded unsigned Solana source action for the current legacy v1 session step. Use only after assetfare_create_session and explicit caller approval; for a v2 route use assetfare_v2_prepare or assetfare_v2_session_create instead. Makes a network request and advances preparation state, but never signs or submits.", legacyPrepareSourceIntent, stateful(true), ({ access_token, session_id }) => api(`/v1/session/${session_id}/prepare-source-action`, { method: "POST", token: access_token, body: {} }));
+  addTool(server, "assetfare_verify_source_receipt", "Verify a finalized Solana source signature already submitted by the caller and advance the legacy v1 workflow. Use only after the caller independently submits assetfare_prepare_source_action; for a v2 session use assetfare_v2_session_observe_source instead. Requires caller approval and makes a network request, but never signs or submits.", legacyVerifySourceIntent, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/verify-source`, { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_prepare_cctp_action", "Prepare the unsigned CCTP burn for the current legacy v1 session using a caller-owned event signer public key. Use only when the legacy workflow reports this as the next action; for v2 routes use assetfare_v2_prepare or assetfare_v2_session_create instead. Requires caller approval and advances preparation state, but never receives the event signer private key, signs, or submits.", legacyPrepareCctpIntent, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/prepare-cctp-action`, { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_observe_cctp", "Verify Circle attestation and the forwarded Base or Arbitrum USDC mint for a caller-submitted legacy v1 burn, then advance the session record. Use only after the CCTP burn is submitted; use assetfare_read_session for inspection without advancement and a v2 session observe tool for v2 routes. Makes a network request but never signs or submits.", legacyObserveCctpIntent, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-cctp`, { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_prepare_destination_action", "Prepare the exact-cap permit and unsigned ERC-4337 destination settlement plan for the current legacy v1 session. Use only when the legacy workflow reports the destination step and after caller approval; v2 sessions expose their current action through assetfare_v2_session_get. Makes a network request and advances preparation state, but never signs or submits.", legacyPrepareDestinationIntent, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/prepare-destination-action`, { method: "POST", token: access_token, body }));
+  addTool(server, "assetfare_observe_destination", "Verify an already-submitted destination UserOperation receipt and finalize the legacy v1 workflow record. Use only after the caller independently submits assetfare_prepare_destination_action; for v2 output observation use assetfare_v2_session_observe_output instead. Makes a network request and advances session state, but never signs or submits.", legacyObserveDestinationIntent, stateful(true), ({ access_token, session_id, ...body }) => api(`/v1/session/${session_id}/observe-destination`, { method: "POST", token: access_token, body }));
   }
 
   if (includeLegacy) server.registerResource("assetfare-trust-manifest", "assetfare://trust/manifest", { description: "Current signed AssetFare trust manifest." }, async () => ({ contents: [{ uri: "assetfare://trust/manifest", mimeType: "application/json", text: JSON.stringify(await api("/.well-known/assetfare-manifest.json"), null, 2) }] }));
@@ -703,12 +743,16 @@ function createHttpApp() {
     return guardA2AVersion(req,res,()=>rpc(req,res,next));
   });
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok", service: "assetfare-mcp-a2a", version: VERSION, mcp:true, a2a:true, a2a_protocol_version:a2a.card.supportedInterfaces[0].protocolVersion, server_signing:false, server_submission:false }));
-  app.get("/.well-known/mcp/server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard("v2")));
-  app.get("/.well-known/mcp/legacy-server-card.json", (_req, res) => res.status(200).type("application/json").json(serverCard("legacy")));
+  app.get("/.well-known/mcp/server-card.json", async (_req, res, next) => {try{return res.status(200).type("application/json").json(await serverCard("v2"));}catch(error){return next(error);}});
+  app.get("/.well-known/mcp/legacy-server-card.json", async (_req, res, next) => {try{return res.status(200).type("application/json").json(await serverCard("legacy"));}catch(error){return next(error);}});
   for (const [mcpPath,profile] of Object.entries({"/mcp":"v2","/mcp/bridge":"v2","/mcp/legacy":"legacy"})) {
+    app.options(mcpPath,(req,res)=>{
+      if(!allowedOrigin(req.get("origin")))return res.status(403).json({error:"mcp_origin_not_allowed"});
+      return res.set("allow","GET, HEAD, POST, DELETE, OPTIONS").set("access-control-allow-origin",req.get("origin")||"*").set("access-control-allow-methods","GET, HEAD, POST, DELETE, OPTIONS").set("access-control-allow-headers","content-type, mcp-protocol-version, mcp-session-id, authorization").set("access-control-max-age","600").set("cache-control","no-store").status(204).end();
+    });
     app.head(mcpPath, (req, res) => {
       if (!allowedOrigin(req.get("origin"))) return res.status(403).end();
-      return res.set("allow", "GET, HEAD, POST, OPTIONS").set("cache-control", "no-store").status(200).end();
+      return res.set("allow", "GET, HEAD, POST, DELETE, OPTIONS").set("cache-control", "no-store").status(200).end();
     });
     app.all(mcpPath, async (req, res) => {
       if (!allowedOrigin(req.get("origin"))) return res.status(403).json({ error: "mcp_origin_not_allowed" });

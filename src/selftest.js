@@ -48,6 +48,7 @@ function headStatus(port, path) {
     request.end();
   });
 }
+function methodStatus(port,path,method){return new Promise((resolve,reject)=>{const request=httpRequest({host:"127.0.0.1",port,path,method,headers:{host:"127.0.0.1:8790",origin:"https://claude.ai"}},(response)=>{response.resume();response.on("end",()=>resolve({status:response.statusCode,allow:response.headers.allow,methods:response.headers["access-control-allow-methods"]}));});request.on("error",reject);request.end();});}
 
 const server = createServer();
 const client = new Client({ name: "assetfare-mcp-selftest", version: "0.1.0" });
@@ -80,9 +81,9 @@ if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || 
 if (v2SessionCreateTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2SessionCreateTool.inputSchema.properties.amount_usd) throw new Error("v2 session_create amount schema mismatch");
 const priorTransport = process.env.ASSETFARE_MCP_TRANSPORT;
 process.env.ASSETFARE_MCP_TRANSPORT = "stdio";
-const stdioCard = serverCard("all");
+const stdioCard = await serverCard("all");
 if (!stdioCard.tools.some((tool) => tool.name === "assetfare_v2_new_session_capability") || stdioCard.tools.length !== 22) throw new Error("stdio local capability helper missing");
-const legacyCard = serverCard("legacy");
+const legacyCard = await serverCard("legacy");
 if (legacyCard.tools.length !== 13 || legacyCard.tools.some((tool) => tool.name.startsWith("assetfare_v2_"))) throw new Error("legacy MCP profile mismatch");
 if (priorTransport === undefined) delete process.env.ASSETFARE_MCP_TRANSPORT; else process.env.ASSETFARE_MCP_TRANSPORT = priorTransport;
 const validProvenance = provenanceFromHeaders({ "x-forwarded-for": "203.0.113.10", "user-agent": "agent-test/1" });
@@ -117,6 +118,8 @@ try {
   const canonicalMcpHead = await headStatus(port, "/mcp");
   const bridgeMcpHead = await headStatus(port, "/mcp/bridge");
   const legacyMcpHead = await headStatus(port, "/mcp/legacy");
+  const optionRows=await Promise.all(["/mcp","/mcp/bridge","/mcp/legacy"].map((path)=>methodStatus(port,path,"OPTIONS")));
+  const deleteRows=await Promise.all(["/mcp","/mcp/bridge","/mcp/legacy"].map((path)=>methodStatus(port,path,"DELETE")));
   const discoveryCards = await Promise.all([
     ["/discovery/a2aregistry/agent-card.json", "a2aregistry"],
     ["/discovery/apis-io/agent-card.json", "apis-io"],
@@ -127,6 +130,8 @@ try {
   if (legacyCardHttp.status !== 200 || legacyCardHttp.body?.tools?.length !== 13 || legacyCardHttp.body?.profile !== "legacy") throw new Error("legacy server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || legacyMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow || canonicalMcpHead.allow !== legacyMcpHead.allow) throw new Error("MCP endpoint discovery mismatch");
+  if(optionRows.some((row)=>row.status!==204||row.allow!==canonicalMcpHead.allow||row.methods!==canonicalMcpHead.allow))throw new Error("MCP OPTIONS contract mismatch");
+  if(deleteRows.some((row)=>row.status!==200))throw new Error("MCP DELETE contract mismatch");
   for (const [channel, response] of discoveryCards) {
     if (response.status !== 200 || response.headers["x-assetfare-discovery-channel"] !== channel || JSON.stringify(response.body) !== JSON.stringify(canonicalA2ACard.body)) throw new Error(`A2A discovery channel mismatch:${channel}`);
   }
