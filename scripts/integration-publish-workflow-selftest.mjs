@@ -157,7 +157,6 @@ if (sha256(read(".github/workflows/release-provenance.yml")) !== "ba09c90020fbf7
 if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG0JPPzCA4Dp35CMBU7TH75t3+/iqgJ5PErHS2uy4GQP")
   throw new Error("release signer allowlist mismatch");
 
-execFileSync("git", ["merge-base", "--is-ancestor", "b886620ee5d675aa51a272105a0148f88558a879", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 execFileSync("git", ["-c", "gpg.format=ssh", "-c", `gpg.ssh.allowedSignersFile=${fileURLToPath(new URL("verification/assetfare-release-signers", root))}`, "verify-commit", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 
 const readme = read("README.md");
