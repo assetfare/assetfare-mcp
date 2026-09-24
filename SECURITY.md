@@ -6,7 +6,7 @@ Security reports may cover the public AssetFare route API, the remote MCP
 compatibility adapter, machine-readable discovery artifacts, and the caller-
 signed execution workflow currently published at `assetfare.dev`.
 
-The public MCP wrapper is versioned as `0.1.x`; the live API publishes its
+The public MCP wrapper is versioned independently from the Core API; the live API publishes its
 current version and immutable release commit through the signed manifest.
 
 ## Report a vulnerability privately

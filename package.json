@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "0.4.18",
+  "version": "0.4.19",
   "description": "AssetFare: agent-native, non-custodial native-USDC bridge quotes, e.g. Solana USDC to Base USDC; caller-approved unsigned plans; 1bp service fee plus Circle/provider/network fees; never signs or submits.",
   "type": "module",
   "main": "src/server.js",

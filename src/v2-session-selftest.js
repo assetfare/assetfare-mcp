@@ -13,10 +13,17 @@ import { createServer } from "./server.js";
 const EXECUTABLE_ROUTES={"solana:SOL->solana:USDC":{"chains":["solana"],"signer":false},"solana:SOL->solana:USDG":{"chains":["solana"],"signer":false},"solana:SOL->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:SOL->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:SOL->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:SOL->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDC->solana:USDG":{"chains":["solana"],"signer":false},"solana:USDC->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDC->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDC->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDG->solana:USDC":{"chains":["solana"],"signer":false},"solana:USDG->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDG->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDG->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"base:ETH->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:ETH->base:USDC":{"chains":["base"],"signer":false},"base:ETH->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:ETH->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"base:USDC->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:USDC->base:ETH":{"chains":["base"],"signer":false},"base:USDC->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:USDC->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"arbitrum:ETH->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->arbitrum:USDC":{"chains":["arbitrum"],"signer":false},"arbitrum:ETH->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:ETH->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->arbitrum:ETH":{"chains":["arbitrum"],"signer":false},"arbitrum:USDC->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"robinhood:ETH->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->robinhood:USDG":{"chains":["robinhood"],"signer":false},"robinhood:USDG->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->robinhood:ETH":{"chains":["robinhood"],"signer":false}};
 const SOURCE_ONLY_ROUTES={"polygon:USDC->base:USDC":{"chains":["base", "polygon"],"signer":false},"polygon:USDC->arbitrum:USDC":{"chains":["arbitrum", "polygon"],"signer":false},"optimism:USDC->base:USDC":{"chains":["base", "optimism"],"signer":false},"optimism:USDC->arbitrum:USDC":{"chains":["arbitrum", "optimism"],"signer":false}};
 const ALL_EXECUTABLE_ROUTES={...EXECUTABLE_ROUTES,...SOURCE_ONLY_ROUTES};
+const BUNDLE_HASH_SPEC="sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
 
 import { createHash } from "node:crypto";
 function tokenHash(value) { return createHash("sha256").update(value).digest("hex"); }
 function fingerprint(value) { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
+function canonical(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+}
+function bundleHash(value) { return createHash("sha256").update(canonical(value), "utf8").digest("hex"); }
 function uuid() { return "00000000-0000-4000-8000-" + randomBytes(6).toString("hex"); }
 function newToken() { return randomBytes(32).toString("base64url"); }
 const TOKEN_OK = (t) => typeof t === "string" && /^[A-Za-z0-9_-]{43,128}$/.test(t);
@@ -28,7 +35,10 @@ const events = new Map();        // `${session_id}|${key}` -> response
 let forceExpired = false;        // toggles the expired-action path for refresh testing
 
 function action(sessionId, expired) {
-  return expired ? null : { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", expires_in_seconds: 60, payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", chainId: 1, signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  if (expired) return null;
+  const value = { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", expires_in_seconds: 60, payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", chainId: 1, signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  value.payload_sha256 = bundleHash(value);
+  return value;
 }
 function publicSession(rec, replay = false, observation) {
   const expired = forceExpired && rec.status === "action_ready";
@@ -53,7 +63,10 @@ globalThis.fetch = async (url, init = {}) => {
   // POST /v2/prepare (stateless)
   if (path === "/v2/prepare" && init.method === "POST") {
     if (body.caller_approved !== true) return json(400, { error: "caller_approval_required" });
-    return json(200, { ...action(uuid(),false), minimum_output_base:1 });
+    const value = { ...action(uuid(),false), minimum_output_base:1 };
+    delete value.payload_sha256;
+    value.payload_sha256 = bundleHash(value);
+    return json(200, value);
   }
   // POST /v2/session (create)
   if (path === "/v2/session" && init.method === "POST") {
@@ -139,9 +152,14 @@ try {
   await client.connect(clientTransport);
 
   // 1) prepare happy path (executable route, caller-approved, exact wallets)
-  const prep = parse(await call("assetfare_v2_prepare", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]) }));
+  const prepResult = await call("assetfare_v2_prepare", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]) });
+  const prep = parse(prepResult);
+  assert.deepEqual(prepResult.structuredContent, prep);
+  assert.equal(prep.version, "assetfare-direct-multichain-action-v2");
   assert.equal(prep.signed, false); assert.equal(prep.submitted, false); assert.ok(prep.unsigned_action);
-  assert.equal(prep.guidance.callerMustVerifySignAndSubmit, true);
+  assert.equal(prep.guidance, undefined, "MCP guidance mutated the hashed Core bundle");
+  const unhashedPrep = { ...prep }; delete unhashedPrep.payload_sha256;
+  assert.equal(bundleHash(unhashedPrep), prep.payload_sha256);
   passed += 1;
 
   // 2) full session lifecycle happy path (token -> create -> get -> observe-source -> observe-output)

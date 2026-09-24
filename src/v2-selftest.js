@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -21,14 +21,27 @@ const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
 const SOURCE_ONLY_ROUTES = ["optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
 const EXPECTED_KEYWORDS = ["ai-agents", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "mcp", "a2a", "openapi", "non-custodial"];
+const BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
+const BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
+function canonical(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+}
+function hashBundle(value) { return createHash("sha256").update(canonical(value), "utf8").digest("hex"); }
+function prepareBundle() {
+  const value = { status: "pass", version: BUNDLE_VERSION, workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  value.payload_sha256 = hashBundle(value);
+  return value;
+}
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const lockMetadata = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "0.4.18");
-assert.equal(lockMetadata.version, "0.4.18");
-assert.equal(lockMetadata.packages[""].version, "0.4.18");
-assert.equal(registryMetadata.version, "0.4.18");
+assert.equal(packageMetadata.version, "0.4.19");
+assert.equal(lockMetadata.version, "0.4.19");
+assert.equal(lockMetadata.packages[""].version, "0.4.19");
+assert.equal(registryMetadata.version, "0.4.19");
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -211,7 +224,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "submicro-rounding") { const value=quote(intent);value.offer.expected_receive_usd=24.1234567;value.offer.estimated_min_receive_usd=23.123456;Object.assign(value.cost_summary,{expected_receive_value_usd:24.123457,minimum_receive_value_usd:23.123456,expected_total_cost_usd:.876543,maximum_total_cost_usd:1.876544,expected_total_cost_percent:3.506172,maximum_total_cost_percent:7.506176,small_amount_warning:true,warning:"fixed cost"});return Response.json(value); }
     return Response.json(mode === "unsafe-quote" ? quote(intent, { risk: { server_signing: true, server_submission: false } }) : quote(intent));
   }
-  if (String(url).endsWith("/v2/prepare")) {const value={ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256:"0".repeat(64), unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };if(mode==="unsafe-bundle-signed")value.unsigned_action.signed=true;if(mode==="unsafe-bundle-secret")value.unsigned_action.private_key="secret";if(mode==="unsafe-bundle-camel")value.unsigned_action.serverSigning=true;if(mode==="unsafe-bundle-nested-secret")value.unsigned_action.transactions=[{seedPhrase:"alpha beta gamma"}];if(mode==="unsafe-bundle-compound-secret")value.unsigned_action.transactions=[{eventSignerPrivateKey:"secret"}];if(mode==="unsafe-bundle-nested-signed")value.unsigned_action.transactions=[{signedTransaction:"0xdead",nested:{signed:true}}];if(mode==="unsafe-bundle-signature")value.unsigned_action.transactions=[{signature:"0xdead"}];return Response.json(value);}
+  if (String(url).endsWith("/v2/prepare")) {const value=prepareBundle();if(mode==="unsafe-bundle-signed")value.unsigned_action.signed=true;if(mode==="unsafe-bundle-secret")value.unsigned_action.private_key="secret";if(mode==="unsafe-bundle-camel")value.unsigned_action.serverSigning=true;if(mode==="unsafe-bundle-nested-secret")value.unsigned_action.transactions=[{seedPhrase:"alpha beta gamma"}];if(mode==="unsafe-bundle-compound-secret")value.unsigned_action.transactions=[{eventSignerPrivateKey:"secret"}];if(mode==="unsafe-bundle-nested-signed")value.unsigned_action.transactions=[{signedTransaction:"0xdead",nested:{signed:true}}];if(mode==="unsafe-bundle-signature")value.unsigned_action.transactions=[{signature:"0xdead"}];if(mode==="bundle-hash-mismatch")value.expires_at="2099-01-02T00:00:00Z";if(mode==="bundle-version-mismatch"){value.version="assetfare-direct-multichain-action-v3";delete value.payload_sha256;value.payload_sha256=hashBundle(value);}if(mode==="bundle-hash-spec-missing"){delete value.payload_sha256_spec;delete value.payload_sha256;value.payload_sha256=hashBundle(value);}if(mode==="bundle-hash-spec-mismatch"){value.payload_sha256_spec="sha256(JSON.stringify(bundle))";delete value.payload_sha256;value.payload_sha256=hashBundle(value);}return Response.json(value);}
   throw new Error(`unexpected upstream URL ${url}`);
 };
 
@@ -225,12 +238,18 @@ try {
   const listed = await client.listTools();
   const dynamicCapabilities = listed.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const dynamicQuote = listed.tools.find((tool) => tool.name === "assetfare_v2_quote");
+  const dynamicPrepare = listed.tools.find((tool) => tool.name === "assetfare_v2_prepare");
   const card = await serverCard();
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "0.4.18");
+  assert.equal(card.serverInfo.version, "0.4.19");
   assert.equal(card.tools.length, 9);
+  assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
+  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
+  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.description, BUNDLE_HASH_SPEC);
+  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256_spec.const, BUNDLE_HASH_SPEC);
+  assert.ok(dynamicPrepare.outputSchema.required.includes("payload_sha256_spec"));
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
   const staticNames = new Set(card.tools.map((tool) => tool.name));
@@ -386,13 +405,22 @@ try {
   const beforePrepare = calls.length;
   const sourceOnlyPrepare = await call(client, "assetfare_v2_prepare", { caller_approved: true, from_chain: "polygon", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 25, wallets: { polygon: "0x1111111111111111111111111111111111111111", base: "0x2222222222222222222222222222222222222222" } });
   assert.equal(sourceOnlyPrepare.isError, false, "source-only prepare was rejected");
-  assert.equal(parse(sourceOnlyPrepare).signed, false);
+  const sourceOnlyBundle = parse(sourceOnlyPrepare);
+  assert.deepEqual(sourceOnlyPrepare.structuredContent, sourceOnlyBundle, "prepare text and structuredContent diverged");
+  assert.deepEqual(sourceOnlyBundle, prepareBundle(), "MCP adapter did not return the exact upstream Core bundle");
+  assert.equal(sourceOnlyBundle.version, BUNDLE_VERSION);
+  assert.equal(sourceOnlyBundle.signed, false);
+  assert.equal(sourceOnlyBundle.guidance, undefined, "MCP guidance mutated the hashed Core bundle");
+  const unhashedBundle = { ...sourceOnlyBundle };
+  delete unhashedBundle.payload_sha256;
+  assert.equal(hashBundle(unhashedBundle), sourceOnlyBundle.payload_sha256, "Core bundle hash was not preserved");
   assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
 
   const uncappedPrepareArgs = { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 2500.25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "0x2222222222222222222222222222222222222222" } };
   const beforeUncappedPrepare = calls.length;
   const uncappedPrepare = await call(client, "assetfare_v2_prepare", uncappedPrepareArgs);
   assert.equal(uncappedPrepare.isError, false, "caller-approved prepare above the retired business cap was rejected");
+  assert.equal(parse(uncappedPrepare).signed, false);
   assert.equal(JSON.parse(String(calls.at(-1).init.body)).amount_usd, 2500.25);
   assert.equal(calls.length, beforeUncappedPrepare + 1, "uncapped prepare did not reach upstream exactly once");
 
@@ -426,7 +454,7 @@ try {
   const extraSecret=await call(client,"assetfare_v2_prepare",{...uncappedPrepareArgs,private_key:"secret"});
   assert.equal(extraSecret.isError,true,"prepare silently stripped an extra private_key field");
   assert.equal(calls.length,beforeExtraSecret,"extra secret field reached upstream");
-  for(const unsafeMode of ["unsafe-bundle-signed","unsafe-bundle-secret","unsafe-bundle-camel","unsafe-bundle-nested-secret","unsafe-bundle-compound-secret","unsafe-bundle-nested-signed","unsafe-bundle-signature"]){mode=unsafeMode;const before=calls.length;const unsafe=await call(client,"assetfare_v2_prepare",uncappedPrepareArgs);assert.equal(unsafe.isError,true,`${unsafeMode} upstream output was accepted`);assert.equal(calls.length,before+1);}mode="success";
+  for(const unsafeMode of ["unsafe-bundle-signed","unsafe-bundle-secret","unsafe-bundle-camel","unsafe-bundle-nested-secret","unsafe-bundle-compound-secret","unsafe-bundle-nested-signed","unsafe-bundle-signature","bundle-hash-mismatch","bundle-version-mismatch","bundle-hash-spec-missing","bundle-hash-spec-mismatch"]){mode=unsafeMode;const before=calls.length;const unsafe=await call(client,"assetfare_v2_prepare",uncappedPrepareArgs);assert.equal(unsafe.isError,true,`${unsafeMode} upstream output was accepted`);assert.equal(calls.length,before+1);}mode="success";
 
   // The remote adapter never generates a caller session secret. The client
   // generates 32 CSPRNG bytes locally and supplies the token only on session calls.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import express from "express";
 import { isIP } from "node:net";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -12,7 +12,7 @@ import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/serve
 import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 
-const VERSION = "0.4.18";
+const VERSION = "0.4.19";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -64,13 +64,15 @@ const V2_SESSION_URL = "https://api.assetfare.dev/v2/session";
 const V2_HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
 const V2_FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const V2_SESSION_TOKEN_HEADER = "x-assetfare-session-token";
+const V2_BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
+const V2_BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
 const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every six-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
 const V2_CAPABILITIES_DESCRIPTION = "Read the current 76-route capability and live-availability matrix before quoting. Example: confirm solana:USDC->base:USDC is prepare-ready and server_signing/server_submission are false. Read-only; creates no wallet login, session, or action.";
 const V2_QUOTE_DESCRIPTION = "Get one fresh fee-inclusive quote and caller-operated unsigned-plan handoff. Example: from_chain='solana', from_token='USDC', to_chain='base', to_token='USDC', amount_usd=250. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
-const V2_PREPARE_DESCRIPTION = "Return the first caller-approved unsigned action after a fresh re-quote. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Return the exact validated versioned Core bundle for the first caller-approved unsigned action after a fresh re-quote. Its payload_sha256 covers the Core bundle with only payload_sha256 omitted; the MCP adapter does not append fields to that hash scope. Example: pass caller_approved=true, the exact route, public wallets, and a caller-owned Solana event signer public key when required. Use instead of session mode for one-shot preview; never call both modes, and AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Create one caller-approved receipt-driven workflow and return its current unsigned action. Example: pass a locally generated 256-bit base64url session_token, public wallets, and idempotency_key='create-0001'. Use for multi-step execution, never alongside one-shot prepare; AssetFare never signs or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read an existing v2 workflow and current unsigned action without advancing it. Example: pass the session_id and its caller-owned session_token after a restart. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record source hashes the caller already signed and submitted, then advance the workflow. Example: transaction_hashes=['<finalized-source-hash>'] with idempotency_key='source-0001'. Never pass an unsigned hash; AssetFare observes but never signs or submits.";
@@ -214,8 +216,9 @@ const v2ManifestOutput = z.object({
   signature: z.object({ algorithm:z.literal("Ed25519"), key_id:z.string().min(1), public_key_url:z.string().url(), value:z.string().min(1) }).passthrough(),
 }).passthrough();
 const v2BundleOutput = z.object({
+  version:z.literal(V2_BUNDLE_VERSION),
   workflow_id:z.string().uuid(), action_id:z.string().uuid(), step_index:z.number().int().nonnegative(), expires_at:z.string().min(1),
-  unsigned_action:z.record(z.unknown()), payload_sha256:z.string().regex(/^[0-9a-f]{64}$/),
+  unsigned_action:z.record(z.unknown()), payload_sha256:z.string().regex(/^[0-9a-f]{64}$/).describe(V2_BUNDLE_HASH_SPEC), payload_sha256_spec:z.literal(V2_BUNDLE_HASH_SPEC),
   server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
 }).passthrough();
 const v2SessionOutput = z.object({
@@ -463,17 +466,32 @@ function parseV2Capabilities(payload) {
   return value;
 }
 
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+}
+
+function bundlePayloadSha256(payload) {
+  const unhashed = { ...payload };
+  delete unhashed.payload_sha256;
+  return createHash("sha256").update(canonicalJson(unhashed), "utf8").digest("hex");
+}
+
 // Validate the upstream bounded first unsigned action bundle returned by /v2/prepare and
 // by /v2/session create. Fail-closed on any server signing/submission claim.
 function parseV2Bundle(payload) {
   rejectSigningClaims(payload);
   rejectPrivateOutputMaterial(payload);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("assetfare_v2_bundle_invalid");
+  if (payload.version !== V2_BUNDLE_VERSION) throw new Error("assetfare_v2_bundle_version_invalid");
+  if (payload.payload_sha256_spec !== V2_BUNDLE_HASH_SPEC) throw new Error("assetfare_v2_bundle_hash_spec_invalid");
   if (payload.server_signing !== false || payload.server_submission !== false || payload.signed !== false || payload.submitted !== false) throw new Error("assetfare_v2_bundle_unsafe");
   if (!payload.unsigned_action || typeof payload.unsigned_action !== "object") throw new Error("assetfare_v2_bundle_missing_action");
   rejectUnsignedActionMaterial(payload.unsigned_action);
   if (payload.unsigned_action.signed !== false || payload.unsigned_action.submitted !== false) throw new Error("assetfare_v2_bundle_unsafe");
   for(const key of ["signature","signatures","signed_transaction","signed_tx","raw_transaction","private_key","seed_phrase","mnemonic"])if(Object.prototype.hasOwnProperty.call(payload.unsigned_action,key))throw new Error("assetfare_v2_bundle_unsafe");
+  if (!/^[0-9a-f]{64}$/.test(payload.payload_sha256 || "") || bundlePayloadSha256(payload) !== payload.payload_sha256) throw new Error("assetfare_v2_bundle_hash_mismatch");
   return payload;
 }
 
@@ -652,7 +670,7 @@ function createServer(provenance = {}, profile = "v2") {
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
     const body = { caller_approved: true, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}) };
     const bundle = parseV2Bundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
-    return { ...bundle, guidance: { freshRequoted: true, callerApprovalHonored: true, actionPrepared: true, transactionSigned: false, transactionSubmitted: false, callerMustVerifySignAndSubmit: true } };
+    return bundle;
   }, v2BundleOutput);
   if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, v2SessionCreateIntent, stateful(true), async (args) => {
     const intent = v2SessionCreateIntent.parse(args);
