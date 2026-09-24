@@ -55,7 +55,7 @@ jobs:
         id: pack
         run: |
           npm pack --json > npm-pack.json
-          artifact="$(node -p 'require("./npm-pack.json")[0].filename')"
+          artifact="$(node -e 'const packResult=require("./npm-pack.json");const entries=Array.isArray(packResult)?packResult:Object.values(packResult);if(entries.length!==1||typeof entries[0]?.filename!=="string")process.exit(1);process.stdout.write(entries[0].filename)')"
           test -f "$artifact"
           sha256sum "$artifact" > "$artifact.sha256"
           echo "artifact=$artifact" >> "$GITHUB_OUTPUT"

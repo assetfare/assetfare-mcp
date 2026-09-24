@@ -57,6 +57,7 @@ const provenanceRequired = [
   "npm audit --omit=dev --audit-level=high",
   "sha256sum",
   "actions/attest-build-provenance@",
+  "Array.isArray(packResult)?packResult:Object.values(packResult)",
 ];
 for (const value of provenanceRequired) {
   if (!provenance.includes(value)) throw new Error(`missing provenance guard: ${value}`);
@@ -65,6 +66,7 @@ if (provenance.includes("--clobber")) throw new Error("release assets must be im
 for (const value of ["node-version: [20.19.0, 24.19.0]", "npm run check", "npm test", "npm audit --omit=dev --audit-level=high"]) {
   if (!ci.includes(value)) throw new Error(`missing CI support guard: ${value}`);
 }
+if (!text.includes("Array.isArray(packResult)?packResult:Object.values(packResult)")) throw new Error("publish workflow must accept npm 11 array and npm 12 object pack JSON");
 
 const verifyAt = text.indexOf("Verify immutable tag and package version");
 const testAt = text.indexOf("Verify package");
