@@ -62,27 +62,36 @@ jobs:
           (cd "$asset_dir" && sha256sum -c "$artifact.sha256")
           test "$(sha256sum "$artifact" | cut -d' ' -f1)" = "$(sha256sum "$asset_dir/$artifact" | cut -d' ' -f1)"
           echo "artifact_path=$asset_dir/$artifact" >> "$GITHUB_OUTPUT"
-      - name: Refuse an existing registry version
+      - name: Refuse a conflicting existing registry version
+        id: registry_state
         run: |
           package_name="$(node -p 'require("./package.json").name')"
           package_version="$(node -p 'require("./package.json").version')"
+          expected_shasum="$(sha1sum "${{ steps.release_asset.outputs.artifact_path }}" | cut -d' ' -f1)"
           if npm view "$package_name@$package_version" version >/dev/null 2>&1; then
-            echo "Refusing to republish existing $package_name@$package_version" >&2
-            exit 1
+            existing_shasum="$(npm view "$package_name@$package_version" dist.shasum)"
+            if test "$existing_shasum" != "$expected_shasum"; then
+              echo "Refusing conflicting $package_name@$package_version: artifact digest mismatch" >&2
+              exit 1
+            fi
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Publish with short-lived npm OIDC credentials
+        if: steps.registry_state.outputs.already_published != 'true'
         run: npm publish "${{ steps.release_asset.outputs.artifact_path }}" --access public
       - name: Verify npm latest dist-tag
         run: |
           package_name="$(node -p 'require("./package.json").name')"
           package_version="$(node -p 'require("./package.json").version')"
           expected_shasum="$(sha1sum "${{ steps.release_asset.outputs.artifact_path }}" | cut -d' ' -f1)"
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          for attempt in $(seq 1 60); do
             if test "$(npm view "$package_name" dist-tags.latest 2>/dev/null)" = "$package_version"; then
               test "$(npm view "$package_name@$package_version" dist.shasum)" = "$expected_shasum"
               exit 0
             fi
-            sleep 3
+            sleep 5
           done
           echo "npm latest did not converge to $package_version" >&2
           exit 1

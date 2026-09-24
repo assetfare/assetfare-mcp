@@ -23,7 +23,9 @@ const required = [
   "npm pack --dry-run",
   "gh release download",
   "sha256sum -c",
-  "Refusing to republish existing",
+  "Refusing conflicting",
+  "already_published=true",
+  "if: steps.registry_state.outputs.already_published != 'true'",
   "npm publish \"${{ steps.release_asset.outputs.artifact_path }}\" --access public",
   "dist-tags.latest",
   "dist.shasum",
@@ -70,7 +72,7 @@ if (!text.includes("Array.isArray(packResult)?packResult:Object.values(packResul
 
 const verifyAt = text.indexOf("Verify immutable tag and package version");
 const testAt = text.indexOf("Verify package");
-const existingAt = text.indexOf("Refuse an existing registry version");
+const existingAt = text.indexOf("Refuse a conflicting existing registry version");
 const publishAt = text.indexOf("Publish with short-lived npm OIDC credentials");
 if (!(verifyAt >= 0 && verifyAt < testAt && testAt < existingAt && existingAt < publishAt)) {
   throw new Error("trusted-publish guard order mismatch");
