@@ -408,6 +408,51 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 `npm publish` is allowed only for that workflow. Package settings should require
 2FA and disallow traditional tokens after the OIDC connection is verified.
 
+### Integration npm releases
+
+The three unscoped integration packages use a separate, package-allowlisted
+release path. Their immutable tags are pinned exactly as follows:
+
+- `assetfare-agentkit-action-provider-v0.1.1`
+- `assetfare-elizaos-route-plugin-v0.1.1`
+- `assetfare-solana-agent-kit-plugin-v0.1.1`
+
+`release-integration-provenance.yml` accepts only those three package choices.
+It requires the corresponding lightweight tag to resolve to a commit signed by
+the pinned AssetFare release key and contained in `main`, requires an already
+published non-draft GitHub release, runs the package's locked checks, tests,
+build, production audit, and pack verification, then uploads exactly the npm
+tarball and its SHA-256 file and records GitHub build provenance. It never
+publishes to npm.
+
+Both workflows must be dispatched with `--ref` set to that package's exact tag,
+never `main` or another branch/tag. They require `GITHUB_REF` to equal
+`refs/tags/<exact-package-tag>` and `GITHUB_SHA` to equal the signed tag commit;
+the tag itself must contain the same two workflow files and pinned signer data.
+For example, after the trusted-publisher prerequisite below is complete, the
+provenance phase for AgentKit is selected with
+`gh workflow run release-integration-provenance.yml --ref assetfare-agentkit-action-provider-v0.1.1 -f package=assetfare-agentkit-action-provider`.
+The publish phase uses the same `--ref` and package choice with
+`publish-integration-npm.yml` only after provenance succeeds.
+
+`publish-integration-npm.yml` accepts the same allowlist and version 0.1.1. It
+repeats the signed-tag, release, manifest, lockfile, test, build, audit, and pack
+checks; downloads only the two exact release assets; verifies GitHub's asset
+digest, SHA-256 file, GitHub attestation, package identity, and byte-for-byte
+reproducibility; then publishes that downloaded tarball with short-lived OIDC
+credentials. An existing registry version is accepted only when its shasum
+matches exactly; a conflict fails closed. The final gate requires the expected
+`latest` tag, shasum, and npm SLSA provenance.
+
+**Do not dispatch either integration release workflow until the target npm
+package's Settings → Trusted Publisher entry is configured and independently
+checked with organization `assetfare`, repository `assetfare-mcp`, exact
+workflow filename `publish-integration-npm.yml`, no environment, and direct
+`npm publish` permission.** Configure that exact entry separately for all three
+packages. Do not substitute `publish-npm.yml`, a fork, a differently named
+workflow, or an npm write token. The existing root v1.x provenance and publish
+workflows remain separate and unchanged.
+
 ## Trust material
 
 - Security contact: `security@assetfare.dev`

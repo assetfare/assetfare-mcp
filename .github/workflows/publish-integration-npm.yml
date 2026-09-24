@@ -1,0 +1,295 @@
+name: Publish integration npm with OIDC
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Integration package whose attested release asset will be published
+        required: true
+        type: choice
+        options:
+          - assetfare-agentkit-action-provider
+          - assetfare-elizaos-route-plugin
+          - assetfare-solana-agent-kit-plugin
+
+permissions:
+  contents: read
+
+jobs:
+  build-candidate:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      DIRECT_ROUTE_BASELINE: b886620ee5d675aa51a272105a0148f88558a879
+      EXPECTED_VERSION: 0.1.1
+      REQUESTED_PACKAGE: ${{ inputs.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve allowlisted package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_PACKAGE" in
+            assetfare-agentkit-action-provider)
+              directory="integrations/coinbase-agentkit"
+              tag="assetfare-agentkit-action-provider-v0.1.1"
+              ;;
+            assetfare-elizaos-route-plugin)
+              directory="integrations/elizaos"
+              tag="assetfare-elizaos-route-plugin-v0.1.1"
+              ;;
+            assetfare-solana-agent-kit-plugin)
+              directory="integrations/solana-agent-kit"
+              tag="assetfare-solana-agent-kit-plugin-v0.1.1"
+              ;;
+            *)
+              echo "Package is outside the integration publish allowlist" >&2
+              exit 1
+              ;;
+          esac
+          test "$tag" = "$REQUESTED_PACKAGE-v$EXPECTED_VERSION"
+          echo "directory=$directory" >> "$GITHUB_OUTPUT"
+          echo "name=$REQUESTED_PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@12.1.0
+      - name: Verify immutable package source
+        id: source
+        env:
+          PACKAGE_DIRECTORY: ${{ steps.package.outputs.directory }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(npm --version)" = "12.1.0"
+          git fetch --force origin main "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = "commit"
+          tag_commit="$(git rev-parse "refs/tags/$RELEASE_TAG")"
+          test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+          test "$GITHUB_SHA" = "$tag_commit"
+          test "$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$tag_commit"
+          main_commit="$(git rev-parse origin/main)"
+          git merge-base --is-ancestor "$DIRECT_ROUTE_BASELINE" "$tag_commit"
+          git merge-base --is-ancestor "$tag_commit" "$main_commit"
+          test "$(git show "$tag_commit:.github/workflows/release-integration-provenance.yml" | sha256sum | cut -d' ' -f1)" = "$(sha256sum .github/workflows/release-integration-provenance.yml | cut -d' ' -f1)"
+          test "$(git show "$tag_commit:.github/workflows/publish-integration-npm.yml" | sha256sum | cut -d' ' -f1)" = "$(sha256sum .github/workflows/publish-integration-npm.yml | cut -d' ' -f1)"
+          test "$(git show "$tag_commit:verification/assetfare-release-signers" | sha256sum | cut -d' ' -f1)" = "$(sha256sum verification/assetfare-release-signers | cut -d' ' -f1)"
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/verification/assetfare-release-signers" verify-commit "$tag_commit"
+          git checkout --detach "$tag_commit"
+          node - "$PACKAGE_DIRECTORY/package.json" "$PACKAGE_DIRECTORY/package-lock.json" "$PACKAGE_NAME" "$EXPECTED_VERSION" <<'NODE'
+          const [manifestPath, lockPath, expectedName, expectedVersion] = process.argv.slice(2);
+          const manifest = require(`./${manifestPath}`);
+          const lock = require(`./${lockPath}`);
+          if (manifest.name !== expectedName || manifest.version !== expectedVersion) process.exit(1);
+          if (manifest.publishConfig?.access !== "public") process.exit(1);
+          if (manifest.repository?.url !== "https://github.com/assetfare/assetfare-mcp.git") process.exit(1);
+          if (manifest.repository?.directory !== manifestPath.replace(/\/package\.json$/, "")) process.exit(1);
+          if (lock.name !== expectedName || lock.version !== expectedVersion) process.exit(1);
+          if (lock.packages?.[""]?.name !== expectedName || lock.packages?.[""]?.version !== expectedVersion) process.exit(1);
+          NODE
+          echo "tag_commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          echo "main_commit=$main_commit" >> "$GITHUB_OUTPUT"
+      - name: Install exact integration dependencies
+        working-directory: ${{ steps.package.outputs.directory }}
+        run: npm ci
+      - name: Verify integration package before publication
+        working-directory: ${{ steps.package.outputs.directory }}
+        run: |
+          npm run check
+          npm test
+          npm run build
+          npm audit --omit=dev --audit-level=high
+          npm pack --dry-run
+      - name: Build deterministic candidate
+        working-directory: ${{ steps.package.outputs.directory }}
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --json > "$RUNNER_TEMP/integration-npm-pack.json"
+          artifact="$(node -e 'const value=require(process.env.RUNNER_TEMP+"/integration-npm-pack.json");const rows=Array.isArray(value)?value:Object.values(value);if(rows.length!==1||typeof rows[0]?.filename!=="string")process.exit(1);process.stdout.write(rows[0].filename)')"
+          test "$artifact" = "$PACKAGE_NAME-$EXPECTED_VERSION.tgz"
+          stage="$RUNNER_TEMP/integration-publish-candidate"
+          mkdir -p "$stage"
+          install -m 0644 "$artifact" "$stage/"
+          node - "$stage/release-metadata.json" "$PACKAGE_NAME" "$EXPECTED_VERSION" "${{ steps.package.outputs.tag }}" "${{ steps.source.outputs.tag_commit }}" "${{ steps.source.outputs.main_commit }}" "$artifact" <<'NODE'
+          const fs=require("node:fs"),crypto=require("node:crypto");
+          const [path,packageName,version,tag,tagCommit,mainCommit,artifact]=process.argv.slice(2);
+          const bytes=fs.readFileSync(`${process.env.RUNNER_TEMP}/integration-publish-candidate/${artifact}`);
+          fs.writeFileSync(path,`${JSON.stringify({packageName,version,tag,tagCommit,mainCommit,artifact,sha256:crypto.createHash("sha256").update(bytes).digest("hex"),sha1:crypto.createHash("sha1").update(bytes).digest("hex")})}\n`);
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: integration-publish-candidate-${{ inputs.package }}
+          path: ${{ runner.temp }}/integration-publish-candidate/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    env:
+      EXPECTED_VERSION: 0.1.1
+      GH_TOKEN: ${{ github.token }}
+      REQUESTED_PACKAGE: ${{ inputs.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve allowlisted package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_PACKAGE" in
+            assetfare-agentkit-action-provider) tag="assetfare-agentkit-action-provider-v0.1.1" ;;
+            assetfare-elizaos-route-plugin) tag="assetfare-elizaos-route-plugin-v0.1.1" ;;
+            assetfare-solana-agent-kit-plugin) tag="assetfare-solana-agent-kit-plugin-v0.1.1" ;;
+            *) echo "Package is outside the integration publish allowlist" >&2; exit 1 ;;
+          esac
+          test "$tag" = "$REQUESTED_PACKAGE-v$EXPECTED_VERSION"
+          echo "name=$REQUESTED_PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.19.0
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@12.1.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: integration-publish-candidate-${{ inputs.package }}
+          path: ${{ runner.temp }}/integration-publish-candidate
+      - name: Verify candidate against exact release assets
+        id: verified
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate="$RUNNER_TEMP/integration-publish-candidate"
+          test "$(find "$candidate" -maxdepth 1 -type f | wc -l)" = "2"
+          artifact="$PACKAGE_NAME-$EXPECTED_VERSION.tgz"
+          test -f "$candidate/$artifact"
+          test -f "$candidate/release-metadata.json"
+          node - "$candidate/release-metadata.json" "$candidate/$artifact" "$PACKAGE_NAME" "$EXPECTED_VERSION" "$RELEASE_TAG" <<'NODE'
+          const fs=require("node:fs"),crypto=require("node:crypto");
+          const [metadataPath,artifactPath,name,version,tag]=process.argv.slice(2);
+          const metadata=JSON.parse(fs.readFileSync(metadataPath,"utf8"));
+          const bytes=fs.readFileSync(artifactPath);
+          const expected={packageName:name,version,tag,artifact:`${name}-${version}.tgz`,sha256:crypto.createHash("sha256").update(bytes).digest("hex"),sha1:crypto.createHash("sha1").update(bytes).digest("hex")};
+          for(const [key,value] of Object.entries(expected))if(metadata[key]!==value)process.exit(1);
+          if(!/^[0-9a-f]{40}$/.test(metadata.tagCommit)||!/^[0-9a-f]{40}$/.test(metadata.mainCommit))process.exit(1);
+          NODE
+          tag_commit="$(node -p 'require(process.argv[1]).tagCommit' "$candidate/release-metadata.json")"
+          main_commit="$(node -p 'require(process.argv[1]).mainCommit' "$candidate/release-metadata.json")"
+          git fetch --force origin main "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG")" = "$tag_commit"
+          test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+          test "$GITHUB_SHA" = "$tag_commit"
+          test "$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$tag_commit"
+          git merge-base --is-ancestor "$tag_commit" "$(git rev-parse origin/main)"
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/verification/assetfare-release-signers" verify-commit "$tag_commit"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.draft')" = "false"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.prerelease')" = "false"
+          expected_assets="$(printf '%s\n%s\n' "$artifact" "$artifact.sha256" | sort)"
+          actual_assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[].name' | sort)"
+          test "$actual_assets" = "$expected_assets"
+          release_assets="$RUNNER_TEMP/integration-release-assets"
+          mkdir -p "$release_assets"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$release_assets" --pattern "$artifact" --pattern "$artifact.sha256"
+          (cd "$release_assets" && sha256sum -c "$artifact.sha256")
+          cmp "$candidate/$artifact" "$release_assets/$artifact"
+          digest="$(sha256sum "$release_assets/$artifact" | cut -d' ' -f1)"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq ".assets[] | select(.name == \"$artifact\") | .digest")" = "sha256:$digest"
+          gh attestation verify "$release_assets/$artifact" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow assetfare/assetfare-mcp/.github/workflows/release-integration-provenance.yml \
+            --source-ref "refs/tags/$RELEASE_TAG" \
+            --source-digest "$tag_commit" \
+            --deny-self-hosted-runners
+          tar -xOf "$release_assets/$artifact" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(p.name!==process.argv[1]||p.version!==process.argv[2])process.exit(1)})' "$PACKAGE_NAME" "$EXPECTED_VERSION"
+          echo "artifact_path=$release_assets/$artifact" >> "$GITHUB_OUTPUT"
+          echo "tag_commit=$tag_commit" >> "$GITHUB_OUTPUT"
+          echo "main_commit=$main_commit" >> "$GITHUB_OUTPUT"
+      - name: Classify registry state and publish exact downloaded bytes
+        id: registry_state
+        env:
+          EXPECTED_TAG_COMMIT: ${{ steps.verified.outputs.tag_commit }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_path="${{ steps.verified.outputs.artifact_path }}"
+          expected_shasum="$(sha1sum "$artifact_path" | cut -d' ' -f1)"
+          npm_error="$RUNNER_TEMP/npm-view-error"
+          if npm view "$PACKAGE_NAME@$EXPECTED_VERSION" version --json >/dev/null 2>"$npm_error"; then
+            existing_shasum="$(npm view "$PACKAGE_NAME@$EXPECTED_VERSION" dist.shasum)"
+            test "$existing_shasum" = "$expected_shasum" || { echo "Refusing conflicting $PACKAGE_NAME@$EXPECTED_VERSION: artifact digest mismatch" >&2; exit 1; }
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            npm_status=$?
+            npm_error_code="$(sed -n 's/^npm error code //p' "$npm_error" | sort -u)"
+            test "$npm_status" = "1" && test "$npm_error_code" = "E404" || { cat "$npm_error" >&2; exit 1; }
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+          if ! grep -Fxq 'already_published=true' "$GITHUB_OUTPUT"; then
+            git fetch --force origin main "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            test "$(git rev-parse "refs/tags/$RELEASE_TAG")" = "$EXPECTED_TAG_COMMIT"
+            test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+            test "$GITHUB_SHA" = "$EXPECTED_TAG_COMMIT"
+            test "$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$EXPECTED_TAG_COMMIT"
+            git merge-base --is-ancestor "$EXPECTED_TAG_COMMIT" "$(git rev-parse origin/main)"
+            git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/verification/assetfare-release-signers" verify-commit "$EXPECTED_TAG_COMMIT"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.draft')" = "false"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.prerelease')" = "false"
+            artifact="$(basename "$artifact_path")"
+            expected_assets="$(printf '%s\n%s\n' "$artifact" "$artifact.sha256" | sort)"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets[].name' | sort)" = "$expected_assets"
+            gh attestation verify "$artifact_path" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow assetfare/assetfare-mcp/.github/workflows/release-integration-provenance.yml \
+              --source-ref "refs/tags/$RELEASE_TAG" \
+              --source-digest "$EXPECTED_TAG_COMMIT" \
+              --deny-self-hosted-runners
+            npm publish "$artifact_path" --access public
+          fi
+      - name: Verify npm latest, shasum, publisher, and automatic provenance
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_shasum="$(sha1sum "${{ steps.verified.outputs.artifact_path }}" | cut -d' ' -f1)"
+          for attempt in $(seq 1 60); do
+            if test "$(npm view "$PACKAGE_NAME" dist-tags.latest 2>/dev/null)" = "$EXPECTED_VERSION"; then
+              test "$(npm view "$PACKAGE_NAME@$EXPECTED_VERSION" dist.shasum)" = "$expected_shasum"
+              test "$(npm view "$PACKAGE_NAME@$EXPECTED_VERSION" dist.attestations.provenance.predicateType)" = "https://slsa.dev/provenance/v1"
+              test "$(npm view "$PACKAGE_NAME@$EXPECTED_VERSION" _npmUser)" = "GitHub Actions <npm-oidc-no-reply@github.com>"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "npm latest did not converge to $EXPECTED_VERSION" >&2
+          exit 1

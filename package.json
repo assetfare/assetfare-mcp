@@ -64,13 +64,14 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/is-main.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs",
-    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/bin-entrypoint-selftest.mjs && node scripts/plan-selftest.mjs && node scripts/route-eval-selftest.mjs && node scripts/agent-plugin-selftest.mjs && node scripts/assetfare-verify-selftest.mjs && node scripts/publish-workflow-selftest.mjs",
+    "check": "node --check src/is-main.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
+    "test": "node src/selftest.js && node src/tdqs-selftest.js && node src/v2-selftest.js && node src/v2-session-selftest.js && node src/a2a-selftest.js && node scripts/bin-entrypoint-selftest.mjs && node scripts/plan-selftest.mjs && node scripts/route-eval-selftest.mjs && node scripts/agent-plugin-selftest.mjs && node scripts/assetfare-verify-selftest.mjs && node scripts/publish-workflow-selftest.mjs && node scripts/integration-publish-workflow-selftest.mjs",
     "verify-selftest": "node scripts/assetfare-verify-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",
     "first-call-eval": "node scripts/first-call-eval.mjs",
     "route-eval": "node scripts/route-eval.mjs",
     "route-eval-selftest": "node scripts/route-eval-selftest.mjs",
-    "plan-selftest": "node scripts/plan-selftest.mjs"
+    "plan-selftest": "node scripts/plan-selftest.mjs",
+    "integration-publish-selftest": "node scripts/integration-publish-workflow-selftest.mjs"
   }
 }
