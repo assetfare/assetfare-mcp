@@ -20,17 +20,25 @@ const required=[
   "test/action-bundle-fixture.mjs",
   "test/portable-quote-payload-fixture.json",
   "test/core-241-unsafe-integer-quote.json",
+  "test/robinhood-usdg-solana-usdc-paxos-bundle.json",
+  "test/robinhood-usdg-solana-usdc-orca-bundle.json",
   "src/continuation-v3-selftest.js",
   "src/caller-runner.js",
   "src/caller-runner-selftest.js",
+  "src/caller-runner-exact-route-selftest.js",
+  "src/standard-wallet-adapter.js",
+  "src/standard-wallet-adapter-selftest.js",
   "src/trust-root.js",
   "scripts/test-runner.mjs",
   "scripts/select-selftest.mjs",
   "scripts/plan-selftest.mjs",
   "scripts/session-selftest.mjs",
   "scripts/caller-runner.mjs",
+  "scripts/wallet-adapter-conformance.mjs",
   "schemas/caller-owned-execution-policy-v1.json",
+  "schemas/caller-owned-execution-policy-v2.json",
   "examples/caller-wallet-adapter.mjs",
+  "examples/my-agent-wallets.example.mjs",
   "scripts/remote-session-selftest.mjs",
   "scripts/a2a-session-selftest.mjs",
   "scripts/one-shot-selftest.mjs",
@@ -39,5 +47,5 @@ const required=[
 for(const path of required)assert.ok(files.has(path),`packed artifact missing ${path}`);
 assert.ok(files.has("package.json"));
 assert.equal(report.name,"assetfare-mcp");
-assert.equal(report.version,"1.5.3");
+assert.equal(report.version,"1.6.0");
 console.log(JSON.stringify({status:"pass",npm_pack_dry_run:true,entry_count:report.entryCount,required_test_support:required.length,missing:[],live_requests:false}));

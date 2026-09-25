@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",
+  "title": "AssetFare caller-owned execution policy v2",
+  "description": "Local single-use authorization consumed only by the caller-owned runner. AssetFare never receives a key, signer credential, signed transaction, or custody delegation. The submit margin forces a fresh expiry check after simulation and before every caller-side wallet submission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "authorization_id", "status", "single_use", "automatic_execution_authorized", "authorization_expires_at", "quote_id", "session_id", "route", "wallets", "maximum_input_base", "minimum_final_output_base", "minimum_action_remaining_seconds", "minimum_submit_remaining_seconds", "maximum_runtime_seconds", "evm", "solana", "custody"],
+  "properties": {
+    "version": {"const": "assetfare-caller-owned-execution-policy-v2"},
+    "authorization_id": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"},
+    "status": {"const": "approved"},
+    "single_use": {"const": true},
+    "automatic_execution_authorized": {"const": true},
+    "authorization_expires_at": {"type": "string", "format": "date-time"},
+    "quote_id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "route": {"type": "string", "minLength": 3, "maxLength": 128},
+    "wallets": {"type": "object", "minProperties": 1, "maxProperties": 6, "additionalProperties": {"type": "string", "minLength": 32, "maxLength": 64}},
+    "maximum_input_base": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "minimum_final_output_base": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "minimum_action_remaining_seconds": {"type": "integer", "minimum": 30, "maximum": 170},
+    "minimum_submit_remaining_seconds": {"type": "integer", "minimum": 5, "maximum": 120},
+    "maximum_runtime_seconds": {"type": "integer", "minimum": 60, "maximum": 3600},
+    "evm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_total_native_spend_wei", "maximum_fee_per_gas_wei", "gas_limit_caps", "approval_recovery_gas_limit", "allow_approval_revoke_on_failure", "maximum_signed_submitted_transactions"],
+      "properties": {
+        "maximum_total_native_spend_wei": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "maximum_fee_per_gas_wei": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "gas_limit_caps": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"type": "string", "pattern": "^[1-9][0-9]*$"}},
+        "approval_recovery_gas_limit": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "allow_approval_revoke_on_failure": {"const": true},
+        "maximum_signed_submitted_transactions": {"type": "integer", "minimum": 1, "maximum": 16}
+      }
+    },
+    "solana": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_total_fee_and_rent_lamports", "maximum_signed_submitted_transactions"],
+      "properties": {
+        "maximum_total_fee_and_rent_lamports": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "maximum_signed_submitted_transactions": {"type": "integer", "minimum": 1, "maximum": 16}
+      }
+    },
+    "custody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_location", "assetfare_server_key_access", "assetfare_server_signing", "assetfare_server_submission", "caller_wallet_adapter_signing", "caller_wallet_adapter_submission", "raw_key_serialization_forbidden"],
+      "properties": {
+        "key_location": {"const": "caller_wallet_adapter_only"},
+        "assetfare_server_key_access": {"const": false},
+        "assetfare_server_signing": {"const": false},
+        "assetfare_server_submission": {"const": false},
+        "caller_wallet_adapter_signing": {"const": true},
+        "caller_wallet_adapter_submission": {"const": true},
+        "raw_key_serialization_forbidden": {"const": true}
+      }
+    }
+  }
+}

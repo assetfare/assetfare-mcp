@@ -8,6 +8,8 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const packaged=[
   "src/continuation-v3-selftest.js",
   "src/caller-runner-selftest.js",
+  "src/caller-runner-exact-route-selftest.js",
+  "src/standard-wallet-adapter-selftest.js",
   "src/selftest.js",
   "src/tdqs-selftest.js",
   "src/v2-selftest.js",

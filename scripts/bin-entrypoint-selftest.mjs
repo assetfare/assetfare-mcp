@@ -34,6 +34,7 @@ try {
     ["assetfare-plan", "scripts/plan.mjs", /Usage:\s+assetfare-plan[\s\S]*--select-exact-quote-bounds/],
     ["assetfare-session", "scripts/session.mjs", /Usage:\s+assetfare-session[\s\S]*observe-source/],
     ["assetfare-agent-runner", "scripts/caller-runner.mjs", /Usage:\s+assetfare-agent-runner[\s\S]*caller-owned/],
+    ["assetfare-adapter-conformance", "scripts/wallet-adapter-conformance.mjs", /Usage:\s+assetfare-adapter-conformance[\s\S]*Offline only/],
     ["assetfare-select", "scripts/select.mjs", /Usage:\s+assetfare-select[\s\S]*--maximum-input-base/],
     ["assetfare-route-eval", "scripts/route-eval.mjs", /AssetFare read-only route evaluator/],
     ["assetfare-verify", "scripts/assetfare-verify.mjs", /Usage:\s+assetfare-verify/],
@@ -51,4 +52,4 @@ try {
   await rm(fixture, { recursive: true, force: true });
 }
 
-console.log(JSON.stringify({ status: "pass", npm_symlink_bin_entrypoints: 7, live_requests: false }));
+console.log(JSON.stringify({ status: "pass", npm_symlink_bin_entrypoints: 8, live_requests: false }));

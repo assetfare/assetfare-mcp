@@ -1,30 +1,20 @@
 /**
- * Contract-only template for a caller-owned wallet adapter.
+ * Ready-made caller-owned adapter wiring.
  *
- * Replace each method with calls to the agent's existing wallet/HSM/browser
- * provider. Keep keys inside that provider. Never return a key, seed, keystore,
- * serialized signed transaction, or raw signed transaction to AssetFare.
+ * Export the standard wallet clients your agent already owns from
+ * `my-agent-wallets.mjs`. AssetFare receives none of their keys and never
+ * signs or submits. This process calls those clients directly in the caller's
+ * environment after the local policy and verified handoff pass.
  */
+import { createMode0600JsonOperationStore, createStandardCallerWalletAdapter } from "../src/standard-wallet-adapter.js";
+import { evmProvider, solanaAccount, solanaRpcUrl, solanaWallet } from "./my-agent-wallets.example.mjs";
+
 export async function createCallerWalletAdapter(){
-  const unavailable=async()=>{throw new Error("configure_caller_owned_wallet_adapter");};
-  return {
-    info:{
-      version:"assetfare-caller-wallet-adapter-v1",
-      custody:"caller_owned",
-      key_location:"caller_environment_only",
-      assetfare_server_key_access:false,
-      assetfare_server_signing:false,
-      assetfare_server_submission:false,
-      signs_locally:true,
-      submits_via_caller_rpc:true,
-      idempotent_submission_by_operation_id:true
-    },
-    prepareEvmRequest:unavailable,
-    submitEvmRequest:unavailable,
-    confirmEvmTransaction:unavailable,
-    revokeEvmApproval:unavailable,
-    prepareSolanaAction:unavailable,
-    submitSolanaAction:unavailable,
-    confirmSolanaTransaction:unavailable
-  };
+  return createStandardCallerWalletAdapter({
+    evmProvider,             // standard EIP-1193 provider; optional for Solana-only routes
+    solanaWallet,            // Solana Wallet Standard wallet; optional for EVM-only routes
+    solanaAccount,           // Wallet Standard account used as fee payer
+    solanaRpcUrl,            // caller-selected RPC endpoint
+    operationStore:createMode0600JsonOperationStore("./assetfare-wallet-operations.private.json")
+  });
 }
