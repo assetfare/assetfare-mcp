@@ -85,6 +85,18 @@ body:
       description: Describe the decision this quote would support and any fee, minimum-receive, ETA, or route constraint. Do not include private or wallet-specific data.
     validations:
       required: true
+  - type: dropdown
+    id: useful_next_step
+    attributes:
+      label: If the quote is useful, what would you need next?
+      description: This records the desired product path only. It does not select AssetFare, create approval, authorize preparation, or authorize a wallet action.
+      options:
+        - Read-only comparison only
+        - Verified unsigned-plan and caller-wallet handoff using my own wallet
+        - Integration or SDK guidance only
+        - Not sure yet
+    validations:
+      required: true
   - type: checkboxes
     id: boundaries
     attributes:

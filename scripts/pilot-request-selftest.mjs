@@ -25,9 +25,11 @@ for (const value of [
   "id: amount_usd",
   "id: use_case",
   "id: success",
+  "id: useful_next_step",
   "id: boundaries",
   "Underfunded agent or x402 payment wallet",
   "Cross-chain treasury rebalance",
+  "Verified unsigned-plan and caller-wallet handoff using my own wallet",
   "this is not a directory, audit, or listing test",
 ]) {
   assert.ok(template.includes(value), `pilot request missing ${value}`);
@@ -47,14 +49,15 @@ for (const value of [
   assert.match(template, new RegExp(`do not include[^\\n]*${value}`, "i"));
 }
 
-assert.equal((template.match(/required: true/g) || []).length, 11);
+assert.equal((template.match(/required: true/g) || []).length, 12);
 assert.match(template, /quote is an unranked candidate/i);
 assert.match(template, /never signs or submits/i);
 assert.match(template, /cannot prepare, sign, submit, or transfer funds/i);
+assert.match(template, /does not select AssetFare, create approval, authorize preparation, or authorize a wallet action/i);
 
 console.log(JSON.stringify({
   status: "pass",
-  structured_fields: 9,
+  structured_fields: 10,
   required_confirmations: 3,
   wallet_or_secret_fields: 0,
   quote_only_first: true,
