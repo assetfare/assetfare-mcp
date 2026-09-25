@@ -187,6 +187,17 @@ async function runCallerOwnedSession({capabilityFile,policyFile,stateFile,wallet
     if(session.status==="complete"){
       const last=session.workflow?.steps?.at(-1),actual=bigint(last?.actual_output_base,"final_output");if(actual<policy.minimumFinal)throw new Error("assetfare_runner_final_output_below_policy");state.status="complete";state.completed_at=nowIso(clock());state.final_output_base=actual.toString();saveState(stateFile,state,clock());onProgress({event:"complete",session_id:policy.session_id,final_output_base:actual.toString()});return runnerResult(state,policy);
     }
+    // A caller transaction can be confirmed before the public observer is temporarily available or before the
+    // chain reaches the observer's settlement threshold. Reuse the recorded hashes and idempotency key until the
+    // same session step accepts them. Never refresh or re-submit a confirmed action merely because its handoff TTL
+    // expires while receipt observation is pending.
+    const confirmedPending=state.actions.find(item=>item.step_index===session.current_step&&["submitted","confirmed"].includes(item.status)&&Array.isArray(item.transaction_hashes)&&item.transaction_hashes.length>0);
+    if(confirmedPending){
+      state.idempotency??={};const keyName=`source_${confirmedPending.step_index}_${confirmedPending.action_id}`,key=state.idempotency[keyName]??nextOperation(state,policy,keyName,stateFile);state.idempotency[keyName]=key;saveState(stateFile,state,clock());
+      try{await call("observe-source",{idempotencyKey:key,transactionHashes:[...confirmedPending.transaction_hashes]});confirmedPending.status="observed";saveState(stateFile,state,clock());onProgress({event:"source_observed",action_id:confirmedPending.action_id,transaction_hashes:[...confirmedPending.transaction_hashes]});}
+      catch(error){if(!["assetfare_plan_request_rejected","assetfare_plan_upstream_unavailable","assetfare_plan_rate_limited"].includes(String(error.message)))throw error;await sleep(pollIntervalMs);}
+      continue;
+    }
     if(["bridge_in_flight","awaiting_output_receipt"].includes(session.status)){
       state.idempotency??={};const keyName=`output_${session.current_step}`;state.idempotency[keyName]??=nextOperation(state,policy,keyName,stateFile);saveState(stateFile,state,clock());
       try{current=await call("observe-output",{idempotencyKey:state.idempotency[keyName]});onProgress({event:"output_observed",step_index:session.current_step});}
@@ -202,7 +213,8 @@ async function runCallerOwnedSession({capabilityFile,policyFile,stateFile,wallet
     validateHandoff(handoff,policy,capability,clock());onProgress({event:"wallet_ready",action_id:handoff.action_id,step_index:handoff.step_index,chain_family:handoff.chain_family,remaining_seconds:Math.floor((Date.parse(handoff.expires_at)-clock())/1000)});
     const hashes=handoff.chain_family==="evm"?await executeEvm({handoff,adapter,policy,state,statePath:stateFile,capability,clock,executionStartedMs:started}):handoff.chain_family==="solana"?await executeSolana({handoff,adapter,policy,state,statePath:stateFile,clock,executionStartedMs:started}):(()=>{throw new Error("assetfare_runner_chain_family_invalid");})();
     state.idempotency??={};const keyName=`source_${handoff.step_index}_${handoff.action_id}`,key=state.idempotency[keyName]??nextOperation(state,policy,keyName,stateFile);state.idempotency[keyName]=key;saveState(stateFile,state,clock());
-    await call("observe-source",{idempotencyKey:key,transactionHashes:hashes});const action=actionState(state,handoff);action.status="observed";saveState(stateFile,state,clock());onProgress({event:"source_observed",action_id:handoff.action_id,transaction_hashes:[...hashes]});
+    try{await call("observe-source",{idempotencyKey:key,transactionHashes:hashes});const action=actionState(state,handoff);action.status="observed";saveState(stateFile,state,clock());onProgress({event:"source_observed",action_id:handoff.action_id,transaction_hashes:[...hashes]});}
+    catch(error){if(!["assetfare_plan_request_rejected","assetfare_plan_upstream_unavailable","assetfare_plan_rate_limited"].includes(String(error.message)))throw error;await sleep(pollIntervalMs);}
   }
   throw new Error("assetfare_runner_cycle_limit_exceeded");
 }
