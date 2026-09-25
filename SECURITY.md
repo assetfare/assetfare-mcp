@@ -9,6 +9,14 @@ signed execution workflow currently published at `assetfare.dev`.
 The public MCP wrapper is versioned independently from the Core API; the live API publishes its
 current version and immutable release commit through the signed manifest.
 
+The optional `assetfare-agent-runner` is caller-side orchestration, not a hosted
+AssetFare wallet. It imports only caller-selected local adapter code and has no
+private-key, seed, keystore, raw signed transaction, hosted signer, or remote
+wallet option. Wallet adapters and their credentials stay in the caller's trust
+domain. AssetFare's remote services receive only public wallets, unsigned
+actions, session capabilities in request headers, and caller-submitted
+transaction hashes; they never receive signing material, sign, or submit.
+
 ## Report a vulnerability privately
 
 Email `security@assetfare.dev` or use GitHub's private vulnerability reporting

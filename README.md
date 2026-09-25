@@ -4,7 +4,7 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.4.0 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.5.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -172,7 +172,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.4.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.5.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -221,7 +221,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.4.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -237,7 +237,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.4.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -269,9 +269,12 @@ fresh-blockhash construction requirements for a Solana Wallet Standard client.
 It is self-contained: the exact verified bundle, ActionSafetyReceiptV1, plan
 verification results, raw/action/bundle bindings, and a canonical handoff hash
 travel with the wallet request data so a receiving process can recompute them.
-The file forbids automatic invocation and requires the caller to decode,
-simulate, confirm, sign, and submit each action with its own wallet. AssetFare
-does not invoke the wallet, hold a key, sign, or submit.
+Handoff v3 separates two different authorities. AssetFare itself is always
+forbidden from invoking a wallet. A human may confirm each request manually, or
+an external agent may execute it automatically only under a separate,
+caller-owned local policy with explicit amount, receive, fee and transaction
+caps. AssetFare does not choose that policy, invoke the wallet, hold a key,
+sign, or submit.
 
 For session mode, keep that capability file until the workflow is terminal. If
 the session-create response is lost, repeat the same plan command with
@@ -280,10 +283,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.4.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.4.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -301,7 +304,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.4.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -315,7 +318,53 @@ if the unsubmitted action has expired, it refreshes that exact session step,
 deeply verifies the replacement, and writes a new mode-0600 handoff. It never
 replaces a still-live action early, invokes a wallet, signs, or submits.
 
-The session CLI has no signing or submission path. Quote selection and plan creation also require at
+### Caller-owned autonomous execution
+
+`assetfare-agent-runner` connects the verified session handoff to an external
+agent's existing wallet without making AssetFare a custodian. It runs in the
+caller's process. The caller supplies two local files:
+
+- a mode-0600 policy matching
+  [`caller-owned-execution-policy-v1`](./schemas/caller-owned-execution-policy-v1.json),
+  containing only public wallets and explicit execution caps; and
+- a local wallet adapter implementing the contract illustrated by
+  [`examples/caller-wallet-adapter.mjs`](./examples/caller-wallet-adapter.mjs).
+
+The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
+transaction, remote signer, or hosted-wallet option:
+
+```bash
+npx --yes --package=assetfare-mcp@1.5.0 assetfare-agent-runner \
+  --capability-file ./session-capability.json \
+  --policy-file ./caller-execution-policy.json \
+  --state-file ./caller-runner-state.json \
+  --wallet-adapter ./my-local-wallet-adapter.mjs
+```
+
+For every current action the runner revalidates the self-verifying handoff,
+requires the configured remaining lifetime, reserves worst-case EVM native
+spend before the first approval, checks gas/fee/rent and transaction-count caps
+before each submission, invokes only the caller adapter, persists only public
+hashes and cost summaries, observes the submitted hashes through the session,
+and repeats until the bound final minimum is confirmed. Approval-only failure
+can invoke the caller adapter's exact-zero revocation recovery. Adapter calls
+are idempotently bound to a public operation ID for crash recovery.
+
+The local adapter signs and submits through the caller's wallet/RPC. It returns
+only simulations, public confirmations, and transaction hashes. The remote MCP
+and A2A services still expose no wallet, key, signing, submission, or runner
+tool. In every result:
+
+```text
+key_location: caller_wallet_adapter_only
+signed_by: caller_wallet_adapter
+submitted_by: caller_wallet_adapter
+assetfare_server_key_access: false
+assetfare_server_signing: false
+assetfare_server_submission: false
+```
+
+The session CLI and AssetFare server have no signing or submission path. Quote selection and plan creation also require at
 least 15 seconds of quote TTL remaining; otherwise obtain and compare a fresh
 quote instead of racing expiry.
 

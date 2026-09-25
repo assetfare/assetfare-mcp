@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated provider paths, quote-bound approval, and fee steps; exact 1bp service fee plus Circle/provider/network fees; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -8,6 +8,7 @@
     "assetfare-mcp": "src/server.js",
     "assetfare-plan": "scripts/plan.mjs",
     "assetfare-session": "scripts/session.mjs",
+    "assetfare-agent-runner": "scripts/caller-runner.mjs",
     "assetfare-select": "scripts/select.mjs",
     "assetfare-route-eval": "scripts/route-eval.mjs",
     "assetfare-verify": "scripts/assetfare-verify.mjs"
@@ -16,6 +17,7 @@
     "src",
     "scripts",
     "test",
+    "schemas",
     "skills",
     "examples",
     "README.md",
@@ -70,7 +72,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/is-main.js && node --check src/trust-root.js && node --check src/continuation-v3.js && node --check src/continuation-v3-selftest.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/test-runner.mjs && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/select.mjs && node --check scripts/select-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/session.mjs && node --check scripts/session-selftest.mjs && node --check scripts/remote-session-selftest.mjs && node --check scripts/a2a-session-selftest.mjs && node --check scripts/one-shot-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/package-contents-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/pilot-request-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
+    "check": "node --check src/is-main.js && node --check src/trust-root.js && node --check src/continuation-v3.js && node --check src/continuation-v3-selftest.js && node --check src/caller-runner.js && node --check src/caller-runner-selftest.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/test-runner.mjs && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/select.mjs && node --check scripts/select-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/session.mjs && node --check scripts/session-selftest.mjs && node --check scripts/caller-runner.mjs && node --check scripts/remote-session-selftest.mjs && node --check scripts/a2a-session-selftest.mjs && node --check scripts/one-shot-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/package-contents-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/pilot-request-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
     "test": "node scripts/test-runner.mjs",
     "verify-selftest": "node scripts/assetfare-verify-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",
@@ -79,6 +81,7 @@
     "route-eval-selftest": "node scripts/route-eval-selftest.mjs",
     "plan-selftest": "node scripts/plan-selftest.mjs",
     "session-selftest": "node scripts/session-selftest.mjs",
+    "caller-runner-selftest": "node src/caller-runner-selftest.js",
     "remote-session-selftest": "node scripts/remote-session-selftest.mjs",
     "a2a-session-selftest": "node scripts/a2a-session-selftest.mjs",
     "one-shot-selftest": "node scripts/one-shot-selftest.mjs",
