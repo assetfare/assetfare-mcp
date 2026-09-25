@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sessionFailure, runSession } from "./session.mjs";
+import { WALLET_READY_MINIMUM_REMAINING_MS, sessionFailure, runSession } from "./session.mjs";
 import { sessionVerificationContext } from "./plan.mjs";
 import { approvalFor, sessionBindingFor } from "../test/continuation-fixture.mjs";
 import { quoteFixture } from "../test/quote-fixture.mjs";
@@ -23,6 +23,7 @@ save(capabilityPath,capability());
 
 function payload({action=null,approval=evmApproval}={}){return {session_id:sessionId,status:action?"action_ready":"ready",action_available:Boolean(action),current_action:action,quote_binding:sessionBindingFor(approval),server_signing:false,server_submission:false,signed:false,submitted:false};}
 function mock({action=null,approval=evmApproval,echo=false,responseStatus=200,responsePayload=null}={}){const calls=[];return {calls,fetch:async(url,init={})=>{calls.push({url:String(url),init});const body=responsePayload||{...payload({action,approval}),...(echo?{diagnostic_capability:init.headers["x-assetfare-session-token"]}:{})};return new Response(JSON.stringify(body),{status:responseStatus,headers:{"content-type":"application/json"}});}};}
+function walletReadyBundle(preparedMs=NOW){const value=evmBundle(),prepared=new Date(preparedMs).toISOString(),expires=new Date(preparedMs+180_000).toISOString();value.prepared_at=prepared;value.expires_at=expires;value.expires_in_seconds=180;value.unsigned_action.safety_receipt.timing.bundle_expires_at=expires;rehashBundleOnly(value);return value;}
 
 try{
   for(const [operation,extra,suffix,method] of [
@@ -38,6 +39,24 @@ try{
   const evmHandoffPath=join(directory,"evm-step-handoff.json"),evmNetwork=mock({action:evmBundle()});let evmOutput="";
   const evmResult=await runSession(["--operation","get","--capability-file",capabilityPath,"--wallet-handoff-output",evmHandoffPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:evmNetwork.fetch,stdout:{write:value=>{evmOutput+=value;}},nowMs:NOW+100});
   const evmHandoff=JSON.parse(readFileSync(evmHandoffPath,"utf8"));assert.equal(lstatSync(evmHandoffPath).mode&0o777,0o600);assert.equal(evmResult.verification.verified,true);assert.equal(evmResult.verification.approval_v3.path_and_provider_bound,true);assert.equal(evmHandoff.wallet_standard,"EIP-1193");assert.equal(evmHandoff.verified_bundle.unsigned_action.safety_receipt.schema_version,1);assert.ok(!evmOutput.includes(token));
+
+  const walletReadyPath=join(directory,"wallet-ready.json"),walletReadyNetwork=mock({action:walletReadyBundle()});
+  const walletReady=await runSession(["--operation","wallet-ready","--capability-file",capabilityPath,"--idempotency-key","wallet-ready-0001","--wallet-handoff-output",walletReadyPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:walletReadyNetwork.fetch,stdout:{write(){}},nowMs:NOW+100});
+  assert.equal(walletReadyNetwork.calls.length,1);assert.equal(walletReady.wallet_ready_auto_refreshed,false);assert.ok(walletReady.wallet_ready_remaining_seconds>=179);assert.equal(lstatSync(walletReadyPath).mode&0o777,0o600);assert.equal(WALLET_READY_MINIMUM_REMAINING_MS,120_000);
+
+  const refreshedPath=join(directory,"wallet-ready-refreshed.json"),refreshCalls=[];
+  const refreshFetch=async(url,init={})=>{refreshCalls.push({url:String(url),init});const expired={...payload(),status:"action_expired",next_operation:"refresh_action"},body=refreshCalls.length===1?expired:payload({action:walletReadyBundle()});return new Response(JSON.stringify(body),{status:200,headers:{"content-type":"application/json"}});};
+  const refreshed=await runSession(["--operation","wallet-ready","--capability-file",capabilityPath,"--idempotency-key","wallet-ready-0002","--wallet-handoff-output",refreshedPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:refreshFetch,stdout:{write(){}},nowMs:NOW+100});
+  assert.equal(refreshCalls.length,2);assert.match(refreshCalls[1].url,/refresh-action$/);assert.equal(refreshed.wallet_ready_auto_refreshed,true);assert.ok(refreshed.wallet_ready_remaining_seconds>=179);
+
+  const expiredActionPath=join(directory,"wallet-ready-expired-action.json"),expiredActionCalls=[],expiredNow=NOW+61_000;
+  const expiredActionFetch=async(url,init={})=>{expiredActionCalls.push({url:String(url),init});const body=expiredActionCalls.length===1?payload({action:evmBundle()}):payload({action:walletReadyBundle(expiredNow)});return new Response(JSON.stringify(body),{status:200,headers:{"content-type":"application/json"}});};
+  const expiredActionResult=await runSession(["--operation","wallet-ready","--capability-file",capabilityPath,"--idempotency-key","wallet-ready-0004","--wallet-handoff-output",expiredActionPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:expiredActionFetch,stdout:{write(){}},nowMs:expiredNow});
+  assert.equal(expiredActionCalls.length,2);assert.match(expiredActionCalls[1].url,/refresh-action$/);assert.equal(expiredActionResult.wallet_ready_auto_refreshed,true);assert.ok(expiredActionResult.wallet_ready_remaining_seconds>=179);
+
+  const shortPath=join(directory,"wallet-ready-short.json"),shortNetwork=mock({action:evmBundle()});let shortError;
+  try{await runSession(["--operation","wallet-ready","--capability-file",capabilityPath,"--idempotency-key","wallet-ready-0003","--wallet-handoff-output",shortPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:shortNetwork.fetch,stdout:{write(){}},nowMs:NOW+100});}catch(error){shortError=error;}
+  assert.match(shortError?.message||"",/wallet_ready_wait_for_expiry/);assert.ok(sessionFailure(shortError).retry_after_ms>0);assert.equal(shortNetwork.calls.length,1);
 
   const missingReceipt=evmBundle();delete missingReceipt.unsigned_action.safety_receipt;rehashBundleOnly(missingReceipt);
   await assert.rejects(()=>runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:mock({action:missingReceipt}).fetch,stdout:{write(){}},nowMs:NOW+100}),/bundle_receipt_invalid|receipt_version/);
@@ -62,5 +81,5 @@ try{
 
   let calls=0;await assert.rejects(()=>runSession(["--operation","observe-source","--capability-file",capabilityPath,"--idempotency-key","source-0002"],{fetchImpl:async()=>{calls+=1;},stdout:{write(){}}}),/transaction_hash_missing/);assert.equal(calls,0);
   const echo=mock({echo:true});await assert.rejects(()=>runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:echo.fetch,stdout:{write(){}},nowMs:NOW+100}),/session_token_echo_rejected/);
-  console.log(JSON.stringify({status:"pass",operations:4,strict_v3_binding:true,later_evm_handoff:true,later_solana_handoff:true,later_action_hostiles_rejected:4,structured_409_recovery:true,capability_file_mode:"0600",raw_token_exposed:false,signing:false,submission:false,live_requests:false}));
+  console.log(JSON.stringify({status:"pass",operations:5,strict_v3_binding:true,later_evm_handoff:true,later_solana_handoff:true,wallet_ready_minimum_remaining_seconds:120,wallet_ready_expired_auto_refresh:true,wallet_ready_live_action_not_replaced_early:true,later_action_hostiles_rejected:4,structured_409_recovery:true,capability_file_mode:"0600",raw_token_exposed:false,signing:false,submission:false,live_requests:false}));
 }finally{rmSync(directory,{recursive:true,force:true});}

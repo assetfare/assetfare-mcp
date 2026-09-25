@@ -41,10 +41,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.3.6");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.3.6");assert.equal(lockMetadata.packages[""].version, "1.3.6");}
-assert.equal(registryMetadata.version, "1.3.6");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.6");
+assert.equal(packageMetadata.version, "1.4.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.4.0");assert.equal(lockMetadata.packages[""].version, "1.4.0");}
+assert.equal(registryMetadata.version, "1.4.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.4.0");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -106,6 +106,7 @@ function capabilities(overrides = {}) {
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
     direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:168,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
     continuation_v3:continuationCapability(),
+    action_lifetime:{quote_ttl_seconds:60,action_bundle_ttl_seconds:180,onchain_deadline_seconds:240,wallet_ready_minimum_remaining_seconds:120,refresh_policy:"expired_unsubmitted_only",server_signing:false,server_submission:false},
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -300,7 +301,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.3.6");
+  assert.equal(card.serverInfo.version, "1.4.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
