@@ -25,9 +25,10 @@ account, API key, wallet address, private key, signature, session, or funding.
 Quote amounts must be finite and at least USD 1; the public adapter imposes no
 maximum, while live upstream availability and liquidity still apply.
 
-USD 1 is reachability/schema smoke only. For native-USDC economic comparison,
-start at USD 50 based on dated 2026-09-23 evidence; that observed bucket does
-not guarantee AssetFare is cheapest. USD 1,000 is the primary representative
+USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
+bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a
+threshold for other corridors and does not guarantee AssetFare is cheapest.
+USD 1,000 is the primary representative
 amount. SOL-input routes include a swap and use USD 1,000 as their
 representative evaluation too. Always compare fresh candidates at the actual
 intended amount.

@@ -35,9 +35,10 @@ own routing engine only and must not be presented as a claim about every
 provider's internals. Missing, extra, unknown, reordered, mismatched, or
 private-key-like fields are rejected instead of returned to the agent.
 
-USD 1 is reachability/schema smoke only. For native-USDC economic comparison,
-start at USD 50 based on dated 2026-09-23 evidence; this does not guarantee
-AssetFare is cheapest. Use USD 1,000 as the primary representative amount.
+USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
+bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a
+threshold for other corridors and does not guarantee AssetFare is cheapest.
+Use USD 1,000 as the primary representative amount.
 SOL-input routes include a swap and use USD 1,000 for representative evaluation
 too. Always compare fresh executable candidates at the actual intended amount.
 

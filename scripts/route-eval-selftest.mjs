@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { economicFit, parseContinuation, validateRequestedQuote, writeQuoteOutput } from "./route-eval.mjs";
+import { economicFit, parseAmountUsd, parseContinuation, parseRouteEvalArgs, responseText, validateRequestedQuote, verifyManifest, writeQuoteOutput } from "./route-eval.mjs";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
 import { validateContinuationV3 } from "../src/continuation-v3.js";
 import { attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
@@ -174,7 +174,6 @@ let stderr = "";
 child.stdout.on("data", (chunk) => { stdout += chunk; });
 child.stderr.on("data", (chunk) => { stderr += chunk; });
 const exitCode = await new Promise((resolve) => child.on("close", resolve));
-server.close();
 
 if (exitCode !== 0) throw new Error(`route evaluator exited ${exitCode}: ${stderr}`);
 const result = JSON.parse(stdout);
@@ -189,7 +188,7 @@ const checks = {
   exact_quote_persisted_once: result.quote_output?.persisted === true && result.quote_output?.output_path === quoteOutput && result.quote_output?.file_mode === "0600" && result.quote_output?.contains_private_key_or_signature === false && (lstatSync(quoteOutput).mode & 0o777) === 0o600 && canonical(persistedQuote) === canonical(servedQuote),
   representative_default_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).from_token === "USDC" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 1000,
   usdc_default_is_single_assetfare_candidate: result.requested_intent?.from_token === "USDC" && result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested" && /not a cross-provider market comparison/i.test(result.alternatives?.reason || ""),
-  economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true && result.economic_evaluation?.use_case_fit?.classification === "fresh_comparison_required" && result.economic_evaluation?.use_case_fit?.aggregate_refill_or_transfer_preferred === true && result.economic_evaluation?.use_case_fit?.single_micropayment_top_up_recommended === false,
+  economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.observed_competitive_bucket_usd === 50 && result.economic_evaluation?.observed_evidence_route === "solana:USDC->base:USDC" && result.economic_evaluation?.evidence_applies_to_requested_route === true && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true && result.economic_evaluation?.use_case_fit?.classification === "fresh_comparison_required" && result.economic_evaluation?.use_case_fit?.aggregate_refill_or_transfer_preferred === true && result.economic_evaluation?.use_case_fit?.single_micropayment_top_up_recommended === false,
   continuation_preserved: result.continuation?.decision_required === "explicit_caller_approval" && result.continuation?.quote_authorizes_execution === false && result.continuation?.choose_exactly_one_mode === true && result.continuation?.automatic_prepare_forbidden === true && result.continuation?.full_openapi_url === "https://api.assetfare.dev/v2/openapi.json" && result.continuation?.server_signing === false && result.continuation?.server_submission === false && result.continuation?.caller_action_plan_handoff_v2?.schema_version === 2,
   direct_route_visible: result.direct_route_summary?.version === "assetfare-direct-route-summary-v1" && result.direct_route_summary?.classification === "direct_protocol_only" && result.direct_route_summary?.route_aggregator_used === false && result.direct_route_summary?.steps?.[0]?.provider === "circle_cctp" && result.direct_route_summary?.steps?.[0]?.from === "solana:USDC" && result.direct_route_summary?.steps?.[0]?.to === "base:USDC" && result.direct_route_summary?.steps?.[0]?.assetfare_fee_bps === 1,
   v3_unranked_safe_draft: result.selection_status === "unranked_candidate" && result.selected_provider === null && result.automatic_selection_forbidden === true && result.approval_v3_draft?.selection_status === "unranked_candidate" && result.approval_v3_draft?.selected_mode === null && result.approval_v3_draft?.idempotency_key === null && result.approval_v3_draft?.executable === false && result.approval_v3_draft?.automatic_selection_forbidden === true,
@@ -197,10 +196,23 @@ const checks = {
   no_comparison_no_selection: result.alternatives?.status === "not_requested" && result.alternatives?.selection_status === "unranked_candidate" && result.alternatives?.selected_provider === null,
   no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
-checks.amount_fit_boundaries = economicFit({ amountUsd:1, fromToken:"USDC", toToken:"USDC" }).classification === "reachability_smoke_only"
-  && economicFit({ amountUsd:49, fromToken:"USDC", toToken:"USDC" }).classification === "below_observed_native_usdc_economic_start"
-  && economicFit({ amountUsd:50, fromToken:"USDC", toToken:"USDC" }).classification === "fresh_comparison_required"
-  && economicFit({ amountUsd:49, fromToken:"SOL", toToken:"USDC" }).classification === "fresh_comparison_required";
+checks.amount_fit_boundaries = economicFit({ amountUsd:1, fromChain:"solana", fromToken:"USDC", toChain:"base", toToken:"USDC" }).classification === "reachability_smoke_only"
+  && economicFit({ amountUsd:49, fromChain:"solana", fromToken:"USDC", toChain:"base", toToken:"USDC" }).classification === "below_observed_corridor_economic_bucket"
+  && economicFit({ amountUsd:50, fromChain:"solana", fromToken:"USDC", toChain:"base", toToken:"USDC" }).classification === "fresh_comparison_required"
+  && economicFit({ amountUsd:49, fromChain:"arbitrum", fromToken:"USDC", toChain:"base", toToken:"USDC" }).classification === "fresh_comparison_required"
+  && economicFit({ amountUsd:49, fromChain:"solana", fromToken:"SOL", toChain:"base", toToken:"USDC" }).classification === "fresh_comparison_required";
+checks.duplicate_arguments_rejected = [
+  ["--amount", "10", "--amount", "20"],
+  ["--compact", "--compact"],
+  ["--assetfare-only=true"],
+].every((argv) => { try { parseRouteEvalArgs(argv); return false; } catch { return true; } });
+checks.amount_decimal_boundaries = parseAmountUsd("1000000.01") === 1000000.01;
+for (const hostileAmount of ["70368744177664.01", "10000000000000000.01", "1e3", "1.1234567"]) {
+  try { parseAmountUsd(hostileAmount); checks.amount_decimal_boundaries = false; } catch {}
+}
+try { await verifyManifest(origin); checks.pinned_trust_root_rejects_manifest_supplied_key = false; } catch { checks.pinned_trust_root_rejects_manifest_supplied_key = true; }
+try { await verifyManifest(origin, "https://evil.example/manifest.pub"); checks.nonlocal_key_override_rejected = false; } catch { checks.nonlocal_key_override_rejected = true; }
+try { await responseText(new Response("{}", { headers: { "content-length": String(1_048_577) } })); checks.oversized_response_rejected = false; } catch { checks.oversized_response_rejected = true; }
 const validQuote = {
   handoff_schema_version: 2,
   caller_action_plan_handoff_v2: result.continuation?.caller_action_plan_handoff_v2,
@@ -287,5 +299,6 @@ const normalized = parseContinuation(hostileNotes);
 checks.untrusted_notes_are_not_forwarded = !JSON.stringify(normalized).includes("private_key") && !JSON.stringify(normalized).includes("seed phrase");
 try { writeQuoteOutput(quoteOutput, servedQuote); checks.existing_quote_output_rejected = false; } catch { checks.existing_quote_output_rejected = true; }
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));
+server.close();
 rmSync(temp, { recursive: true, force: true });
 console.log(JSON.stringify({ status: "pass", checks }));

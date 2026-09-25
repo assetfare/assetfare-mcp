@@ -14,7 +14,7 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -74,8 +74,8 @@ const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and sa
 const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, direct_route_summary, and continuation_v3 contracts before quoting. continuation_v3 is restart-fail-closed and binds the full quote payload, exact path, wallet chains, signer requirement, bounds, and explicit one_shot/session choice. Example: inspect this before requesting solana:USDC to base:USDC. Read-only; creates no wallet login, session, or action.";
 const V2_QUOTE_DESCRIPTION = "Get one unranked fresh candidate with direct_route_summary and continuation_v3. The adapter verifies the canonical full-quote hash, route-summary hash, fingerprint claim, wallet/signer requirements, path, bounds, modes, and TTL. It never auto-selects or treats caller_approved:true as human proof. Example: quote solana USDC to Base USDC at USD 1000. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
-const V2_PREPARE_DESCRIPTION = "Return the exact validated first unsigned bundle. For server-enforced binding, explicitly pass caller_approved=true plus an approval_v3 selected as one_shot from the exact quote; multi-step quotes reject one_shot. Example: use the approval file produced by assetfare-select for a one-step quote. Omitting approval_v3 uses legacy_advisory only, and caller_approved:true is not human proof. No field is auto-inserted; AssetFare never signs or submits.";
-const V2_SESSION_CREATE_DESCRIPTION = "Create one receipt-driven workflow. For server-enforced binding, explicitly pass caller_approved=true, the exact approval_v3 selected as session, the same idempotency_key, and a caller-local session token. Example: select session for any multi-step quote. Omitting approval_v3 uses legacy_advisory only. AssetFare never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Return the exact validated first unsigned bundle. New callers must explicitly pass caller_approved=true plus approval_v3 selected as one_shot from the exact quote; multi-step quotes reject one_shot. Example: use strict approval produced from the exact fresh quote. Omitting approval_v3 is retained only as legacy_advisory compatibility and should not be used for a new flow. caller_approved:true is not human proof; AssetFare never signs or submits.";
+const V2_SESSION_CREATE_DESCRIPTION = "Create one receipt-driven workflow. New callers must explicitly pass caller_approved=true, the exact approval_v3 selected as session, the same idempotency_key, and a caller-local session token. Example: use strict session approval with the identical idempotency key. Omitting approval_v3 is retained only as legacy_advisory compatibility and should not be used for a new flow. AssetFare never signs or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read an existing v2 workflow and current unsigned action without advancing it. Example: pass the session_id and its caller-owned session_token after a restart. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record source hashes the caller already signed and submitted, then advance the workflow. Example: transaction_hashes=['<finalized-source-hash>'] with idempotency_key='source-0001'. Never pass an unsigned hash; AssetFare observes but never signs or submits.";
 const V2_SESSION_OBSERVE_OUTPUT_DESCRIPTION = "Record an already-produced bridge or destination output, then advance the workflow. Example: transaction_hash='<caller-or-provider-output-hash>' with idempotency_key='output-0001'. AssetFare observes but never signs or submits.";
@@ -115,7 +115,7 @@ const v2QuoteFields = {
   from_token: z.enum(V2_TOKENS).describe("Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities."),
   to_chain: z.enum(V2_DESTINATION_CHAINS).describe("Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Polygon and Optimism are not destinations."),
   to_token: z.enum(V2_TOKENS).describe("Output token symbol on to_chain. The chain-token pair must appear in current v2 capabilities."),
-  amount_usd: z.number().finite().min(1).describe("Requested input value in USD, minimum 1. USD 1 is reachability/schema smoke only; USD 50 is the native-USDC economic-comparison start based on dated 2026-09-23 evidence, not a cheapest guarantee; USD 1,000 is the primary representative amount. SOL input includes a swap. Always quote the actual intended amount."),
+  amount_usd: z.number().finite().min(1).describe("Requested input value in USD, minimum 1. USD 1 is reachability/schema smoke only. A USD 50 competitive bucket was observed only for dated 2026-09-23 Solana USDC to Base USDC evidence and must not be generalized to another corridor. USD 1,000 is the primary representative amount. SOL input includes a swap. Always quote the actual intended amount."),
 };
 const emptyStrictInput = z.object({}).strict();
 const v2QuoteIntent = z.object(v2QuoteFields).strict();
@@ -133,10 +133,10 @@ const v2PrepareFields = {
   ...v2QuoteFields,
   wallets: v2WalletMap,
   event_signer_public: v2EventSignerPublic.optional(),
-  approval_v3: v2OneShotApproval.optional().describe("Optional strict Core 2.4.1 one_shot quote-bound selection. Omit only for the explicitly legacy_advisory path."),
+  approval_v3: v2OneShotApproval.optional().describe("Strict Core 2.4.1 one_shot quote-bound selection from the exact unexpired quote. Required for every new flow; omission remains legacy_advisory compatibility only."),
 };
 const v2PrepareIntent = z.object(v2PrepareFields).strict();
-const v2SessionCreateIntent = z.object({ ...v2PrepareFields, approval_v3:v2SessionApproval.optional().describe("Optional strict Core 2.4.1 session quote-bound selection. Omit only for legacy_advisory."), session_token: v2SessionToken, idempotency_key: idempotencyKey }).strict();
+const v2SessionCreateIntent = z.object({ ...v2PrepareFields, approval_v3:v2SessionApproval.optional().describe("Strict Core 2.4.1 session quote-bound selection from the exact unexpired quote. Required for every new flow; omission remains legacy_advisory compatibility only."), session_token: v2SessionToken, idempotency_key: idempotencyKey }).strict();
 const v2TransactionHashes = z.array(z.string().min(16).max(128)).min(1).max(8).describe("One to eight hashes for source transactions the caller already signed and submitted. Do not provide unsigned payloads or destination hashes.");
 const v2OutputTransactionHash = z.string().min(16).max(128).optional().describe("Optional bridge or destination transaction hash already produced outside AssetFare. Omit only when the provider output can be observed without a hash.");
 const v2SessionReadIntent = z.object({ session_token: v2SessionToken, session_id: v2SessionId }).strict();

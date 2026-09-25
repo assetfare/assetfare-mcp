@@ -37,6 +37,8 @@ jobs:
           test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "$RELEASE_TAG")"
           git merge-base --is-ancestor HEAD origin/main
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=verification/assetfare-release-signers verify-tag "$RELEASE_TAG"
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=verification/assetfare-release-signers verify-commit HEAD
           test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
           test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "false"
           test "$(npm --version)" = "12.1.0"

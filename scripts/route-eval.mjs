@@ -1,11 +1,16 @@
 #!/usr/bin/env node
-import { createPublicKey, verify } from "node:crypto";
-import { chmodSync, closeSync, openSync, unlinkSync, writeFileSync } from "node:fs";
+import { createPublicKey, randomBytes, verify } from "node:crypto";
+import { chmodSync, closeSync, fsyncSync, linkSync, openSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { QUOTE_PAYLOAD_SHA256_SPEC, approvalDraft, validateContinuationV3 } from "../src/continuation-v3.js";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
 import { isMain } from "../src/is-main.js";
 import { parseV2Quote } from "../src/server.js";
+import {
+  ASSETFARE_MANIFEST_KEY_ID,
+  ASSETFARE_MANIFEST_PUBLIC_KEY,
+  ASSETFARE_MANIFEST_PUBLIC_KEY_URL,
+} from "../src/trust-root.js";
 
 const DEFAULTS = {
   amount: 1000,
@@ -14,6 +19,8 @@ const DEFAULTS = {
   toChain: "base",
   toToken: "USDC",
 };
+const MAX_RESPONSE_BYTES = 1_048_576;
+const MAX_PUBLIC_KEY_BYTES = 4_096;
 
 function usage() {
   return `AssetFare read-only route evaluator
@@ -34,10 +41,10 @@ Options:
   --help                  Show this message
 
 Defaults: $1,000 solana:USDC -> base:USDC. USD 1 is reachability/schema smoke
-only. For native-USDC economic comparison, start at USD 50 based on dated
-2026-09-23 evidence; this does not guarantee AssetFare is cheapest. SOL-input
-routes include a swap. USD 1,000 is the primary representative comparison
-amount for either route type; always compare at the actual intended amount.
+only. A USD 50 competitive bucket was observed only for the dated 2026-09-23
+Solana USDC -> Base USDC evidence; do not generalize it to another corridor.
+SOL-input routes include a swap. USD 1,000 is the primary representative
+comparison amount; always compare at the actual intended amount.
 
 The default USDC path returns one AssetFare candidate, not a cross-provider
 market comparison. Output includes a fail-closed direct_route_summary with the
@@ -51,48 +58,73 @@ a session, prepares an action, signs, or submits a transaction.`;
 
 export function writeQuoteOutput(path, quote) {
   const absolute = resolve(path);
+  const temporary = `${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;
   let descriptor;
-  let created = false;
   try {
-    descriptor = openSync(absolute, "wx", 0o600);
-    created = true;
+    descriptor = openSync(temporary, "wx", 0o600);
     writeFileSync(descriptor, `${JSON.stringify(quote, null, 2)}\n`, { encoding: "utf8" });
-    chmodSync(absolute, 0o600);
+    fsyncSync(descriptor);
+    chmodSync(temporary, 0o600);
+    closeSync(descriptor);
+    descriptor = undefined;
+    linkSync(temporary, absolute);
+    unlinkSync(temporary);
   } catch (error) {
     if (descriptor !== undefined) { closeSync(descriptor); descriptor = undefined; }
-    if (created) { try { unlinkSync(absolute); } catch {} }
+    try { unlinkSync(temporary); } catch {}
     throw new Error(error?.code === "EEXIST" ? "quote output already exists" : "quote output is invalid");
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
   }
   return absolute;
 }
 
-export function economicFit({ amountUsd, fromToken, toToken }) {
-  const nativeUsdcRoute = fromToken === "USDC" && toToken === "USDC";
-  const belowNativeUsdcStart = nativeUsdcRoute && amountUsd < 50;
+export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken }) {
+  const evidenceRoute = fromChain === "solana" && fromToken === "USDC" && toChain === "base" && toToken === "USDC";
+  const belowObservedBucket = evidenceRoute && amountUsd < 50;
   return {
     classification: amountUsd === 1
       ? "reachability_smoke_only"
-      : belowNativeUsdcStart
-        ? "below_observed_native_usdc_economic_start"
+      : belowObservedBucket
+        ? "below_observed_corridor_economic_bucket"
         : "fresh_comparison_required",
-    economic_comparison_recommended: amountUsd !== 1 && !belowNativeUsdcStart,
+    evidence_route: "solana:USDC->base:USDC",
+    evidence_applies_to_requested_route: evidenceRoute,
+    observed_competitive_bucket_usd: evidenceRoute ? 50 : null,
+    economic_comparison_recommended: amountUsd !== 1 && !belowObservedBucket,
     aggregate_refill_or_transfer_preferred: true,
     single_micropayment_top_up_recommended: false,
-    note: belowNativeUsdcStart
-      ? "Below the dated USD 50 native-USDC evaluation start; aggregate demand before comparing routes."
-      : "Compare fresh executable candidates at the caller's actual intended amount.",
+    note: belowObservedBucket
+      ? "Below the dated USD 50 observed bucket for Solana USDC -> Base USDC; aggregate demand before comparing this corridor."
+      : evidenceRoute
+        ? "Compare fresh executable candidates at the caller's actual intended amount; the dated USD 50 observation is not a cheapest guarantee."
+        : "No corridor-specific competitive threshold is claimed; compare fresh executable candidates at the caller's actual intended amount.",
   };
 }
 
-function option(argv, name, fallback) {
-  const index = argv.indexOf(name);
-  if (index === -1) return fallback;
-  if (index + 1 >= argv.length || argv[index + 1].startsWith("--")) {
-    throw new Error(`${name} requires a value`);
+export function parseRouteEvalArgs(argv) {
+  const values = new Set(["amount", "from-chain", "from-token", "to-chain", "to-token", "quote-output"]);
+  const flags = new Set(["assetfare-only", "compact"]);
+  const out = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const raw = argv[index];
+    if (raw === "--help" || raw === "-h") {
+      if (argv.length !== 1) throw new Error("route evaluator help cannot be combined with other arguments");
+      return { help: true };
+    }
+    if (!raw.startsWith("--")) throw new Error("route evaluator argument is invalid");
+    const equal = raw.indexOf("=");
+    const key = raw.slice(2, equal < 0 ? undefined : equal);
+    if (!values.has(key) && !flags.has(key)) throw new Error(`unknown option --${key}`);
+    if (Object.hasOwn(out, key)) throw new Error(`duplicate option --${key}`);
+    if (flags.has(key)) {
+      if (equal >= 0) throw new Error(`--${key} does not accept a value`);
+      out[key] = true;
+      continue;
+    }
+    const value = equal >= 0 ? raw.slice(equal + 1) : argv[++index];
+    if (typeof value !== "string" || !value || value.startsWith("--")) throw new Error(`--${key} requires a value`);
+    out[key] = value;
   }
-  return argv[index + 1];
+  return out;
 }
 
 function canonical(value) {
@@ -101,6 +133,30 @@ function canonical(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+export async function responseText(response, maximumBytes = MAX_RESPONSE_BYTES) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error("response too large");
+  if (!response.body?.getReader) {
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > maximumBytes) throw new Error("response too large");
+    return text;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maximumBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error("response too large");
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total).toString("utf8");
 }
 
 async function jsonRequest(url, options = {}, label = "request") {
@@ -112,9 +168,14 @@ async function jsonRequest(url, options = {}, label = "request") {
       ...(options.body ? { "content-type": "application/json" } : {}),
       ...(options.headers || {}),
     },
+    redirect: "error",
     signal: AbortSignal.timeout(45_000),
   });
-  const text = await response.text();
+  const mediaType = String(response.headers.get("content-type") || "").split(";", 1)[0].toLowerCase();
+  if (mediaType !== "application/json" && !mediaType.endsWith("+json")) {
+    throw new Error(`${label} returned non-JSON HTTP ${response.status}`);
+  }
+  const text = await responseText(response);
   let body;
   try {
     body = JSON.parse(text);
@@ -128,20 +189,32 @@ async function jsonRequest(url, options = {}, label = "request") {
   return body;
 }
 
-async function verifyManifest(apiBase, publicKeyUrlOverride) {
+export async function verifyManifest(apiBase, publicKeyUrlOverride) {
   const manifest = await jsonRequest(`${apiBase}/.well-known/assetfare-manifest.json`, {}, "manifest");
   const signature = manifest.signature;
   if (signature?.algorithm !== "Ed25519" || !signature.value) {
     throw new Error("manifest has no supported Ed25519 signature");
   }
-  const publicKeyUrl = publicKeyUrlOverride || signature.public_key_url;
-  if (!publicKeyUrl) throw new Error("manifest has no public key URL");
-  const response = await fetch(publicKeyUrl, {
-    headers: { "user-agent": "AssetFareAgentRouteEval/1" },
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!response.ok) throw new Error(`manifest public key failed: HTTP ${response.status}`);
-  const pem = await response.text();
+  let pem;
+  if (publicKeyUrlOverride) {
+    const apiUrl = new URL(apiBase);
+    const keyUrl = new URL(publicKeyUrlOverride);
+    if (!(["127.0.0.1", "localhost"].includes(apiUrl.hostname) && ["127.0.0.1", "localhost"].includes(keyUrl.hostname))) {
+      throw new Error("manifest public key override is local-test-only");
+    }
+    const response = await fetch(keyUrl, {
+      headers: { "user-agent": "AssetFareAgentRouteEval/1" },
+      redirect: "error",
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!response.ok) throw new Error(`manifest public key failed: HTTP ${response.status}`);
+    pem = await responseText(response, MAX_PUBLIC_KEY_BYTES);
+  } else {
+    if (signature.key_id !== ASSETFARE_MANIFEST_KEY_ID || signature.public_key_url !== ASSETFARE_MANIFEST_PUBLIC_KEY_URL) {
+      throw new Error("manifest trust root mismatch");
+    }
+    pem = ASSETFARE_MANIFEST_PUBLIC_KEY;
+  }
   const unsigned = structuredClone(manifest);
   delete unsigned.signature;
   const valid = verify(null, Buffer.from(canonical(unsigned)), createPublicKey(pem), Buffer.from(signature.value, "base64"));
@@ -155,6 +228,21 @@ async function verifyManifest(apiBase, publicKeyUrlOverride) {
     valid_until: manifest.valid_until,
     multichain_release: manifest.execution?.multichain_v2?.release_status,
   };
+}
+
+export function parseAmountUsd(value) {
+  const text = String(value);
+  const match = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,6}))?$/.exec(text);
+  if (!match) throw new Error("amount must be a plain USD decimal with at most 6 fractional digits");
+  const fraction = match[2] || "";
+  const scale = 10n ** BigInt(fraction.length);
+  const scaled = BigInt(match[1]) * scale + BigInt(fraction || "0");
+  if (scaled > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("amount exceeds exact JavaScript decimal range");
+  const amount = Number(scaled) / Number(scale);
+  if (!Number.isFinite(amount) || amount < 1 || Math.round(amount * Number(scale)) !== Number(scaled)) {
+    throw new Error("amount cannot be represented exactly by this client");
+  }
+  return amount;
 }
 
 function decimalUnits(rawValue, decimals) {
@@ -366,20 +454,17 @@ export function validateRequestedQuote(quote, requested) {
 }
 
 async function main() {
-  const argv = process.argv.slice(2);
-  if (argv.includes("--help")) {
+  const args = parseRouteEvalArgs(process.argv.slice(2));
+  if (args.help) {
     console.log(usage());
     return;
   }
-  const amountUsd = Number(option(argv, "--amount", DEFAULTS.amount));
-  const fromChain = String(option(argv, "--from-chain", DEFAULTS.fromChain)).toLowerCase();
-  const fromToken = String(option(argv, "--from-token", DEFAULTS.fromToken)).toUpperCase();
-  const toChain = String(option(argv, "--to-chain", DEFAULTS.toChain)).toLowerCase();
-  const toToken = String(option(argv, "--to-token", DEFAULTS.toToken)).toUpperCase();
-  const quoteOutput = option(argv, "--quote-output", null);
-  if (!Number.isFinite(amountUsd) || amountUsd < 1) {
-    throw new Error("amount must be a finite USD number of at least 1");
-  }
+  const amountUsd = parseAmountUsd(args.amount ?? DEFAULTS.amount);
+  const fromChain = String(args["from-chain"] ?? DEFAULTS.fromChain).toLowerCase();
+  const fromToken = String(args["from-token"] ?? DEFAULTS.fromToken).toUpperCase();
+  const toChain = String(args["to-chain"] ?? DEFAULTS.toChain).toLowerCase();
+  const toToken = String(args["to-token"] ?? DEFAULTS.toToken).toUpperCase();
+  const quoteOutput = args["quote-output"] ?? null;
   if (fromChain === toChain && fromToken === toToken) throw new Error("identity route does not require a quote");
 
   const apiBase = process.env.ASSETFARE_API_BASE || "https://api.assetfare.dev";
@@ -436,13 +521,15 @@ async function main() {
     economic_evaluation: {
       api_minimum_usd: 1,
       one_dollar_purpose: "reachability_and_schema_smoke_only",
-      native_usdc_comparison_start_usd: 50,
+      observed_competitive_bucket_usd: 50,
+      observed_evidence_route: "solana:USDC->base:USDC",
+      evidence_applies_to_requested_route: fromChain === "solana" && fromToken === "USDC" && toChain === "base" && toToken === "USDC",
       evidence_as_of: "2026-09-23",
       cheapest_guaranteed: false,
       sol_input_includes_swap: fromToken === "SOL",
       representative_comparison_amount_usd: 1000,
       always_compare_at_intended_amount: true,
-      use_case_fit: economicFit({ amountUsd, fromToken, toToken }),
+      use_case_fit: economicFit({ amountUsd, fromChain, fromToken, toChain, toToken }),
     },
     manifest,
     assetfare: {
@@ -488,11 +575,13 @@ async function main() {
       requote_before_execution: true,
       quote_authorizes_execution: false,
       approval_draft_executable: false,
+      plan_minimum_remaining_seconds: 15,
+      begin_plan_before: new Date(Date.parse(expiresAt) - 15_000).toISOString(),
     },
   };
 
   const comparable = fromChain === "solana" && fromToken === "SOL" && toChain === "base" && toToken === "ETH";
-  if (comparable && !argv.includes("--assetfare-only")) {
+  if (comparable && !args["assetfare-only"]) {
     const inputLamports = quote.intent?.estimated_input_base;
     if (!Number.isInteger(inputLamports) || inputLamports <= 0) throw new Error("AssetFare quote has no valid SOL input amount");
     const [relay, mayan] = await Promise.allSettled([
@@ -516,7 +605,7 @@ async function main() {
     };
   }
 
-  console.log(JSON.stringify(output, null, argv.includes("--compact") ? 0 : 2));
+  console.log(JSON.stringify(output, null, args.compact ? 0 : 2));
 }
 
 if (isMain(import.meta.url)) main().catch((error) => {

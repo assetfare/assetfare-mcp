@@ -150,9 +150,9 @@ for (const [name, directory] of packages) {
     throw new Error(`${directory}: lockfile identity mismatch`);
 }
 
-if (sha256(read(".github/workflows/publish-npm.yml")) !== "926ff74372c3a5b23fda5a8dbdf61e42448c7530f86a0855013d3e59d392e932")
+if (sha256(read(".github/workflows/publish-npm.yml")) !== "65bff146afcda9ae32b1cabb2bd82aa5dc92f0990ee141a9bf86afc7e6f6ce22")
   throw new Error("root v1.x publish workflow changed");
-if (sha256(read(".github/workflows/release-provenance.yml")) !== "ba09c90020fbf749b7e7efda15a8a72e024fc93c7591a105ee4839117fc5ec85")
+if (sha256(read(".github/workflows/release-provenance.yml")) !== "657f94aaac7f1a204f73d5b737803adb2e7a1447fdc94a21d411226c014efeac")
   throw new Error("root v1.x provenance workflow changed");
 if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG0JPPzCA4Dp35CMBU7TH75t3+/iqgJ5PErHS2uy4GQP")
   throw new Error("release signer allowlist mismatch");

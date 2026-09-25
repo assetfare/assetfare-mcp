@@ -3,17 +3,15 @@
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isMain } from "../src/is-main.js";
+import { ASSETFARE_MANIFEST_KEY_ID, ASSETFARE_MANIFEST_PUBLIC_KEY } from "../src/trust-root.js";
 
 const MANIFEST_URL = "https://api.assetfare.dev/.well-known/assetfare-manifest.json";
 const BUNDLE_URL = "https://api.assetfare.dev/.well-known/assetfare-safety.json";
 const MANIFEST_SCHEMA = "https://assetfare.dev/.well-known/assetfare-manifest-v1";
 const BUNDLE_SCHEMA = "https://assetfare.dev/.well-known/assetfare-safety-bundle-v1";
 const CANONICALIZATION = "UTF-8 JSON with lexicographically sorted keys and compact separators";
-const PINNED_KEY_ID = "assetfare-8b85e25475df3caf";
-const PINNED_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEA11pNC8NZXpVrCffmUe6/jtoM9RyrpU5miBPkRJqY9Vw=
------END PUBLIC KEY-----
-`;
+const PINNED_KEY_ID = ASSETFARE_MANIFEST_KEY_ID;
+const PINNED_PUBLIC_KEY = ASSETFARE_MANIFEST_PUBLIC_KEY;
 const MAX_MANIFEST_BYTES = 512 * 1024;
 const MAX_BUNDLE_BYTES = 512 * 1024;
 const MAX_RPC_BYTES = 512 * 1024;

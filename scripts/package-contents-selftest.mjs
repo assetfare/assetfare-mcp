@@ -20,13 +20,15 @@ const required=[
   "test/portable-quote-payload-fixture.json",
   "test/core-241-unsafe-integer-quote.json",
   "src/continuation-v3-selftest.js",
+  "src/trust-root.js",
   "scripts/test-runner.mjs",
   "scripts/select-selftest.mjs",
   "scripts/plan-selftest.mjs",
+  "scripts/session-selftest.mjs",
   "scripts/route-eval-selftest.mjs",
 ];
 for(const path of required)assert.ok(files.has(path),`packed artifact missing ${path}`);
 assert.ok(files.has("package.json"));
 assert.equal(report.name,"assetfare-mcp");
-assert.equal(report.version,"1.3.0");
+assert.equal(report.version,"1.3.1");
 console.log(JSON.stringify({status:"pass",npm_pack_dry_run:true,entry_count:report.entryCount,required_test_support:required.length,missing:[],live_requests:false}));

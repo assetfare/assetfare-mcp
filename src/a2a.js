@@ -44,8 +44,8 @@ const Token = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/);
 const PublicAddress = z.string().refine((value) => /^0x[0-9a-fA-F]{40}$/.test(value) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), "not a public address");
 const WalletMap = z.record(SourceChain, PublicAddress);
-// Preserve legacy-advisory compatibility. approvalV3 retains its own strict
-// ASCII idempotency schema and session_create requires the values to match.
+// New A2A flows use strict approvalV3. Optionality is retained only for an
+// explicitly legacy-advisory compatibility request; public examples are strict.
 const IdempotencyKey = z.string().min(8).max(128);
 const OneShotApproval=approvalV3Schema.extend({selected_mode:z.literal("one_shot")}).strict();
 const SessionApproval=approvalV3Schema.extend({selected_mode:z.literal("session")}).strict();
@@ -272,7 +272,7 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
   if (!serviceUrl.startsWith("https://")) throw new Error("A2A service url must be https");
   const card = {
     name: "AssetFare Route Quotes",
-    description: "AssetFare is a non-custodial six-chain, 76-route service. Every quote is an unranked candidate with direct_route_summary plus continuation_v3: canonical full-payload and route hashes, exact path/providers, wallet and signer requirements, caller bounds, TTL, and an explicit mutually exclusive one_shot/session selection. callerApproved:true remains legacy_advisory and is not human proof; approvalV3 supplies server-enforced binding. AssetFare never auto-selects, signs, or submits. USD 1 is smoke only and USD 1,000 is representative, not a cheapest guarantee.",
+    description: "AssetFare is a non-custodial six-chain, 76-route service. Every quote is an unranked candidate with direct_route_summary plus continuation_v3: canonical full-payload and route hashes, exact path/providers, wallet and signer requirements, caller bounds, TTL, and an explicit mutually exclusive one_shot/session selection. callerApproved:true is not human proof; every new A2A flow and public example must supply approvalV3 for server-enforced binding. Omission is legacy compatibility only. AssetFare never auto-selects, signs, or submits. USD 1 is smoke only and USD 1,000 is representative, not a cheapest guarantee.",
     supportedInterfaces: [{ url: serviceUrl, protocolBinding: "JSONRPC", protocolVersion: A2A_PROTOCOL_VERSION }],
     provider: { organization: "AssetFare", url: "https://assetfare.dev" },
     version: "0.3.0",
@@ -294,18 +294,18 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     }, {
       id: "prepare-first-unsigned-action",
       name: "Prepare the first unsigned action (caller-approved)",
-      description: "Explicit one-shot POST /v2/prepare. approvalV3 selected_mode=one_shot adds server-enforced exact quote/path/bounds binding; omitting it is legacy_advisory. Multi-step quotes reject one-shot. callerApproved must be supplied explicitly and is not human proof. Never auto-called; AssetFare never signs or submits.",
+      description: "Explicit one-shot POST /v2/prepare. Every new A2A flow and public example supplies approvalV3 selected_mode=one_shot for server-enforced exact quote/path/bounds binding; omission is legacy compatibility only. Multi-step quotes reject one-shot. callerApproved must be supplied explicitly and is not human proof. Never auto-called; AssetFare never signs or submits.",
       tags: ["prepare", "unsigned-action", "cross-chain", "non-custodial", "caller-approved"],
-      examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"}}'],
+      examples: ['{"operation":"prepare","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"approvalV3":{"version":"assetfare-quote-bound-approval-v3","quote_id":"<COPY_FROM_QUOTE>","quote_fingerprint":"<COPY_64_HEX_FROM_QUOTE>","selection_status":"selected","selected_mode":"one_shot","maximum_input_base":"<COPY_OR_STRENGTHEN_QUOTE_MAXIMUM>","minimum_output_base":"<COPY_OR_STRENGTHEN_QUOTE_MINIMUM>","direct_route_summary_sha256":"<COPY_64_HEX_FROM_QUOTE>","idempotency_key":"prepare-0001"}}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],
     }, {
       id: "session-lifecycle",
       name: "Run the caller-approved session lifecycle",
-      description: "Full quote-bound receipt-driven session lifecycle. approvalV3 selected_mode=session and the same idempotencyKey enforce the exact quote/path/bounds; multi-step quotes are session-only. The caller locally generates the sessionToken and never exposes its raw value in logs. callerApproved is explicit but not human proof. Never auto-chains, signs, or submits.",
+      description: "Full quote-bound receipt-driven session lifecycle. Every new A2A flow and public example supplies approvalV3 selected_mode=session and the same idempotencyKey to enforce the exact quote/path/bounds; omission is legacy compatibility only and multi-step quotes are session-only. The caller locally generates the sessionToken and never exposes its raw value in logs. callerApproved is explicit but not human proof. Never auto-chains, signs, or submits.",
       tags: ["session", "lifecycle", "observe", "receipts", "non-custodial", "caller-approved"],
-      examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<capability>","idempotencyKey":"create-0001"}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
+      examples: ['{"operation":"session_create","callerApproved":true,"fromChain":"base","fromToken":"USDC","toChain":"arbitrum","toToken":"USDC","amountUsd":1000,"wallets":{"base":"0x1111111111111111111111111111111111111111","arbitrum":"0x2222222222222222222222222222222222222222"},"sessionToken":"<CALLER_GENERATED_43_CHAR_BASE64URL_CAPABILITY>","idempotencyKey":"create-0001","approvalV3":{"version":"assetfare-quote-bound-approval-v3","quote_id":"<COPY_FROM_QUOTE>","quote_fingerprint":"<COPY_64_HEX_FROM_QUOTE>","selection_status":"selected","selected_mode":"session","maximum_input_base":"<COPY_OR_STRENGTHEN_QUOTE_MAXIMUM>","minimum_output_base":"<COPY_OR_STRENGTHEN_QUOTE_MINIMUM>","direct_route_summary_sha256":"<COPY_64_HEX_FROM_QUOTE>","idempotency_key":"create-0001"}}', '{"operation":"observe_source","sessionId":"00000000-0000-4000-8000-000000000001","sessionToken":"<capability>","idempotencyKey":"src-0001","transactionHashes":["<caller-submitted-hash>"]}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
       securityRequirements: [],

@@ -4,7 +4,7 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.0 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.1 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -40,19 +40,20 @@ keys, signs, or submits.
 For economic evaluation, use **USD 1,000** as the primary representative
 amount and always requote every candidate at the amount actually intended.
 The API still accepts USD 1, but **USD 1 is reachability/schema smoke only**,
-not a meaningful competitiveness test. For native-USDC routes, USD 50 is the
-lowest observed competitive bucket and a reasonable evaluation starting point
-based on dated 2026-09-23 evidence; it does not guarantee AssetFare is cheapest.
+not a meaningful competitiveness test. USD 50 was an observed competitive
+bucket only for the dated 2026-09-23 Solana USDC → Base USDC evidence; it is
+not a general native-USDC threshold and does not guarantee AssetFare is cheapest.
 SOL-input routes include a swap, so evaluate their full swap-and-bridge path at
 USD 1,000 or the actual intended amount. AssetFare is always one candidate, not
 an automatically preferred route.
 
 For agent-wallet funding, treat AssetFare as an aggregate refill or material
 transfer candidate, not as an automatic response to each failed x402
-micropayment. If a native-USDC need is below USD 50, aggregate the intended
-refill before comparing or use an existing direct deposit/onramp when it is
-cheaper. A wallet that is empty on every supported source chain is not an
-AssetFare use case.
+micropayment. For the evidenced Solana USDC → Base USDC corridor, aggregate a
+need below USD 50 before comparing or use an existing direct deposit/onramp
+when it is cheaper. Other corridors have no claimed threshold and require a
+fresh amount-specific comparison. A wallet that is empty on every supported
+source chain is not an AssetFare use case.
 
 Verify before trusting: [public source](https://github.com/assetfare/assetfare-mcp),
 [Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
@@ -154,7 +155,7 @@ MCP:
   not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
   and network fees are additional and appear in the quote's total token-path cost.
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
-- `assetfare_v2_prepare` and `assetfare_v2_session_create` accept an optional strict `approval_v3`. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. Without it, the path is `legacy_advisory`. Each call still requires the caller to supply literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
+- New clients must send strict `approval_v3` to `assetfare_v2_prepare` and `assetfare_v2_session_create`. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. Schema optionality remains only for explicit backward compatibility; omission is `legacy_advisory`, not the recommended public flow. Each call also requires literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
 - A session capability is a sensitive bearer credential, never a private key. Remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply it only in `X-AssetFare-Session-Token`. The server stores only its hash. The remote MCP/A2A service never generates the secret; `assetfare-plan` keeps it in memory by default and writes it only to an explicit new mode-0600 file. The optional local stdio helper remains offline-only.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are isolated at `/mcp/legacy` for original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
@@ -169,7 +170,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.3.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.3.1` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -183,11 +184,12 @@ directional native-USDC source-only routes to Base and Arbitrum USDC. The
 unversioned legacy workflow remains limited to `solana:SOL → base:ETH` and
 `solana:SOL → arbitrum:ETH`; it does not limit the v2 route matrix.
 
-The USD 1 API minimum is for reachability/schema smoke only. Start native-USDC
-economic comparisons at USD 50 based on the dated 2026-09-23 evidence, without
-assuming AssetFare will be cheapest. Use USD 1,000 as the primary representative
-comparison amount, including for SOL-input routes whose path includes a swap,
-and always compare fresh executable quotes at the actual intended amount.
+The USD 1 API minimum is for reachability/schema smoke only. The dated
+2026-09-23 evidence observed a competitive USD 50 bucket only on Solana USDC →
+Base USDC; no threshold is claimed for another corridor. Use USD 1,000 as the
+primary representative comparison amount, including for SOL-input routes whose
+path includes a swap, and always compare fresh executable quotes at the actual
+intended amount.
 
 For a new evaluation, call `assetfare_v2_capabilities` and then
 `assetfare_v2_quote`. The primary endpoint has no legacy tools to misselect.
@@ -217,7 +219,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.3.1 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -233,13 +235,14 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.3.1 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
   --wallet base=<CALLER_BASE_PUBLIC_ADDRESS> \
   --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY> \
-  --session-token-output ./session-capability.json
+  --session-token-output ./session-capability.json \
+  --wallet-handoff-output ./caller-wallet-handoff.json
 ```
 
 `--select-exact-quote-bounds` is an explicit local selection of the quote's
@@ -255,6 +258,38 @@ ActionSafetyReceiptV1/raw/action/bundle hashes, and stops unsigned and
 unsubmitted. Session tokens never appear in stdout or structured results. The
 optional token output path must not exist and is created mode 0600; omit it only
 if loss of recovery after process exit is acceptable.
+
+The optional caller-wallet handoff file removes the next-action ambiguity
+without crossing the custody boundary. For EVM actions it contains ordered,
+verified EIP-1193 `eth_sendTransaction` request templates; for Solana it contains
+the exact verified instructions, fee payer, required signers, and explicit
+fresh-blockhash construction requirements for a Solana Wallet Standard client.
+The file forbids automatic invocation and requires the caller to decode,
+simulate, confirm, sign, and submit each action with its own wallet. AssetFare
+does not invoke the wallet, hold a key, sign, or submit.
+
+For session mode, keep that capability file until the workflow is terminal. If
+the session-create response is lost, repeat the same plan command with
+`--session-capability-input ./session-capability.json`; it reuses the exact
+token and idempotency key. Once the file contains a session ID, resume without
+recreating the session:
+
+```bash
+npx --yes --package=assetfare-mcp@1.3.1 assetfare-session \
+  --operation get --capability-file ./session-capability.json
+
+npx --yes --package=assetfare-mcp@1.3.1 assetfare-session \
+  --operation observe-source --capability-file ./session-capability.json \
+  --idempotency-key source-0001 \
+  --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
+```
+
+`assetfare-session` accepts only transaction hashes from actions the caller has
+already verified, signed, and submitted. It sends the bearer token only in the
+session header, never prints it, validates every returned session, and has no
+signing or submission path. Quote selection and plan creation also require at
+least 15 seconds of quote TTL remaining; otherwise obtain and compare a fresh
+quote instead of racing expiry.
 
 The evaluator defaults to the representative USD 1,000
 `solana:USDC -> base:USDC` request. That USDC result is one AssetFare candidate,

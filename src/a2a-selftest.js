@@ -46,7 +46,7 @@ assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-un
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*76-route.*unranked candidate.*continuation_v3.*callerApproved:true.*legacy_advisory.*never auto-selects, signs, or submits/i);
+assert.match(card.description,/non-custodial.*76-route.*unranked candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*legacy compatibility only.*never auto-selects, signs, or submits/i);
 assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
 assert.match(card.description,/full-payload.*exact path.*bounds.*TTL.*one_shot\/session/i);
 assert.match(card.skills[0].description,/unranked.*direct_route_summary.*continuation_v3.*explicitly requested.*agent-wallet.*payment-wallet.*x402-wallet.*does not inspect balances.*automatically to a 402.*auto-select.*auto-prepare/i);
@@ -55,6 +55,12 @@ assert.deepEqual(card.skills[0].examples[0],'{"fromChain":"solana","fromToken":"
 for (const tag of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed","agent-wallet-funding","payment-wallet-funding","x402-wallet-funding"]) assert.ok(card.skills[0].tags.includes(tag));
 assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1000);
 assert.equal(JSON.parse(card.skills[0].examples[1]).amountUsd,1000);
+const cardPrepareExample=JSON.parse(card.skills.find((skill)=>skill.id==="prepare-first-unsigned-action").examples[0]);
+const cardSessionExample=JSON.parse(card.skills.find((skill)=>skill.id==="session-lifecycle").examples[0]);
+assert.equal(cardPrepareExample.approvalV3.selected_mode,"one_shot");
+assert.equal(cardPrepareExample.approvalV3.selection_status,"selected");
+assert.equal(cardSessionExample.approvalV3.selected_mode,"session");
+assert.equal(cardSessionExample.approvalV3.idempotency_key,cardSessionExample.idempotencyKey);
 assert.equal(JSON.stringify(card).match(/BEGIN PRIVATE KEY|seed phrase|secret[_-]?key|api[_-]?key|bearer [A-Za-z0-9]/i), null);
 
 let observedBody;let observedHeaders;

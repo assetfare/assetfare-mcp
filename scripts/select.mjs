@@ -2,13 +2,14 @@
 /** Offline explicit selection: exact quote JSON -> strict approval_v3 file. Network calls: zero. */
 
 import { randomBytes } from "node:crypto";
-import { chmodSync, closeSync, lstatSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { APPROVAL_V3_VERSION, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
 import { isMain } from "../src/is-main.js";
 import { parseV2Quote } from "../src/server.js";
 
 const MAX_QUOTE_BYTES=1_048_576;
+const MINIMUM_PLAN_REMAINING_MS=15_000;
 const BASE=/^[1-9][0-9]*$/;
 
 function usage(){return `Usage:
@@ -37,18 +38,18 @@ function parseArgs(argv){
 }
 
 function readJsonFile(path,label){
-  const absolute=resolve(path);let metadata;
-  try{metadata=lstatSync(absolute);}catch{throw new Error(`assetfare_select_${label}_file_invalid`);}
-  if(!metadata.isFile()||metadata.isSymbolicLink()||metadata.size<2||metadata.size>MAX_QUOTE_BYTES)throw new Error(`assetfare_select_${label}_file_invalid`);
-  let value;try{value=JSON.parse(readFileSync(absolute,"utf8"));}catch{throw new Error(`assetfare_select_${label}_json_invalid`);}
+  const absolute=resolve(path);let descriptor,metadata,text;
+  try{descriptor=openSync(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);metadata=fstatSync(descriptor);if(!metadata.isFile()||metadata.size<2||metadata.size>MAX_QUOTE_BYTES)throw new Error("shape");text=readFileSync(descriptor,"utf8");}
+  catch{throw new Error(`assetfare_select_${label}_file_invalid`);}
+  finally{if(descriptor!==undefined)closeSync(descriptor);}
+  let value;try{value=JSON.parse(text);}catch{throw new Error(`assetfare_select_${label}_json_invalid`);}
   if(!value||Array.isArray(value)||typeof value!=="object")throw new Error(`assetfare_select_${label}_json_invalid`);return value;
 }
 
 function writePrivateJson(path,value){
-  const absolute=resolve(path);let descriptor;
-  try{descriptor=openSync(absolute,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(value,null,2)}\n`,{encoding:"utf8"});chmodSync(absolute,0o600);}
-  catch(error){throw new Error(error?.code==="EEXIST"?"assetfare_select_output_exists":"assetfare_select_output_invalid");}
-  finally{if(descriptor!==undefined)closeSync(descriptor);}
+  const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(value,null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;linkSync(temporary,absolute);unlinkSync(temporary);}
+  catch(error){if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error(error?.code==="EEXIST"?"assetfare_select_output_exists":"assetfare_select_output_invalid");}
   return absolute;
 }
 
@@ -60,6 +61,7 @@ export function selectQuote(argv,{stdout=process.stdout,nowMs=Date.now()}={}){
   const intent={from_chain:source[0],from_token:source[1],to_chain:destination[0],to_token:destination[1],amount_usd:raw.intent?.amount_usd};
   const quote=parseV2Quote(raw,intent);
   const continuation=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true,nowMs});
+  if(Date.parse(continuation.expires_at)-nowMs<=MINIMUM_PLAN_REMAINING_MS)throw new Error("assetfare_select_quote_near_expiry_requote_required");
   const approval={version:APPROVAL_V3_VERSION,quote_id:continuation.quote_id,quote_fingerprint:continuation.quote_fingerprint,selection_status:"selected",selected_mode:args.mode,maximum_input_base:args.maximum_input_base,minimum_output_base:args.minimum_output_base,direct_route_summary_sha256:continuation.direct_route_summary_sha256,idempotency_key:`select.${randomBytes(16).toString("hex")}`};
   validateApprovalV3(approval,continuation,{mode:args.mode,requireUnexpired:true,nowMs});
   const outputPath=writePrivateJson(args.output,approval);

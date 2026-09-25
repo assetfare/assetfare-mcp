@@ -2,7 +2,7 @@
 /** Caller-approved quote -> first unsigned plan. Never signs or submits. */
 
 import { createHash, randomBytes } from "node:crypto";
-import { chmodSync, closeSync, openSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, constants, fstatSync, fsyncSync, linkSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { APPROVAL_V3_VERSION, reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
 import { isMain } from "../src/is-main.js";
@@ -12,6 +12,7 @@ import { readJsonFile } from "./select.mjs";
 const DEFAULT_API_BASE = "https://api.assetfare.dev";
 const MAX_RESPONSE_BYTES = 1_048_576;
 const TIMEOUT_MS = 45_000;
+const MINIMUM_PLAN_REMAINING_MS = 15_000;
 const CHAINS = new Set(["solana","base","arbitrum","robinhood","polygon","optimism"]);
 const SELECTORS={approve:"0x095ea7b3",swapNative:"0xc6fa57fb",swapStable:"0xfee8180b",bridgeUsdc:"0xa17f6982",bridgeUsdg:"0xedf202ce",across:"0xad5425c6"};
 const PROGRAMS={system:"11111111111111111111111111111111",compute:"ComputeBudget111111111111111111111111111111",token:"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",token2022:"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",ata:"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",memo:"MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",cctp:"CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",raydium:"CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",orca:"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",paxos:"paxosVkYuJBKUQoZGAidRA47Qt4uidqG5fAt5kmr1nR"};
@@ -30,18 +31,26 @@ function usage() {
   return `Usage:
   assetfare-plan --caller-approved --mode one_shot \\
     --quote quote.json --select-exact-quote-bounds \\
-    --wallet base=<0x-address> --wallet arbitrum=<0x-address>
+    --wallet base=<0x-address> --wallet arbitrum=<0x-address> \\
+    --wallet-handoff-output ./caller-wallet-handoff.json
 
 Instead of --select-exact-quote-bounds, pass --approval approval.json to use a
 separately reviewed assetfare-select file with custom stricter bounds. Exactly
 one selection source is required.
 
 For session mode, use --mode session and optionally
---session-token-output <new-private-file>. The token is generated from 256-bit
+--session-token-output <new-private-file>. To retry the same lost-response
+session creation, use --session-capability-input <existing-private-file>
+instead. The token is generated from 256-bit
 caller-local CSPRNG memory and sent only in X-AssetFare-Session-Token. It is
 never printed or included in structured output. The optional file is created
 mode 0600 and must not already exist; without it, recovery after process exit
 is unavailable.
+
+The optional wallet-handoff output is a new mode-0600 file containing verified
+EIP-1193 request templates or Solana Wallet Standard transaction-construction
+inputs. It never invokes a wallet. The caller must decode, simulate, confirm,
+sign, and submit each action in order with its own wallet.
 
 The command verifies the exact Core quote, continuation_v3, approval_v3,
 wallet/signer requirements, path, bounds, mode and TTL before one POST. It
@@ -54,20 +63,21 @@ never signs, submits, or accepts private key material.
 
 function parseArgs(argv) {
   const out={wallets:{},caller_approved:false,select_exact_quote_bounds:false};
-  const values=new Set(["mode","quote","approval","wallet","event-signer-public","session-token-output","api-base"]);
+  const values=new Set(["mode","quote","approval","wallet","event-signer-public","session-token-output","session-capability-input","wallet-handoff-output","api-base"]);
   for(let i=0;i<argv.length;i+=1){
     const raw=argv[i];
     if(raw==="--help"||raw==="-h")return {help:true};
-    if(raw==="--caller-approved"){out.caller_approved=true;continue;}
+    if(raw==="--caller-approved"){if(out.caller_approved)throw new Error("assetfare_plan_argument_duplicate");out.caller_approved=true;continue;}
     if(raw==="--select-exact-quote-bounds"){if(out.select_exact_quote_bounds)throw new Error("assetfare_plan_selection_source_invalid");out.select_exact_quote_bounds=true;continue;}
     if(!raw.startsWith("--"))throw new Error("assetfare_plan_argument_invalid");
     const equal=raw.indexOf("=");const key=raw.slice(2,equal<0?undefined:equal);if(!values.has(key))throw new Error("assetfare_plan_argument_unknown");
-    const value=equal>=0?raw.slice(equal+1):argv[++i];if(typeof value!=="string"||!value)throw new Error(`assetfare_plan_${key.replaceAll("-","_")}_missing`);
+    const normalizedKey=key.replaceAll("-","_");if(key!=="wallet"&&Object.hasOwn(out,normalizedKey))throw new Error("assetfare_plan_argument_duplicate");
+    const value=equal>=0?raw.slice(equal+1):argv[++i];if(typeof value!=="string"||!value)throw new Error(`assetfare_plan_${normalizedKey}_missing`);
     if(key==="wallet"){
       const split=value.indexOf("=");if(split<=0||split===value.length-1)throw new Error("assetfare_plan_wallet_invalid");
       const chain=value.slice(0,split),address=value.slice(split+1);if(!CHAINS.has(chain)||Object.hasOwn(out.wallets,chain))throw new Error("assetfare_plan_wallet_invalid");out.wallets[chain]=address;continue;
     }
-    out[key.replaceAll("-","_")]=value;
+    out[normalizedKey]=value;
   }
   if(out.help)return out;
   if(out.caller_approved!==true)throw new Error("assetfare_plan_explicit_caller_approval_required");
@@ -80,6 +90,8 @@ function parseArgs(argv) {
     if(!valid)throw new Error("assetfare_plan_wallet_invalid");
   }
   if(out.event_signer_public&&!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(out.event_signer_public))throw new Error("assetfare_plan_event_signer_public_invalid");
+  if(out.session_token_output&&out.session_capability_input)throw new Error("assetfare_plan_session_capability_source_invalid");
+  if(out.mode!=="session"&&(out.session_token_output||out.session_capability_input))throw new Error("assetfare_plan_session_token_output_mode_invalid");
   return out;
 }
 
@@ -229,43 +241,93 @@ async function requestJson(fetchImpl,url,options={}){
 
 function validatedBase(value){const url=new URL(value||DEFAULT_API_BASE);if(url.search||url.hash||url.username||url.password||url.pathname!=="/")throw new Error("assetfare_plan_api_base_invalid");if(url.protocol!=="https:"&&!(["127.0.0.1","localhost"].includes(url.hostname)&&url.protocol==="http:"))throw new Error("assetfare_plan_api_base_invalid");return url.origin;}
 
+function sessionCapabilityValue({token,quoteId,idempotencyKey,sessionId}){return {version:"assetfare-caller-session-capability-v1",session_token:token,quote_id:quoteId,idempotency_key:idempotencyKey,...(sessionId?{session_id:sessionId}:{}),sensitivity:"sensitive_bearer_capability",is_private_key:false};}
+
 function writeSessionToken(path,{token,quoteId,idempotencyKey}){
-  const absolute=resolve(path);let descriptor;
-  try{descriptor=openSync(absolute,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify({version:"assetfare-caller-session-capability-v1",session_token:token,quote_id:quoteId,idempotency_key:idempotencyKey,sensitivity:"sensitive_bearer_capability",is_private_key:false},null,2)}\n`,{encoding:"utf8"});chmodSync(absolute,0o600);}
-  catch(error){throw new Error(error?.code==="EEXIST"?"assetfare_plan_session_token_output_exists":"assetfare_plan_session_token_output_invalid");}
-  finally{if(descriptor!==undefined)closeSync(descriptor);}
+  const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token,quoteId,idempotencyKey}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;linkSync(temporary,absolute);unlinkSync(temporary);}
+  catch(error){if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error(error?.code==="EEXIST"?"assetfare_plan_session_token_output_exists":"assetfare_plan_session_token_output_invalid");}
   return absolute;
+}
+
+function writeWalletHandoff(path,value){
+  const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(value,null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;linkSync(temporary,absolute);unlinkSync(temporary);}
+  catch(error){if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error(error?.code==="EEXIST"?"assetfare_plan_wallet_handoff_output_exists":"assetfare_plan_wallet_handoff_output_invalid");}
+  return absolute;
+}
+
+function requireNewWalletHandoffPath(path){
+  const absolute=resolve(path);try{lstatSync(absolute);throw new Error("exists");}catch(error){if(error?.code!=="ENOENT")throw new Error("assetfare_plan_wallet_handoff_output_exists");}return absolute;
+}
+
+function readSessionCapability(path){
+  const absolute=resolve(path);let descriptor,metadata,text,value;
+  try{descriptor=openSync(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);metadata=fstatSync(descriptor);if(!metadata.isFile()||(metadata.mode&0o077)!==0||metadata.size<2||metadata.size>16_384)throw new Error("mode");text=readFileSync(descriptor,"utf8");value=JSON.parse(text);}
+  catch{throw new Error("assetfare_plan_session_capability_input_invalid");}
+  finally{if(descriptor!==undefined)closeSync(descriptor);}
+  if(!value||Array.isArray(value)||typeof value!=="object")throw new Error("assetfare_plan_session_capability_input_invalid");
+  const keys=Object.keys(value),allowed=new Set(["version","session_token","quote_id","idempotency_key","session_id","sensitivity","is_private_key"]);
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if(keys.some((key)=>!allowed.has(key))||value.version!=="assetfare-caller-session-capability-v1"||!/^[A-Za-z0-9_-]{43}$/.test(value.session_token||"")||!uuid.test(value.quote_id||"")||!approvedIdempotency(value.idempotency_key)||value.sensitivity!=="sensitive_bearer_capability"||value.is_private_key!==false||(value.session_id!==undefined&&!uuid.test(value.session_id)))throw new Error("assetfare_plan_session_capability_input_invalid");
+  return {...value,path:absolute};
+}
+
+function approvedIdempotency(value){return typeof value==="string"&&/^[A-Za-z0-9._:-]{8,128}$/.test(value);}
+
+function updateSessionCapability(path,capability,sessionId){
+  const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token:capability.session_token,quoteId:capability.quote_id,idempotencyKey:capability.idempotency_key,sessionId}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;renameSync(temporary,absolute);}
+  catch{if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error("assetfare_plan_session_capability_update_failed");}
+  return absolute;
+}
+
+function callerWalletHandoff(bundle,verification){
+  if(!bundle||verification?.verified!==true)throw new Error("assetfare_plan_wallet_handoff_unverified");
+  const action=bundle.unsigned_action,receipt=action.safety_receipt,rows=rawActionRows(action),family=rows[0]?.programId?"solana":"evm";
+  const common={version:"assetfare-caller-wallet-handoff-v1",action_id:bundle.action_id,workflow_id:bundle.workflow_id,step_index:bundle.step_index,route:bundle.route,expires_at:bundle.expires_at,verification_scope:verification.verification_scope,simulation_performed_by_assetfare_plan:false,automatic_wallet_invocation_forbidden:true,requires_fresh_caller_simulation:true,requires_per_action_wallet_confirmation:true,caller_wallet_signing_required:true,caller_wallet_submission_required:true,assetfare_wallet_invoked:false,assetfare_signed:false,assetfare_submitted:false,post_submission:"Record only the caller-submitted transaction hash, then use the session observe operation when session mode is active."};
+  if(family==="evm"){
+    const chainIds=new Set(rows.map((row)=>Number(row.chainId)));if(chainIds.size!==1||[...chainIds].some((value)=>!Number.isSafeInteger(value)||value<=0))throw new Error("assetfare_plan_wallet_handoff_chain_invalid");
+    return {...common,chain_family:"evm",wallet_standard:"EIP-1193",chain_id:[...chainIds][0],ordered_requests:rows.map((row,index)=>({index,method:"eth_sendTransaction",params:[{from:row.from,to:row.to,value:`0x${BigInt(row.value??0).toString(16)}`,data:row.data,chainId:`0x${Number(row.chainId).toString(16)}`}],automatic_invocation_forbidden:true})),caller_checks:["switch the wallet to the exact chain_id","decode target, selector, token approval and native value against the safety receipt","simulate each ordered request against a trusted caller-selected RPC immediately before confirmation","confirm each request in the caller wallet; never grant an unlimited approval"]};
+  }
+  return {...common,chain_family:"solana",wallet_standard:"Solana Wallet Standard",cluster:receipt.network.source_chain_id,transaction_construction:{fee_payer:receipt.parties.fee_payer,recent_blockhash:"FETCH_FRESH_FROM_CALLER_SELECTED_RPC",last_valid_block_height:"FETCH_WITH_RECENT_BLOCKHASH",instructions:structuredClone(rows),required_signers:structuredClone(action.requiredSigners||action.signers)},wallet_method_after_construction:"signAndSendTransaction",automatic_method_invocation_forbidden:true,caller_checks:["rebuild a fresh transaction from these exact instructions without adding or reordering instructions","fetch a fresh recent blockhash from a trusted caller-selected RPC","require every listed signer, including any caller-owned event signer","simulate the complete transaction immediately before confirmation","confirm in the caller wallet and record only the submitted signature"]};
 }
 
 async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   const args=parseArgs(argv);if(args.help){stdout.write(usage());return {help:true};}
+  if(args.wallet_handoff_output)requireNewWalletHandoffPath(args.wallet_handoff_output);
   const apiBase=validatedBase(args.api_base||process.env.ASSETFARE_API_BASE_URL||DEFAULT_API_BASE);delete args.api_base;
   const rawQuote=readJsonFile(args.quote,"quote"),source=String(rawQuote.intent?.from||"").split(":"),destination=String(rawQuote.intent?.to||"").split(":");
   if(source.length!==2||destination.length!==2)throw new Error("assetfare_plan_quote_intent_invalid");
   const intent={from_chain:source[0],from_token:source[1],to_chain:destination[0],to_token:destination[1],amount_usd:rawQuote.intent?.amount_usd};
   const quote=parseV2Quote(rawQuote,intent),continuation=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true,nowMs:nowMs??Date.now()});
+  if(Date.parse(continuation.expires_at)-(nowMs??Date.now())<=MINIMUM_PLAN_REMAINING_MS)throw new Error("assetfare_plan_quote_near_expiry_requote_required");
+  const sessionCapability=args.session_capability_input?readSessionCapability(args.session_capability_input):null;
+  if(sessionCapability&&sessionCapability.quote_id!==continuation.quote_id)throw new Error("assetfare_plan_session_capability_quote_mismatch");
   const approvalSource=args.select_exact_quote_bounds?"explicit_local_exact_quote_bounds":"caller_supplied_file";
-  const rawApproval=args.select_exact_quote_bounds?{version:APPROVAL_V3_VERSION,quote_id:continuation.quote_id,quote_fingerprint:continuation.quote_fingerprint,selection_status:"selected",selected_mode:args.mode,maximum_input_base:continuation.input_base_bounds.maximum,minimum_output_base:continuation.minimum_output_base,direct_route_summary_sha256:continuation.direct_route_summary_sha256,idempotency_key:`plan.${randomBytes(16).toString("hex")}`}:readJsonFile(args.approval,"approval");
+  const rawApproval=args.select_exact_quote_bounds?{version:APPROVAL_V3_VERSION,quote_id:continuation.quote_id,quote_fingerprint:continuation.quote_fingerprint,selection_status:"selected",selected_mode:args.mode,maximum_input_base:continuation.input_base_bounds.maximum,minimum_output_base:continuation.minimum_output_base,direct_route_summary_sha256:continuation.direct_route_summary_sha256,idempotency_key:sessionCapability?.idempotency_key||`plan.${randomBytes(16).toString("hex")}`}:readJsonFile(args.approval,"approval");
   const approval=validateApprovalV3(rawApproval,continuation,{mode:args.mode,requireUnexpired:true,nowMs:nowMs??Date.now()});
+  if(sessionCapability&&sessionCapability.idempotency_key!==approval.idempotency_key)throw new Error("assetfare_plan_session_capability_idempotency_mismatch");
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
   if(args.mode==="one_shot"&&quote.direct_route_summary.step_count>1)throw new Error("assetfare_plan_multistep_session_required");
   const expectedWallets=[...continuation.required_wallet_chains].sort(),actualWallets=Object.keys(args.wallets).sort();if(canonical(expectedWallets)!==canonical(actualWallets))throw new Error("assetfare_plan_required_wallet_chains_mismatch");
   if(continuation.event_signer_public_required!==Boolean(args.event_signer_public))throw new Error(continuation.event_signer_public_required?"assetfare_plan_event_signer_public_required":"assetfare_plan_event_signer_public_not_allowed");
-  if(args.mode!=="session"&&args.session_token_output)throw new Error("assetfare_plan_session_token_output_mode_invalid");
   const body={caller_approved:args.caller_approved,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{}),approval_v3:approval,...(args.mode==="session"?{idempotency_key:approval.idempotency_key}:{})};
-  let bundle=null,session=null,verification=null,sessionTokenPath=null,sessionTokenPersisted=false;
+  let bundle=null,session=null,verification=null,sessionTokenPath=sessionCapability?.path||null,sessionTokenPersisted=Boolean(sessionCapability),sessionTokenReused=Boolean(sessionCapability);
   if(args.mode==="one_shot"){
     bundle=parseV2Bundle(await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)}));verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};
   }else{
-    const sessionToken=randomBytes(32).toString("base64url");if(!/^[A-Za-z0-9_-]{43}$/.test(sessionToken))throw new Error("assetfare_plan_session_token_generation_failed");
+    const sessionToken=sessionCapability?.session_token||randomBytes(32).toString("base64url");if(!/^[A-Za-z0-9_-]{43}$/.test(sessionToken))throw new Error("assetfare_plan_session_token_generation_failed");
     if(args.session_token_output){sessionTokenPath=writeSessionToken(args.session_token_output,{token:sessionToken,quoteId:approval.quote_id,idempotencyKey:approval.idempotency_key});sessionTokenPersisted=true;}
     session=parseV2Session(await requestJson(fetchImpl,`${apiBase}/v2/session`,{method:"POST",headers:{"x-assetfare-session-token":sessionToken},body:JSON.stringify(body)}),approval,sessionToken);
+    if(sessionTokenPath){updateSessionCapability(sessionTokenPath,{session_token:sessionToken,quote_id:approval.quote_id,idempotency_key:approval.idempotency_key},session.session_id);sessionTokenPersisted=true;}
     if(session.current_action){bundle=session.current_action;verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};}
   }
-  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,approval_v3_source:approvalSource,approval_v3_generated_locally:args.select_exact_quote_bounds,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,human_approval_proof_claimed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle}:{}),...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
+  const walletHandoff=bundle?callerWalletHandoff(bundle,verification):null;if(args.wallet_handoff_output&&!walletHandoff)throw new Error("assetfare_plan_wallet_handoff_unavailable");const walletHandoffPath=args.wallet_handoff_output?writeWalletHandoff(args.wallet_handoff_output,walletHandoff):null;
+  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,approval_v3_source:approvalSource,approval_v3_generated_locally:args.select_exact_quote_bounds,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,human_approval_proof_claimed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle,caller_wallet_handoff:walletHandoff}:{}),wallet_handoff_output_path:walletHandoffPath,...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_capability_reused:sessionTokenReused,session_create_retry_idempotent:sessionTokenReused,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 
 if(isMain(import.meta.url))runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
 
-export { canonical, parseArgs, requestJson, runPlan, sha256, usage, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken };
+export { callerWalletHandoff, canonical, parseArgs, readSessionCapability, requestJson, requireNewWalletHandoffPath, runPlan, sha256, updateSessionCapability, usage, validatedBase, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken, writeWalletHandoff };
