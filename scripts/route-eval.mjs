@@ -315,6 +315,8 @@ function settled(result) {
   return { status: "unavailable", error: result.reason instanceof Error ? result.reason.message : "request failed" };
 }
 
+function knownNativeCosts(quote){const rows=[];for(const step of quote?.route?.steps||[]){const evidence=step?.expected_evidence||{},raw=evidence.nativeFee??evidence.native_fee;if(raw===undefined||raw===null||!/^(0|[1-9]\d*)$/.test(String(raw))||BigInt(String(raw))===0n)continue;const source=String(step.chain||step.from||"").toLowerCase();rows.push({step_index:step.index,provider:step.provider,source_chain:source,amount_base:String(raw),unit:source==="solana"?"lamports":"wei",included_in_token_output:false,usd_value:null});}return {items:rows,all_in_ranking_permitted:false,note:rows.length?"Known native protocol values are disclosed in base units but not USD-priced here. Add current native-asset prices and source gas before selecting a provider.":"No exact native protocol value was present in this quote; unpriced network costs still require comparison."};}
+
 const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const HANDOFF_REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
@@ -547,6 +549,9 @@ async function main() {
       non_atomic: quote.risk?.non_atomic,
       server_signing: quote.risk?.server_signing,
       server_submission: quote.risk?.server_submission,
+      cost_summary: structuredClone(quote.cost_summary??null),
+      known_native_costs: knownNativeCosts(quote),
+      rankable_all_in: quote.cost_summary?.rankable_all_in===true,
     },
     alternatives: {
       status: "not_requested",
