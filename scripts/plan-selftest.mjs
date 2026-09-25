@@ -15,6 +15,7 @@ const SOL="7WbugVYm8EqR9AyaYqbJ4N5r26rJ7mdx9w4grYaGx55X",EVENT="J98ACstZN41f5k79
 const BASE_USDC="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",EXECUTOR="0x3671647267E8b1b66ef03A219CdFcC7E2C5ca998",NOW=Date.now(),DEADLINE=Math.floor(NOW/1000)+300;
 const intent={from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:250};
 const TEMP=mkdtempSync(join(tmpdir(),"assetfare-plan-")),QUOTE=quoteFixture({...intent,issuedAt:NOW}),APPROVAL=approvalFor(QUOTE,"one_shot","plan.one.0001"),QUOTE_FILE=join(TEMP,"quote.json"),APPROVAL_FILE=join(TEMP,"approval.json");
+const ROBINHOOD_SWAP=JSON.parse(readFileSync(new URL("../test/robinhood-usdg-eth-swap-bundle.json",import.meta.url),"utf8"));
 writeFileSync(QUOTE_FILE,JSON.stringify(QUOTE));writeFileSync(APPROVAL_FILE,JSON.stringify(APPROVAL));
 const args=["--caller-approved","--mode","one_shot","--quote",QUOTE_FILE,"--approval",APPROVAL_FILE,"--wallet",`base=${FROM}`,"--wallet",`arbitrum=${TO}`];
 const REQUEST_FIELDS=["caller_approved","from_chain","from_token","to_chain","to_token","amount_usd","wallets","event_signer_public"];
@@ -78,6 +79,7 @@ for(const [name,mutate,error] of [
   ["signed",value=>{value.signed=true;delete value.payload_sha256;value.payload_sha256=sha256(value);},"bundle_unsafe"],
   ]){const mock=mockFetch(mutate);await assert.rejects(()=>runPlan(args,{fetchImpl:mock.fetch,stdout:{write(){}},nowMs:NOW+100}),new RegExp(error),name);}
 assert.equal(verifyPlanBundle(bundle(),{...intent,wallets:{base:FROM,arbitrum:TO}},NOW).verified,true);
+assert.equal(verifyPlanBundle(ROBINHOOD_SWAP,{from_chain:"robinhood",from_token:"USDG",to_chain:"robinhood",to_token:"ETH",amount_usd:1,wallets:{robinhood:"0x26901C583003C7B3c7877D846f0c9907338aa87E"}},Date.parse(ROBINHOOD_SWAP.prepared_at)+1000).verified,true);
 for(const [name,mutate] of [
   ["target",value=>{value.unsigned_action.transactions[1].to="0x7777777777777777777777777777777777777777";}],
   ["selector",value=>{value.unsigned_action.transactions[1].data=`0xdeadbeef${value.unsigned_action.transactions[1].data.slice(10)}`;}],
