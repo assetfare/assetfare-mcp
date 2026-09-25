@@ -77,8 +77,8 @@ if (!v2QuoteTool?.outputSchema?.required?.includes("continuation_v3") || v2Quote
 if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP must not expose transaction submission");
 // New v2 execution tools: caller_approved is a required literal-true gate on prepare/session_create.
 const v2PrepareTool = result.tools.find((tool) => tool.name === "assetfare_v2_prepare");
-if (!v2PrepareTool?.inputSchema?.required?.includes("caller_approved") || !v2PrepareTool?.inputSchema?.required?.includes("wallets")) throw new Error("v2 prepare must require caller_approved and wallets");
-if (v2PrepareTool?.inputSchema?.required?.includes("approval_v3") || v2PrepareTool?.inputSchema?.properties?.approval_v3?.properties?.selected_mode?.const !== "one_shot") throw new Error("v2 prepare approval_v3 schema mismatch");
+if (!v2PrepareTool?.inputSchema?.required?.includes("caller_approved") || !v2PrepareTool?.inputSchema?.required?.includes("wallets") || !v2PrepareTool?.inputSchema?.required?.includes("approval_v3") || !v2PrepareTool?.inputSchema?.required?.includes("verification_context")) throw new Error("v2 prepare must require caller approval, strict approval and verification context");
+if (v2PrepareTool?.inputSchema?.properties?.approval_v3?.properties?.selected_mode?.const !== "one_shot" || v2PrepareTool?.outputSchema?.properties?.semantic_verification?.const !== true || !v2PrepareTool?.outputSchema?.required?.includes("caller_wallet_handoff")) throw new Error("v2 prepare verified output schema mismatch");
 if (v2PrepareTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2PrepareTool.inputSchema.properties.amount_usd) throw new Error("v2 prepare amount schema mismatch");
 const v2SessionCreateTool = result.tools.find((tool) => tool.name === "assetfare_v2_session_create");
 if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || !v2SessionCreateTool?.inputSchema?.required?.includes("session_token")) throw new Error("v2 session_create must require caller_approved and session_token");
@@ -131,8 +131,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "1.3.5" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.3.5" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "1.3.6" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.3.6" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
   if (legacyCardHttp.status !== 200 || legacyCardHttp.body?.tools?.length !== 13 || legacyCardHttp.body?.profile !== "legacy") throw new Error("legacy server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || legacyMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow || canonicalMcpHead.allow !== legacyMcpHead.allow) throw new Error("MCP endpoint discovery mismatch");
@@ -161,6 +161,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.3.5", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.3.6", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

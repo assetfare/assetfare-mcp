@@ -41,7 +41,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.3.1");
+assert.equal(card.version, "0.3.2");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -157,15 +157,15 @@ const sessionToken = randomBytes(32).toString("base64url");
 assert.match(sessionToken, /^[A-Za-z0-9_-]{43}$/);
 assert.equal(card.skills.some((skill) => skill.id === "new-session-capability"), false);
 
-// prepare happy path: caller_approved:true + exact wallets -> POST /v2/prepare, returns bundle
+// Remote A2A one-shot prepare is strict-only. Missing approval/context is rejected
+// before upstream; full valid EVM/Solana and hostile coverage lives in one-shot-selftest.
+const beforePreparePath=execPath;
 const prepareResult = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets })], "prepare"), context());
-assert.ok(dataOf(prepareResult).bundle.unsigned_action);
-assert.equal(execBody.caller_approved, true);
-assert.equal(dataOf(prepareResult).guidance.callerMustVerifySignAndSubmit, true);
+assert.equal(dataOf(prepareResult).error.code,"prepare_intent_invalid");
+assert.equal(execPath,beforePreparePath);
 
 const uncappedPrepareResult = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 2500.25, wallets })], "uncapped-prepare"), context());
-assert.ok(dataOf(uncappedPrepareResult).bundle.unsigned_action);
-assert.equal(execBody.amount_usd, 2500.25);
+assert.equal(dataOf(uncappedPrepareResult).error.code,"prepare_intent_invalid");
 for (const amountUsd of [0.99, Number.NaN, Number.POSITIVE_INFINITY]) {
   const invalidPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd, wallets })], `invalid-prepare-${String(amountUsd)}`), context());
   assert.equal(dataOf(invalidPrepare).error.code, "prepare_intent_invalid");
@@ -175,9 +175,9 @@ for (const amountUsd of [0.99, Number.NaN, Number.POSITIVE_INFINITY]) {
 const badPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: false, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets })], "bad-prepare"), context());
 assert.equal(dataOf(badPrepare).error.code, "prepare_intent_invalid");
 
-// source-only directional prepare is execution-ready and caller-approved.
+// Source-only prepare also requires strict approval/context.
 const sourceOnlyPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "polygon", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 25, wallets: { polygon: "0x3333333333333333333333333333333333333333", base: "0x1111111111111111111111111111111111111111" } })], "src-prepare"), context());
-assert.ok(dataOf(sourceOnlyPrepare).bundle.unsigned_action);
+assert.equal(dataOf(sourceOnlyPrepare).error.code,"prepare_intent_invalid");
 
 const selectedQuote=quoteFor({from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25}),sessionApproval=approvalFor(selectedQuote,"session","a2a.session.0001"),storedContext=sessionVerificationContext({intent:{from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25},wallets,approval:sessionApproval,directRouteSummary:selectedQuote.direct_route_summary}),verificationContext={...storedContext.value,verification_context_sha256:storedContext.sha256};
 
@@ -193,7 +193,7 @@ assert.equal(Object.prototype.hasOwnProperty.call(execBody,"verification_context
 
 // Strict approval_v3 is passed byte-semantically and never synthesized by A2A.
 const oneApproval=approvalFor(selectedQuote,"one_shot","a2a.one.0001");
-const v3Prepare=await execHandler.handle(request([data({ operation:"prepare",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,approvalV3:oneApproval})],"prepare-v3"),context());assert.ok(dataOf(v3Prepare).bundle);assert.deepEqual(execBody.approval_v3,oneApproval);
+const v3Prepare=await execHandler.handle(request([data({ operation:"prepare",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,approvalV3:oneApproval})],"prepare-v3"),context());assert.equal(dataOf(v3Prepare).error.code,"prepare_intent_invalid");
 const v3Session=await execHandler.handle(request([data({operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:sessionApproval.idempotency_key,approvalV3:sessionApproval,verificationContext})],"session-v3"),context());assert.equal(dataOf(v3Session).session.quote_binding.quote_fingerprint,sessionApproval.quote_fingerprint);assert.deepEqual(execBody.approval_v3,sessionApproval);
 const beforePath=execPath;const noApprovalBoolean=await execHandler.handle(request([data({operation:"prepare",fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,approvalV3:oneApproval})],"prepare-no-boolean"),context());assert.equal(dataOf(noApprovalBoolean).error.code,"prepare_intent_invalid");assert.equal(execPath,beforePath);
 
@@ -203,13 +203,7 @@ const sessionInput={operation:"session_create",callerApproved:true,fromChain:"ba
 const prepareBase=()=>({unsigned_action:{transaction:"0xUNSIGNED"},server_signing:false,server_submission:false,signed:false,submitted:false});
 const sessionBase=()=>({session_id:"00000000-0000-4000-8000-000000000002",status:"ready",action_available:false,current_action:null,quote_binding:sessionBindingFor(sessionApproval),server_signing:false,server_submission:false,signed:false,submitted:false});
 async function hostileResult(kind,mutate){const payload=kind==="prepare"?prepareBase():sessionBase();mutate(payload);const hostileHandler=new JsonRpcTransportHandler(createAssetFareA2A({fetch:async()=>ok(payload)}).requestHandler);return hostileHandler.handle(request([data(kind==="prepare"?prepareInput:sessionInput)],`hostile-${kind}-${Math.random()}`),context());}
-for(const mutate of [
-  (value)=>{value.unsigned_action.nested={private_key:"TEST_ONLY"};},
-  (value)=>{value.unsigned_action.nested={signature:"0xdead"};},
-  (value)=>{value.unsigned_action.nested={signedTransaction:"0xdead"};},
-  (value)=>{value.unsigned_action.serverSigning=true;},
-  (value)=>{value.signature="0xdead";},
-]){const hostile=await hostileResult("prepare",mutate);assert.equal(dataOf(hostile).error.code,"assetfare_safety_boundary_failed");}
+const rejectedLegacyPrepare=await hostileResult("prepare",(value)=>{value.unsigned_action.nested={private_key:"TEST_ONLY"};});assert.equal(dataOf(rejectedLegacyPrepare).error.code,"prepare_intent_invalid");
 for(const mutate of [
   (value)=>{value.current_action={unsigned_action:{nested:{eventSignerPrivateKey:"TEST_ONLY"}}};},
   (value)=>{value.observation={signature:"0xdead"};},
@@ -218,4 +212,4 @@ for(const mutate of [
 ]){const hostile=await hostileResult("session",mutate);assert.equal(dataOf(hostile).error.code,"assetfare_safety_boundary_failed");}
 const hashOnly=sessionBase();hashOnly.session_token_hash="f".repeat(64);const hashOnlyHandler=new JsonRpcTransportHandler(createAssetFareA2A({fetch:async()=>ok(hashOnly)}).requestHandler);const hashOnlyResult=await hashOnlyHandler.handle(request([data(sessionInput)],"hash-only"),context());assert.equal(dataOf(hashOnlyResult).session.session_token_hash,"f".repeat(64));
 
-console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_version:card.version,card_skills: card.skills.length, quote: true, continuation_v3:true,unranked_candidate:true,prepare: true, session_create: true, approval_v3:true,verification_context_required:true,no_auto_caller_approved:true,hostile_output_rejections:9,raw_session_token_echo_rejected:true,remote_session_secret_generation: false, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
+console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_version:card.version,card_skills: card.skills.length, quote: true, continuation_v3:true,unranked_candidate:true,prepare_strict_schema:true, session_create: true, approval_v3:true,verification_context_required:true,no_auto_caller_approved:true,hostile_output_rejections:4,raw_session_token_echo_rejected:true,remote_session_secret_generation: false, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));

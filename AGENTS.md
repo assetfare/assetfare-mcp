@@ -63,7 +63,9 @@ These instructions apply to the entire public MCP wrapper repository.
   session calls also require the caller-held, hash-bound verification context
   and validate it before any upstream request; every returned current action
   requires full semantic verification and a fresh self-verifying caller-wallet
-  handoff. Never mix the v2 session tools with the legacy v1 session tools. The caller independently
+  handoff. Remote one-shot prepare requires its separately typed context and the
+  same deep verification/handoff boundary for the first action. Never mix the
+  v2 session tools with the legacy v1 session tools. The caller independently
   verifies every `agent_must_verify` item and uses its own wallet to sign and
   submit.
 - After an error or delay, read the workflow state and reported asset location.

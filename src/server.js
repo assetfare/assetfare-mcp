@@ -14,7 +14,7 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.3.5";
+const VERSION = "1.3.6";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -74,7 +74,7 @@ const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and sa
 const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, direct_route_summary, and continuation_v3 contracts before quoting. continuation_v3 is restart-fail-closed and binds the full quote payload, exact path, wallet chains, signer requirement, bounds, and explicit one_shot/session choice. Example: inspect this before requesting solana:USDC to base:USDC. Read-only; creates no wallet login, session, or action.";
 const V2_QUOTE_DESCRIPTION = "Get one unranked fresh candidate with direct_route_summary and continuation_v3. The adapter verifies the canonical full-quote hash, route-summary hash, fingerprint claim, wallet/signer requirements, path, bounds, modes, and TTL. It never auto-selects or treats caller_approved:true as human proof. Example: quote solana USDC to Base USDC at USD 1000. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
-const V2_PREPARE_DESCRIPTION = "Return the exact validated first unsigned bundle. New callers must explicitly pass caller_approved=true plus approval_v3 selected as one_shot from the exact quote; multi-step quotes reject one_shot. Example: use strict approval produced from the exact fresh quote. Omitting approval_v3 is retained only as legacy_advisory compatibility and should not be used for a new flow. caller_approved:true is not human proof; AssetFare never signs or submits.";
+const V2_PREPARE_DESCRIPTION = "Return one deeply verified first unsigned bundle plus a self-verifying caller-wallet handoff. Callers must explicitly pass caller_approved=true, approval_v3 selected as one_shot, and the hash-bound verification_context copied from the exact quote/public wallets; multi-step quotes reject one_shot. Example: pass the exact context saved during quote selection. Context is validated before the upstream request and never forwarded. caller_approved:true is not human proof; AssetFare never signs or submits.";
 const V2_SESSION_CREATE_DESCRIPTION = "Create one receipt-driven workflow. Callers must explicitly pass caller_approved=true, the exact approval_v3 selected as session, the same idempotency_key, a caller-local session token, and verification_context copied from the selected quote/public wallets. Example: validate and pass the exact context saved with the selected quote. The adapter validates approval and context before the upstream request. Every returned action is deeply verified and receives a self-verifying wallet handoff. AssetFare never signs or submits.";
 const V2_SESSION_GET_DESCRIPTION = "Read an existing v2 workflow without advancing it. Example: pass session_id, session_token, and the original verification_context after restart. The adapter deeply verifies any current_action and emits a self-verifying wallet handoff, or fails closed. Read-only; never signs or submits.";
 const V2_SESSION_OBSERVE_SOURCE_DESCRIPTION = "Record source hashes the caller already signed and submitted, then advance the workflow. Example: pass one finalized source hash, a new idempotency key, and the original verification_context. Any next current_action is deeply verified and receives a wallet handoff. AssetFare never signs or submits.";
@@ -135,7 +135,7 @@ const v2PrepareFields = {
   event_signer_public: v2EventSignerPublic.optional(),
   approval_v3: v2OneShotApproval.optional().describe("Strict Core 2.4.1 one_shot quote-bound selection from the exact unexpired quote. Required for every new flow; omission remains legacy_advisory compatibility only."),
 };
-const v2PrepareIntent = z.object(v2PrepareFields).strict();
+let v2PrepareIntent;
 let v2SessionCreateIntent;
 const v2TransactionHashes = z.array(z.string().min(16).max(128)).min(1).max(8).describe("One to eight hashes for source transactions the caller already signed and submitted. Do not provide unsigned payloads or destination hashes.");
 const v2OutputTransactionHash = z.string().min(16).max(128).optional().describe("Optional bridge or destination transaction hash already produced outside AssetFare. Omit only when the provider output can be observed without a hash.");
@@ -187,6 +187,8 @@ const v2EndpointNames=[...V2_ENDPOINTS],v2DestinationEndpointNames=v2EndpointNam
 const v2DirectRouteStep=z.object({index:z.number().int().min(0).max(7),action:z.enum(["swap","bridge"]),provider:z.enum(v2DirectRouteProviders),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),expected_input_base:z.string().regex(/^[1-9][0-9]*$/),minimum_input_base:z.string().regex(/^[1-9][0-9]*$/),expected_output_base:z.string().regex(/^[1-9][0-9]*$/),minimum_output_base:z.string().regex(/^[1-9][0-9]*$/),assetfare_fee_bps:z.union([z.literal(0),z.literal(1)]),direct_protocol:z.boolean(),external_intent_protocol:z.boolean(),aggregator_api_used:z.literal(false)}).strict();
 const v2DirectRouteSummary=z.object({version:z.literal("assetfare-direct-route-summary-v1"),route:z.enum([...V2_ROUTE_NAMES]),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),classification:z.enum(["direct_protocol_only","external_intent"]),mode:z.enum(v2DirectRouteModes),route_aggregator_used:z.literal(false),external_intent_protocol_used:z.boolean(),provider_internal_dex_aggregation_possible:z.boolean(),assetfare_fee_bps:z.literal(1),fee_collection_step_index:z.number().int().min(0).max(7),server_signing:z.literal(false),server_submission:z.literal(false),step_count:z.number().int().min(1).max(8),steps:z.array(v2DirectRouteStep).min(1).max(8)}).strict();
 const v2RemoteVerificationContext=z.object({version:z.literal("assetfare-session-verification-context-v1"),intent:z.object(v2QuoteFields).strict(),wallets:v2WalletMap,event_signer_public:v2EventSignerPublic.nullable(),approval_v3:v2SessionApproval,direct_route_summary:v2DirectRouteSummary,verification_context_sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict().describe("Strict caller-held context copied from the selected quote and approval. It contains public intent/wallet data only, never the raw session token or a private key, and is required whenever a remote MCP session call can return current_action.");
+const v2RemoteOneShotVerificationContext=z.object({version:z.literal("assetfare-one-shot-verification-context-v1"),intent:z.object(v2QuoteFields).strict(),wallets:v2WalletMap,event_signer_public:v2EventSignerPublic.nullable(),approval_v3:v2OneShotApproval,direct_route_summary:v2DirectRouteSummary,verification_context_sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict().describe("Strict caller-held one-shot context copied from the selected quote, approval and public wallets. It is verified before prepare and never forwarded upstream.");
+v2PrepareIntent=z.object({...v2PrepareFields,approval_v3:v2OneShotApproval.describe("Strict one-shot approval copied from the exact unexpired selected quote; its bounds may only be strengthened."),verification_context:v2RemoteOneShotVerificationContext}).strict();
 const remoteVerificationField={verification_context:v2RemoteVerificationContext};
 v2SessionCreateIntent=z.object({ ...v2PrepareFields, approval_v3:v2SessionApproval.describe("Strict Core 2.4.1 session quote-bound selection from the exact unexpired quote. Required for every remote session flow."), session_token: v2SessionToken, idempotency_key: idempotencyKey,...remoteVerificationField }).strict();
 v2SessionReadIntent=z.object({session_token:v2SessionToken,session_id:v2SessionId,...remoteVerificationField}).strict();
@@ -242,6 +244,12 @@ const v2BundleOutput = z.object({
   unsigned_action:z.record(z.unknown()), payload_sha256:z.string().regex(/^[0-9a-f]{64}$/).describe(V2_BUNDLE_HASH_SPEC), payload_sha256_spec:z.literal(V2_BUNDLE_HASH_SPEC),
   server_signing:z.literal(false), server_submission:z.literal(false), signed:z.literal(false), submitted:z.literal(false),
 }).passthrough();
+const v2VerifiedBundleOutput=z.object({
+  bundle:v2BundleOutput.describe("Exact Core bundle whose payload_sha256 remains scoped only to this nested object."),
+  semantic_verification:z.literal(true).describe("True only after full decoded action, intent, receipt, payload and caller-bound verification."),
+  action_verification:z.record(z.unknown()).describe("Fail-closed semantic and approval-bound verification result; it never authorizes a signature by itself."),
+  caller_wallet_handoff:z.record(z.unknown()).describe("Fresh self-verifying EIP-1193 or Solana Wallet Standard handoff. The caller still simulates, confirms, signs and submits."),
+}).strict();
 const v2SessionQuoteBindingV3=z.object({version:z.literal("assetfare-quote-bound-session-constraints-v1"),quote_id:z.string().uuid(),quote_fingerprint:z.string().regex(/^[0-9a-f]{64}$/),selected_mode:z.literal("session"),whole_session_path_and_bounds_enforced:z.literal(true),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const v2SessionQuoteBindingLegacy=z.object({version:z.literal("legacy_advisory"),whole_session_path_and_bounds_enforced:z.literal(false),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const v2SessionOutput = z.object({
@@ -551,13 +559,23 @@ function parseV2Session(payload, expectedApproval = null, expectedSessionToken =
   return payload;
 }
 
-function parseRemoteVerificationContext(raw,expectedApproval=null){
-  let context;try{context=v2RemoteVerificationContext.parse(raw);}catch{throw new Error("assetfare_v2_session_verification_context_invalid");}
+function parseBoundVerificationContext(raw,expectedApproval,schema,prefix){
+  let context;try{context=schema.parse(raw);}catch{throw new Error(`${prefix}_verification_context_invalid`);}
   const unhashed={...context};delete unhashed.verification_context_sha256;
-  if(createHash("sha256").update(canonicalJson(unhashed),"utf8").digest("hex")!==context.verification_context_sha256)throw new Error("assetfare_v2_session_verification_context_hash_mismatch");
-  if(context.approval_v3.direct_route_summary_sha256!==createHash("sha256").update(canonicalJson(context.direct_route_summary),"utf8").digest("hex")||context.direct_route_summary.route!==`${context.intent.from_chain}:${context.intent.from_token}->${context.intent.to_chain}:${context.intent.to_token}`||context.direct_route_summary.from!==`${context.intent.from_chain}:${context.intent.from_token}`||context.direct_route_summary.to!==`${context.intent.to_chain}:${context.intent.to_token}`)throw new Error("assetfare_v2_session_verification_context_binding_failed");
-  if(expectedApproval&&canonicalJson(expectedApproval)!==canonicalJson(context.approval_v3))throw new Error("assetfare_v2_session_verification_context_approval_mismatch");
+  if(createHash("sha256").update(canonicalJson(unhashed),"utf8").digest("hex")!==context.verification_context_sha256)throw new Error(`${prefix}_verification_context_hash_mismatch`);
+  if(context.approval_v3.direct_route_summary_sha256!==createHash("sha256").update(canonicalJson(context.direct_route_summary),"utf8").digest("hex")||context.direct_route_summary.route!==`${context.intent.from_chain}:${context.intent.from_token}->${context.intent.to_chain}:${context.intent.to_token}`||context.direct_route_summary.from!==`${context.intent.from_chain}:${context.intent.from_token}`||context.direct_route_summary.to!==`${context.intent.to_chain}:${context.intent.to_token}`||context.direct_route_summary.step_count!==context.direct_route_summary.steps.length)throw new Error(`${prefix}_verification_context_binding_failed`);
+  if(expectedApproval&&canonicalJson(expectedApproval)!==canonicalJson(context.approval_v3))throw new Error(`${prefix}_verification_context_approval_mismatch`);
   return context;
+}
+function parseRemoteVerificationContext(raw,expectedApproval=null){return parseBoundVerificationContext(raw,expectedApproval,v2RemoteVerificationContext,"assetfare_v2_session");}
+function parseRemoteOneShotVerificationContext(raw,expectedApproval=null){return parseBoundVerificationContext(raw,expectedApproval,v2RemoteOneShotVerificationContext,"assetfare_v2_prepare");}
+
+async function verifyRemoteBundle(payload,rawContext,expectedApproval){
+  const context=parseRemoteOneShotVerificationContext(rawContext,expectedApproval),bundle=parseV2Bundle(payload);
+  const {callerWalletHandoff,verifyApprovalBundleBounds,verifyPlanBundle}=await import("../scripts/plan.mjs");
+  const expected={...context.intent,wallets:context.wallets,...(context.event_signer_public?{event_signer_public:context.event_signer_public}:{})};
+  const verification={...verifyPlanBundle(bundle,expected),approval_v3:verifyApprovalBundleBounds(bundle,{direct_route_summary:context.direct_route_summary},context.approval_v3)};
+  return {bundle,semantic_verification:true,action_verification:verification,caller_wallet_handoff:callerWalletHandoff(bundle,verification)};
 }
 
 async function verifyRemoteSession(payload,rawContext,expectedSessionToken,expectedApproval=null){
@@ -736,10 +754,10 @@ function createServer(provenance = {}, profile = "v2") {
     const intent = v2PrepareIntent.parse(args);
     rejectSecretMaterial(intent);
     assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
+    parseRemoteOneShotVerificationContext(intent.verification_context,intent.approval_v3);
     const body = { caller_approved: intent.caller_approved, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}), ...(intent.approval_v3 ? { approval_v3: intent.approval_v3 } : {}) };
-    const bundle = parseV2Bundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }));
-    return bundle;
-  }, v2BundleOutput);
+    return verifyRemoteBundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }),intent.verification_context,intent.approval_v3);
+  }, v2VerifiedBundleOutput);
   if (includeV2) addTool(server, "assetfare_v2_session_create", V2_SESSION_CREATE_DESCRIPTION, v2SessionCreateIntent, stateful(true), async (args) => {
     const intent = v2SessionCreateIntent.parse(args);
     if(intent.approval_v3&&intent.approval_v3.idempotency_key!==intent.idempotency_key)throw new Error("assetfare_v2_approval_v3_idempotency_mismatch");

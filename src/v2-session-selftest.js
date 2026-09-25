@@ -159,15 +159,11 @@ try {
   await server.connect(serverTransport);
   await client.connect(clientTransport);
 
-  // 1) prepare happy path (executable route, caller-approved, exact wallets)
-  const prepResult = await call("assetfare_v2_prepare", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]) });
-  const prep = parse(prepResult);
-  assert.deepEqual(prepResult.structuredContent, prep);
-  assert.equal(prep.version, "assetfare-direct-multichain-action-v2");
-  assert.equal(prep.signed, false); assert.equal(prep.submitted, false); assert.ok(prep.unsigned_action);
-  assert.equal(prep.guidance, undefined, "MCP guidance mutated the hashed Core bundle");
-  const unhashedPrep = { ...prep }; delete unhashedPrep.payload_sha256;
-  assert.equal(bundleHash(unhashedPrep), prep.payload_sha256);
+  // 1) remote prepare is strict-only; full verified EVM/Solana coverage is in
+  // one-shot-selftest.mjs. Missing approval/context fails before upstream.
+  const prepareBefore=netlog.length;
+  assert.ok(await expectError("assetfare_v2_prepare", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]) }));
+  assert.equal(netlog.length,prepareBefore);
   passed += 1;
 
   // 2) full session lifecycle happy path (token -> create -> get -> observe-source -> observe-output)

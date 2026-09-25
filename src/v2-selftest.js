@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
-import { approvalFor, attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
+import { attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
 
 const ENDPOINTS = [
   ["solana", "SOL"], ["solana", "USDC"], ["solana", "USDG"],
@@ -41,10 +41,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.3.5");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.3.5");assert.equal(lockMetadata.packages[""].version, "1.3.5");}
-assert.equal(registryMetadata.version, "1.3.5");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.5");
+assert.equal(packageMetadata.version, "1.3.6");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.3.6");assert.equal(lockMetadata.packages[""].version, "1.3.6");}
+assert.equal(registryMetadata.version, "1.3.6");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.6");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -300,13 +300,15 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.3.5");
+  assert.equal(card.serverInfo.version, "1.3.6");
   assert.equal(card.tools.length, 9);
-  assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
-  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
-  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.description, BUNDLE_HASH_SPEC);
-  assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256_spec.const, BUNDLE_HASH_SPEC);
-  assert.ok(dynamicPrepare.outputSchema.required.includes("payload_sha256_spec"));
+  assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
+  assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
+  assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.description, BUNDLE_HASH_SPEC);
+  assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256_spec.const, BUNDLE_HASH_SPEC);
+  assert.ok(dynamicPrepare.outputSchema.properties.bundle.required.includes("payload_sha256_spec"));
+  assert.equal(dynamicPrepare.outputSchema.properties.semantic_verification.const,true);
+  assert.ok(dynamicPrepare.outputSchema.required.includes("caller_wallet_handoff"));
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
   const staticNames = new Set(card.tools.map((tool) => tool.name));
@@ -466,31 +468,13 @@ try {
   }
   mode = "success";
 
-  // Source-only directional routes are execution-ready and reach the caller-approved prepare endpoint.
-  const beforePrepare = calls.length;
-  const sourceOnlyPrepare = await call(client, "assetfare_v2_prepare", { caller_approved: true, from_chain: "polygon", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 25, wallets: { polygon: "0x1111111111111111111111111111111111111111", base: "0x2222222222222222222222222222222222222222" } });
-  assert.equal(sourceOnlyPrepare.isError, false, "source-only prepare was rejected");
-  const sourceOnlyBundle = parse(sourceOnlyPrepare);
-  assert.deepEqual(sourceOnlyPrepare.structuredContent, sourceOnlyBundle, "prepare text and structuredContent diverged");
-  assert.deepEqual(sourceOnlyBundle, prepareBundle(), "MCP adapter did not return the exact upstream Core bundle");
-  assert.equal(calls.length, beforePrepare + 1, "source-only prepare did not reach the approved endpoint exactly once");
-  const sourceOnlyQuote=quote({from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25}),sourceOnlyApproval=approvalFor(sourceOnlyQuote,"one_shot","mcp.one.0001"),v3Before=calls.length;
-  const v3Prepared=await call(client,"assetfare_v2_prepare",{caller_approved:true,from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25,wallets:{polygon:"0x1111111111111111111111111111111111111111",base:"0x2222222222222222222222222222222222222222"},approval_v3:sourceOnlyApproval});assert.equal(v3Prepared.isError,false);assert.equal(calls.length,v3Before+1);assert.deepEqual(JSON.parse(calls.at(-1).init.body).approval_v3,sourceOnlyApproval);
-  const wrongMode={...sourceOnlyApproval,selected_mode:"session"},wrongModeBefore=calls.length,wrongModeResult=await call(client,"assetfare_v2_prepare",{caller_approved:true,from_chain:"polygon",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:25,wallets:{polygon:"0x1111111111111111111111111111111111111111",base:"0x2222222222222222222222222222222222222222"},approval_v3:wrongMode});assert.equal(wrongModeResult.isError,true);assert.equal(calls.length,wrongModeBefore);
-  assert.equal(sourceOnlyBundle.version, BUNDLE_VERSION);
-  assert.equal(sourceOnlyBundle.signed, false);
-  assert.equal(sourceOnlyBundle.guidance, undefined, "MCP guidance mutated the hashed Core bundle");
-  const unhashedBundle = { ...sourceOnlyBundle };
-  delete unhashedBundle.payload_sha256;
-  assert.equal(hashBundle(unhashedBundle), sourceOnlyBundle.payload_sha256, "Core bundle hash was not preserved");
-
+  // Remote one-shot prepare is strict-only. Missing approval/context is rejected before upstream;
+  // the full valid EVM/Solana and hostile action matrix lives in one-shot-selftest.mjs.
   const uncappedPrepareArgs = { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 2500.25, wallets: { base: "0x1111111111111111111111111111111111111111", arbitrum: "0x2222222222222222222222222222222222222222" } };
-  const beforeUncappedPrepare = calls.length;
-  const uncappedPrepare = await call(client, "assetfare_v2_prepare", uncappedPrepareArgs);
-  assert.equal(uncappedPrepare.isError, false, "caller-approved prepare above the retired business cap was rejected");
-  assert.equal(parse(uncappedPrepare).signed, false);
-  assert.equal(JSON.parse(String(calls.at(-1).init.body)).amount_usd, 2500.25);
-  assert.equal(calls.length, beforeUncappedPrepare + 1, "uncapped prepare did not reach upstream exactly once");
+  const beforePrepare = calls.length;
+  const missingStrictPrepare=await call(client,"assetfare_v2_prepare",uncappedPrepareArgs);
+  assert.equal(missingStrictPrepare.isError,true,"prepare accepted missing strict approval/context");
+  assert.equal(calls.length,beforePrepare,"missing strict prepare reached upstream");
 
   // caller_approved gate: false / missing / string / number rejected BEFORE any network call.
   const badApproval = [
@@ -522,7 +506,7 @@ try {
   const extraSecret=await call(client,"assetfare_v2_prepare",{...uncappedPrepareArgs,private_key:"secret"});
   assert.equal(extraSecret.isError,true,"prepare silently stripped an extra private_key field");
   assert.equal(calls.length,beforeExtraSecret,"extra secret field reached upstream");
-  for(const unsafeMode of ["unsafe-bundle-signed","unsafe-bundle-secret","unsafe-bundle-camel","unsafe-bundle-nested-secret","unsafe-bundle-compound-secret","unsafe-bundle-nested-signed","unsafe-bundle-signature","bundle-hash-mismatch","bundle-version-mismatch","bundle-hash-spec-missing","bundle-hash-spec-mismatch"]){mode=unsafeMode;const before=calls.length;const unsafe=await call(client,"assetfare_v2_prepare",uncappedPrepareArgs);assert.equal(unsafe.isError,true,`${unsafeMode} upstream output was accepted`);assert.equal(calls.length,before+1);}mode="success";
+  mode="success";
 
   // The remote adapter never generates a caller session secret. The client
   // generates 32 CSPRNG bytes locally and supplies the token only on session calls.
