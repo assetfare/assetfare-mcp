@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const NOW=Date.parse("2026-09-25T00:00:00Z");
+export const NOW=Date.now();
 export const FROM="0x1111111111111111111111111111111111111111";
 export const TO="0x2222222222222222222222222222222222222222";
 export const SOL="7WbugVYm8EqR9AyaYqbJ4N5r26rJ7mdx9w4grYaGx55X";

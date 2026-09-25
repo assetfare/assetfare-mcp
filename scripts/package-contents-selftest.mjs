@@ -26,10 +26,11 @@ const required=[
   "scripts/select-selftest.mjs",
   "scripts/plan-selftest.mjs",
   "scripts/session-selftest.mjs",
+  "scripts/remote-session-selftest.mjs",
   "scripts/route-eval-selftest.mjs",
 ];
 for(const path of required)assert.ok(files.has(path),`packed artifact missing ${path}`);
 assert.ok(files.has("package.json"));
 assert.equal(report.name,"assetfare-mcp");
-assert.equal(report.version,"1.3.3");
+assert.equal(report.version,"1.3.4");
 console.log(JSON.stringify({status:"pass",npm_pack_dry_run:true,entry_count:report.entryCount,required_test_support:required.length,missing:[],live_requests:false}));

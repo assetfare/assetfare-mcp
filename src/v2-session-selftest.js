@@ -90,7 +90,7 @@ globalThis.fetch = async (url, init = {}) => {
       return json(200, publicSession(rec, true));   // idempotent replay -> SAME session
     }
     const sessionId = uuid();
-    const rec = { session_id: sessionId, token_hash: th, route, fingerprint: mark, status: "action_ready",approval_v3:body.approval_v3||null };
+    const rec = { session_id: sessionId, token_hash: th, route, fingerprint: mark, status: "awaiting_source_receipt",approval_v3:body.approval_v3||null };
     sessions.set(sessionId, rec);
     idempotency.set(idemKey, sessionId);
     return json(201, publicSession(rec, false));
@@ -166,7 +166,7 @@ try {
   // 2) full session lifecycle happy path (token -> create -> get -> observe-source -> observe-output)
   const token = randomBytes(32).toString("base64url");
   const created = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: token, idempotency_key: "create-0001" }));
-  assert.ok(created.session_id); assert.equal(created.signed, false); assert.equal(created.action_available, true);
+  assert.ok(created.session_id); assert.equal(created.signed, false); assert.equal(created.action_available, false);
   const sid = created.session_id;
   const got = parse(await call("assetfare_v2_session_get", { session_token: token, session_id: sid }));
   assert.equal(got.session_id, sid);
@@ -213,13 +213,13 @@ try {
   // 7) hostile: expired action -> observe-source fails, refresh-action returns a fresh action
   const exToken = newToken();
   const exCreated = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: exToken, idempotency_key: "exp-0001" }));
-  forceExpired = true;
+  sessions.get(exCreated.session_id).status="action_ready";forceExpired = true;
   const expiredGet = parse(await call("assetfare_v2_session_get", { session_token: exToken, session_id: exCreated.session_id }));
   assert.equal(expiredGet.status, "action_expired");
   assert.equal(expiredGet.next_operation, "refresh_action");
   assert.ok(await expectError("assetfare_v2_session_observe_source", { session_token: exToken, session_id: exCreated.session_id, idempotency_key: "exp-src-0001", transaction_hashes: ["0x" + "b".repeat(40)] }), "observe on an expired action must fail");
-  const refreshed = parse(await call("assetfare_v2_session_refresh_action", { session_token: exToken, session_id: exCreated.session_id, idempotency_key: "exp-refresh-0001" }));
-  assert.equal(refreshed.action_available, true, "refresh must produce a fresh action");
+  const refreshedError=await expectError("assetfare_v2_session_refresh_action",{session_token:exToken,session_id:exCreated.session_id,idempotency_key:"exp-refresh-0001"});
+  assert.match(refreshedError,/verification_context_required/,"remote MCP must not expose a refreshed action without strict verification context");
   passed += 1;
 
   // 8) 76-route e2e mock matrix: every route completes, including four directional
