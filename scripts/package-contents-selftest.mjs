@@ -22,6 +22,7 @@ const required=[
   "test/core-241-unsafe-integer-quote.json",
   "test/robinhood-usdg-solana-usdc-paxos-bundle.json",
   "test/robinhood-usdg-solana-usdc-orca-bundle.json",
+  "test/solana-usdg-usdc-orca-one-bps-bundle.json",
   "src/continuation-v3-selftest.js",
   "src/caller-runner.js",
   "src/caller-runner-selftest.js",
@@ -47,5 +48,5 @@ const required=[
 for(const path of required)assert.ok(files.has(path),`packed artifact missing ${path}`);
 assert.ok(files.has("package.json"));
 assert.equal(report.name,"assetfare-mcp");
-assert.equal(report.version,"1.6.0");
+assert.equal(report.version,"1.6.1");
 console.log(JSON.stringify({status:"pass",npm_pack_dry_run:true,entry_count:report.entryCount,required_test_support:required.length,missing:[],live_requests:false}));
