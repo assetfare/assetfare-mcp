@@ -4,7 +4,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, constants, fstatSync, fsyncSync, linkSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { APPROVAL_V3_VERSION, reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
+import { APPROVAL_V3_VERSION, approvalV3Schema, reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
 import { isMain } from "../src/is-main.js";
 import { parseV2Bundle, parseV2Quote, parseV2Session } from "../src/server.js";
 import { readJsonFile } from "./select.mjs";
@@ -241,11 +241,18 @@ async function requestJson(fetchImpl,url,options={}){
 
 function validatedBase(value){const url=new URL(value||DEFAULT_API_BASE);if(url.search||url.hash||url.username||url.password||url.pathname!=="/")throw new Error("assetfare_plan_api_base_invalid");if(url.protocol!=="https:"&&!(["127.0.0.1","localhost"].includes(url.hostname)&&url.protocol==="http:"))throw new Error("assetfare_plan_api_base_invalid");return url.origin;}
 
-function sessionCapabilityValue({token,quoteId,idempotencyKey,sessionId}){return {version:"assetfare-caller-session-capability-v1",session_token:token,quote_id:quoteId,idempotency_key:idempotencyKey,...(sessionId?{session_id:sessionId}:{}),sensitivity:"sensitive_bearer_capability",is_private_key:false};}
+function sessionVerificationContext({intent,wallets,eventSignerPublic,approval,directRouteSummary}){
+  const value={version:"assetfare-session-verification-context-v1",intent:structuredClone(intent),wallets:structuredClone(wallets),event_signer_public:eventSignerPublic||null,approval_v3:structuredClone(approval),direct_route_summary:structuredClone(directRouteSummary)};
+  return {value,sha256:sha256(value)};
+}
 
-function writeSessionToken(path,{token,quoteId,idempotencyKey}){
+function sessionCapabilityValue({token,quoteId,idempotencyKey,sessionId,verificationContext}){
+  return {version:"assetfare-caller-session-capability-v2",session_token:token,quote_id:quoteId,idempotency_key:idempotencyKey,...(sessionId?{session_id:sessionId}:{}),verification_context:structuredClone(verificationContext.value),verification_context_sha256:verificationContext.sha256,sensitivity:"sensitive_bearer_capability",is_private_key:false};
+}
+
+function writeSessionToken(path,{token,quoteId,idempotencyKey,verificationContext}){
   const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
-  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token,quoteId,idempotencyKey}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;linkSync(temporary,absolute);unlinkSync(temporary);}
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token,quoteId,idempotencyKey,verificationContext}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;linkSync(temporary,absolute);unlinkSync(temporary);}
   catch(error){if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error(error?.code==="EEXIST"?"assetfare_plan_session_token_output_exists":"assetfare_plan_session_token_output_invalid");}
   return absolute;
 }
@@ -263,21 +270,28 @@ function requireNewWalletHandoffPath(path){
 
 function readSessionCapability(path){
   const absolute=resolve(path);let descriptor,metadata,text,value;
-  try{descriptor=openSync(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);metadata=fstatSync(descriptor);if(!metadata.isFile()||(metadata.mode&0o077)!==0||metadata.size<2||metadata.size>16_384)throw new Error("mode");text=readFileSync(descriptor,"utf8");value=JSON.parse(text);}
+  try{descriptor=openSync(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);metadata=fstatSync(descriptor);if(!metadata.isFile()||(metadata.mode&0o077)!==0||metadata.size<2||metadata.size>65_536)throw new Error("mode");text=readFileSync(descriptor,"utf8");value=JSON.parse(text);}
   catch{throw new Error("assetfare_plan_session_capability_input_invalid");}
   finally{if(descriptor!==undefined)closeSync(descriptor);}
   if(!value||Array.isArray(value)||typeof value!=="object")throw new Error("assetfare_plan_session_capability_input_invalid");
-  const keys=Object.keys(value),allowed=new Set(["version","session_token","quote_id","idempotency_key","session_id","sensitivity","is_private_key"]);
+  const keys=Object.keys(value),legacyAllowed=new Set(["version","session_token","quote_id","idempotency_key","session_id","sensitivity","is_private_key"]),currentAllowed=new Set([...legacyAllowed,"verification_context","verification_context_sha256"]),allowed=value.version==="assetfare-caller-session-capability-v2"?currentAllowed:legacyAllowed;
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if(keys.some((key)=>!allowed.has(key))||value.version!=="assetfare-caller-session-capability-v1"||!/^[A-Za-z0-9_-]{43}$/.test(value.session_token||"")||!uuid.test(value.quote_id||"")||!approvedIdempotency(value.idempotency_key)||value.sensitivity!=="sensitive_bearer_capability"||value.is_private_key!==false||(value.session_id!==undefined&&!uuid.test(value.session_id)))throw new Error("assetfare_plan_session_capability_input_invalid");
+  if(keys.some((key)=>!allowed.has(key))||!["assetfare-caller-session-capability-v1","assetfare-caller-session-capability-v2"].includes(value.version)||!/^[A-Za-z0-9_-]{43}$/.test(value.session_token||"")||!uuid.test(value.quote_id||"")||!approvedIdempotency(value.idempotency_key)||value.sensitivity!=="sensitive_bearer_capability"||value.is_private_key!==false||(value.session_id!==undefined&&!uuid.test(value.session_id)))throw new Error("assetfare_plan_session_capability_input_invalid");
+  if(value.version==="assetfare-caller-session-capability-v2"){
+    const context=value.verification_context,contextKeys=["version","intent","wallets","event_signer_public","approval_v3","direct_route_summary"];
+    if(!context||Array.isArray(context)||typeof context!=="object"||Object.keys(context).length!==contextKeys.length||contextKeys.some((key)=>!Object.hasOwn(context,key))||context.version!=="assetfare-session-verification-context-v1"||!/^[0-9a-f]{64}$/.test(value.verification_context_sha256||"")||sha256(context)!==value.verification_context_sha256)throw new Error("assetfare_plan_session_capability_input_invalid");
+    const intent=context.intent,wallets=context.wallets,summary=context.direct_route_summary;let approval;
+    try{approval=approvalV3Schema.parse(context.approval_v3);}catch{throw new Error("assetfare_plan_session_capability_input_invalid");}
+    if(!intent||Object.keys(intent).sort().join(",")!=="amount_usd,from_chain,from_token,to_chain,to_token"||typeof intent.amount_usd!=="number"||!Number.isFinite(intent.amount_usd)||intent.amount_usd<1||!wallets||Array.isArray(wallets)||typeof wallets!=="object"||!Object.keys(wallets).length||Object.entries(wallets).some(([chain,address])=>!CHAINS.has(chain)||(chain==="solana"?!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address):!/^0x[0-9a-fA-F]{40}$/.test(address)))||!(context.event_signer_public===null||/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(context.event_signer_public))||approval.selected_mode!=="session"||approval.selection_status!=="selected"||approval.quote_id!==value.quote_id||approval.idempotency_key!==value.idempotency_key||!summary||summary.route!==`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`||summary.from!==`${intent.from_chain}:${intent.from_token}`||summary.to!==`${intent.to_chain}:${intent.to_token}`||sha256(summary)!==approval.direct_route_summary_sha256)throw new Error("assetfare_plan_session_capability_input_invalid");
+  }
   return {...value,path:absolute};
 }
 
 function approvedIdempotency(value){return typeof value==="string"&&/^[A-Za-z0-9._:-]{8,128}$/.test(value);}
 
-function updateSessionCapability(path,capability,sessionId){
+function updateSessionCapability(path,capability,sessionId,verificationContext){
   const absolute=resolve(path),temporary=`${absolute}.tmp-${process.pid}-${randomBytes(16).toString("hex")}`;let descriptor;
-  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token:capability.session_token,quoteId:capability.quote_id,idempotencyKey:capability.idempotency_key,sessionId}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;renameSync(temporary,absolute);}
+  try{descriptor=openSync(temporary,"wx",0o600);writeFileSync(descriptor,`${JSON.stringify(sessionCapabilityValue({token:capability.session_token,quoteId:capability.quote_id,idempotencyKey:capability.idempotency_key,sessionId,verificationContext}),null,2)}\n`,{encoding:"utf8"});fsyncSync(descriptor);chmodSync(temporary,0o600);closeSync(descriptor);descriptor=undefined;renameSync(temporary,absolute);}
   catch{if(descriptor!==undefined)closeSync(descriptor);try{unlinkSync(temporary);}catch{}throw new Error("assetfare_plan_session_capability_update_failed");}
   return absolute;
 }
@@ -315,15 +329,17 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   if(args.mode==="one_shot"&&quote.direct_route_summary.step_count>1)throw new Error("assetfare_plan_multistep_session_required");
   const expectedWallets=[...continuation.required_wallet_chains].sort(),actualWallets=Object.keys(args.wallets).sort();if(canonical(expectedWallets)!==canonical(actualWallets))throw new Error("assetfare_plan_required_wallet_chains_mismatch");
   if(continuation.event_signer_public_required!==Boolean(args.event_signer_public))throw new Error(continuation.event_signer_public_required?"assetfare_plan_event_signer_public_required":"assetfare_plan_event_signer_public_not_allowed");
+  const verificationContext=args.mode==="session"?sessionVerificationContext({intent,wallets:args.wallets,eventSignerPublic:args.event_signer_public,approval,directRouteSummary:quote.direct_route_summary}):null;
+  if(sessionCapability?.verification_context&&canonical(sessionCapability.verification_context)!==canonical(verificationContext.value))throw new Error("assetfare_plan_session_capability_context_mismatch");
   const body={caller_approved:args.caller_approved,...intent,wallets:args.wallets,...(args.event_signer_public?{event_signer_public:args.event_signer_public}:{}),approval_v3:approval,...(args.mode==="session"?{idempotency_key:approval.idempotency_key}:{})};
   let bundle=null,session=null,verification=null,sessionTokenPath=sessionCapability?.path||null,sessionTokenPersisted=Boolean(sessionCapability),sessionTokenReused=Boolean(sessionCapability);
   if(args.mode==="one_shot"){
     bundle=parseV2Bundle(await requestJson(fetchImpl,`${apiBase}/v2/prepare`,{method:"POST",body:JSON.stringify(body)}));verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};
   }else{
     const sessionToken=sessionCapability?.session_token||randomBytes(32).toString("base64url");if(!/^[A-Za-z0-9_-]{43}$/.test(sessionToken))throw new Error("assetfare_plan_session_token_generation_failed");
-    if(args.session_token_output){sessionTokenPath=writeSessionToken(args.session_token_output,{token:sessionToken,quoteId:approval.quote_id,idempotencyKey:approval.idempotency_key});sessionTokenPersisted=true;}
+    if(args.session_token_output){sessionTokenPath=writeSessionToken(args.session_token_output,{token:sessionToken,quoteId:approval.quote_id,idempotencyKey:approval.idempotency_key,verificationContext});sessionTokenPersisted=true;}
     session=parseV2Session(await requestJson(fetchImpl,`${apiBase}/v2/session`,{method:"POST",headers:{"x-assetfare-session-token":sessionToken},body:JSON.stringify(body)}),approval,sessionToken);
-    if(sessionTokenPath){updateSessionCapability(sessionTokenPath,{session_token:sessionToken,quote_id:approval.quote_id,idempotency_key:approval.idempotency_key},session.session_id);sessionTokenPersisted=true;}
+    if(sessionTokenPath){updateSessionCapability(sessionTokenPath,{session_token:sessionToken,quote_id:approval.quote_id,idempotency_key:approval.idempotency_key},session.session_id,verificationContext);sessionTokenPersisted=true;}
     if(session.current_action){bundle=session.current_action;verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};}
   }
   const walletHandoff=bundle?callerWalletHandoff(bundle,verification):null;if(args.wallet_handoff_output&&!walletHandoff)throw new Error("assetfare_plan_wallet_handoff_unavailable");const walletHandoffPath=args.wallet_handoff_output?writeWalletHandoff(args.wallet_handoff_output,walletHandoff):null;
@@ -333,4 +349,4 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
 
 if(isMain(import.meta.url))runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
 
-export { callerWalletHandoff, canonical, parseArgs, readSessionCapability, requestJson, requireNewWalletHandoffPath, runPlan, sha256, updateSessionCapability, usage, validatedBase, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken, writeWalletHandoff };
+export { callerWalletHandoff, canonical, parseArgs, readSessionCapability, requestJson, requireNewWalletHandoffPath, runPlan, sessionVerificationContext, sha256, updateSessionCapability, usage, validatedBase, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken, writeWalletHandoff };

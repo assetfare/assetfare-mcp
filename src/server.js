@@ -14,7 +14,7 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.3.2";
+const VERSION = "1.3.3";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -524,6 +524,8 @@ function parseV2Bundle(payload) {
   if (!payload.unsigned_action || typeof payload.unsigned_action !== "object") throw new Error("assetfare_v2_bundle_missing_action");
   rejectUnsignedActionMaterial(payload.unsigned_action);
   if (payload.unsigned_action.signed !== false || payload.unsigned_action.submitted !== false) throw new Error("assetfare_v2_bundle_unsafe");
+  const receipt=payload.unsigned_action.safety_receipt;
+  if(!receipt||typeof receipt!=="object"||Array.isArray(receipt)||receipt.schema!=="https://assetfare.dev/schemas/action-safety-receipt-v1"||receipt.schema_version!==1||receipt.generation!=="decoded_built_action_only"||receipt.custody?.server_signing!==false||receipt.custody?.server_submission!==false||typeof receipt.payload_binding?.action_sha256!=="string"||!Array.isArray(receipt.payload_binding?.raw_payloads))throw new Error("assetfare_v2_bundle_receipt_invalid");
   for(const key of ["signature","signatures","signed_transaction","signed_tx","raw_transaction","private_key","seed_phrase","mnemonic"])if(Object.prototype.hasOwnProperty.call(payload.unsigned_action,key))throw new Error("assetfare_v2_bundle_unsafe");
   if (!/^[0-9a-f]{64}$/.test(payload.payload_sha256 || "") || bundlePayloadSha256(payload) !== payload.payload_sha256) throw new Error("assetfare_v2_bundle_hash_mismatch");
   return payload;

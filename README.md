@@ -4,7 +4,7 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.2 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.3 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -170,7 +170,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.3.2` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.3.3` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -219,7 +219,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.2 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.3.3 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -235,7 +235,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.2 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.3.3 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -278,10 +278,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.2 assetfare-session \
+npx --yes --package=assetfare-mcp@1.3.3 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.3.2 assetfare-session \
+npx --yes --package=assetfare-mcp@1.3.3 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -289,8 +289,14 @@ npx --yes --package=assetfare-mcp@1.3.2 assetfare-session \
 
 `assetfare-session` accepts only transaction hashes from actions the caller has
 already verified, signed, and submitted. It sends the bearer token only in the
-session header, never prints it, validates every returned session, and has no
-signing or submission path. Quote selection and plan creation also require at
+session header and never prints it. The mode-0600 capability also preserves the
+strict approval, exact intent, public wallet map and direct-route summary needed
+to apply the full first-action semantic verifier to every later `current_action`.
+Each later EVM or Solana action receives a fresh self-verifying caller-wallet
+handoff; use `--wallet-handoff-output <new-file>` to persist it. Legacy v1
+capability files may read an action-free session but fail closed before exposing
+an unverified action. Structured 409 recovery flags are preserved in CLI errors.
+The session CLI has no signing or submission path. Quote selection and plan creation also require at
 least 15 seconds of quote TTL remaining; otherwise obtain and compare a fresh
 quote instead of racing expiry.
 

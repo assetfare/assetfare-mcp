@@ -37,7 +37,7 @@ let forceExpired = false;        // toggles the expired-action path for refresh 
 
 function action(sessionId, expired) {
   if (expired) return null;
-  const value = { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", expires_in_seconds: 60, payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", chainId: 1, signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  const value = { status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: sessionId, action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", expires_in_seconds: 60, payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", chainId: 1, signed:false, submitted:false,safety_receipt:{schema:"https://assetfare.dev/schemas/action-safety-receipt-v1",schema_version:1,generation:"decoded_built_action_only",custody:{server_signing:false,server_submission:false},payload_binding:{action_sha256:"fixture",raw_payloads:[]}} }, server_signing: false, server_submission: false, signed: false, submitted: false };
   value.payload_sha256 = bundleHash(value);
   return value;
 }

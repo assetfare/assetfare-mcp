@@ -31,7 +31,7 @@ function canonical(value) {
 }
 function hashBundle(value) { return createHash("sha256").update(canonical(value), "utf8").digest("hex"); }
 function prepareBundle() {
-  const value = { status: "pass", version: BUNDLE_VERSION, workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false }, server_signing: false, server_submission: false, signed: false, submitted: false };
+  const value = { status: "pass", version: BUNDLE_VERSION, workflow_id: "00000000-0000-4000-8000-000000000010", action_id:"00000000-0000-4000-8000-000000000011", step_index: 0, expires_at:"2099-01-01T00:00:00Z", payload_sha256_spec:BUNDLE_HASH_SPEC, unsigned_action: { transaction: "0xUNSIGNED", signed:false, submitted:false,safety_receipt:{schema:"https://assetfare.dev/schemas/action-safety-receipt-v1",schema_version:1,generation:"decoded_built_action_only",custody:{server_signing:false,server_submission:false},payload_binding:{action_sha256:"fixture",raw_payloads:[]}} }, server_signing: false, server_submission: false, signed: false, submitted: false };
   value.payload_sha256 = hashBundle(value);
   return value;
 }
@@ -41,10 +41,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.3.2");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.3.2");assert.equal(lockMetadata.packages[""].version, "1.3.2");}
-assert.equal(registryMetadata.version, "1.3.2");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.2");
+assert.equal(packageMetadata.version, "1.3.3");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.3.3");assert.equal(lockMetadata.packages[""].version, "1.3.3");}
+assert.equal(registryMetadata.version, "1.3.3");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.3");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -300,7 +300,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.3.2");
+  assert.equal(card.serverInfo.version, "1.3.3");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

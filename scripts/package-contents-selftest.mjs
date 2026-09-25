@@ -17,6 +17,7 @@ const files=new Set(report.files.map((entry)=>entry.path));
 const required=[
   "test/continuation-fixture.mjs",
   "test/quote-fixture.mjs",
+  "test/action-bundle-fixture.mjs",
   "test/portable-quote-payload-fixture.json",
   "test/core-241-unsafe-integer-quote.json",
   "src/continuation-v3-selftest.js",
@@ -30,5 +31,5 @@ const required=[
 for(const path of required)assert.ok(files.has(path),`packed artifact missing ${path}`);
 assert.ok(files.has("package.json"));
 assert.equal(report.name,"assetfare-mcp");
-assert.equal(report.version,"1.3.2");
+assert.equal(report.version,"1.3.3");
 console.log(JSON.stringify({status:"pass",npm_pack_dry_run:true,entry_count:report.entryCount,required_test_support:required.length,missing:[],live_requests:false}));
