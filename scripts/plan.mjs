@@ -4,7 +4,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, openSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
+import { APPROVAL_V3_VERSION, reapprovalV3Schema, validateApprovalV3, validateContinuationV3 } from "../src/continuation-v3.js";
 import { isMain } from "../src/is-main.js";
 import { parseV2Bundle, parseV2Quote, parseV2Session } from "../src/server.js";
 import { readJsonFile } from "./select.mjs";
@@ -29,8 +29,12 @@ const ACROSS={base:{pool:"0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64",token:PINS
 function usage() {
   return `Usage:
   assetfare-plan --caller-approved --mode one_shot \\
-    --quote quote.json --approval approval.json \\
+    --quote quote.json --select-exact-quote-bounds \\
     --wallet base=<0x-address> --wallet arbitrum=<0x-address>
+
+Instead of --select-exact-quote-bounds, pass --approval approval.json to use a
+separately reviewed assetfare-select file with custom stricter bounds. Exactly
+one selection source is required.
 
 For session mode, use --mode session and optionally
 --session-token-output <new-private-file>. The token is generated from 256-bit
@@ -41,17 +45,21 @@ is unavailable.
 
 The command verifies the exact Core quote, continuation_v3, approval_v3,
 wallet/signer requirements, path, bounds, mode and TTL before one POST. It
-never selects automatically, signs, submits, or accepts private key material.
+never selects automatically. --select-exact-quote-bounds is an explicit local
+selection of the quote's own maximum-input and minimum-output bounds after the
+caller has compared candidates; it does not prove human approval. The command
+never signs, submits, or accepts private key material.
 `;
 }
 
 function parseArgs(argv) {
-  const out={wallets:{},caller_approved:false};
+  const out={wallets:{},caller_approved:false,select_exact_quote_bounds:false};
   const values=new Set(["mode","quote","approval","wallet","event-signer-public","session-token-output","api-base"]);
   for(let i=0;i<argv.length;i+=1){
     const raw=argv[i];
     if(raw==="--help"||raw==="-h")return {help:true};
     if(raw==="--caller-approved"){out.caller_approved=true;continue;}
+    if(raw==="--select-exact-quote-bounds"){if(out.select_exact_quote_bounds)throw new Error("assetfare_plan_selection_source_invalid");out.select_exact_quote_bounds=true;continue;}
     if(!raw.startsWith("--"))throw new Error("assetfare_plan_argument_invalid");
     const equal=raw.indexOf("=");const key=raw.slice(2,equal<0?undefined:equal);if(!values.has(key))throw new Error("assetfare_plan_argument_unknown");
     const value=equal>=0?raw.slice(equal+1):argv[++i];if(typeof value!=="string"||!value)throw new Error(`assetfare_plan_${key.replaceAll("-","_")}_missing`);
@@ -63,7 +71,8 @@ function parseArgs(argv) {
   }
   if(out.help)return out;
   if(out.caller_approved!==true)throw new Error("assetfare_plan_explicit_caller_approval_required");
-  for(const key of ["mode","quote","approval"])if(!out[key])throw new Error(`assetfare_plan_${key}_missing`);
+  for(const key of ["mode","quote"])if(!out[key])throw new Error(`assetfare_plan_${key}_missing`);
+  if(Boolean(out.approval)===out.select_exact_quote_bounds)throw new Error("assetfare_plan_selection_source_invalid");
   if(!["one_shot","session"].includes(out.mode))throw new Error("assetfare_plan_mode_invalid");
   if(!Object.keys(out.wallets).length)throw new Error("assetfare_plan_wallets_missing");
   for(const [chain,address] of Object.entries(out.wallets)){
@@ -234,7 +243,10 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
   const rawQuote=readJsonFile(args.quote,"quote"),source=String(rawQuote.intent?.from||"").split(":"),destination=String(rawQuote.intent?.to||"").split(":");
   if(source.length!==2||destination.length!==2)throw new Error("assetfare_plan_quote_intent_invalid");
   const intent={from_chain:source[0],from_token:source[1],to_chain:destination[0],to_token:destination[1],amount_usd:rawQuote.intent?.amount_usd};
-  const quote=parseV2Quote(rawQuote,intent),continuation=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true,nowMs:nowMs??Date.now()}),rawApproval=readJsonFile(args.approval,"approval"),approval=validateApprovalV3(rawApproval,continuation,{mode:args.mode,requireUnexpired:true,nowMs:nowMs??Date.now()});
+  const quote=parseV2Quote(rawQuote,intent),continuation=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true,nowMs:nowMs??Date.now()});
+  const approvalSource=args.select_exact_quote_bounds?"explicit_local_exact_quote_bounds":"caller_supplied_file";
+  const rawApproval=args.select_exact_quote_bounds?{version:APPROVAL_V3_VERSION,quote_id:continuation.quote_id,quote_fingerprint:continuation.quote_fingerprint,selection_status:"selected",selected_mode:args.mode,maximum_input_base:continuation.input_base_bounds.maximum,minimum_output_base:continuation.minimum_output_base,direct_route_summary_sha256:continuation.direct_route_summary_sha256,idempotency_key:`plan.${randomBytes(16).toString("hex")}`}:readJsonFile(args.approval,"approval");
+  const approval=validateApprovalV3(rawApproval,continuation,{mode:args.mode,requireUnexpired:true,nowMs:nowMs??Date.now()});
   if(quote.execution?.supported!==true||quote.execution?.first_unsigned_action_supported!==true)throw new Error("assetfare_plan_execution_not_ready");
   if(args.mode==="one_shot"&&quote.direct_route_summary.step_count>1)throw new Error("assetfare_plan_multistep_session_required");
   const expectedWallets=[...continuation.required_wallet_chains].sort(),actualWallets=Object.keys(args.wallets).sort();if(canonical(expectedWallets)!==canonical(actualWallets))throw new Error("assetfare_plan_required_wallet_chains_mismatch");
@@ -250,7 +262,7 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
     session=parseV2Session(await requestJson(fetchImpl,`${apiBase}/v2/session`,{method:"POST",headers:{"x-assetfare-session-token":sessionToken},body:JSON.stringify(body)}),approval,sessionToken);
     if(session.current_action){bundle=session.current_action;verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};}
   }
-  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle}:{}),...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
+  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,approval_v3_source:approvalSource,approval_v3_generated_locally:args.select_exact_quote_bounds,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,human_approval_proof_claimed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle}:{}),...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 

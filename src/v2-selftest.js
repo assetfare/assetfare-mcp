@@ -41,10 +41,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.2.0");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.2.0");assert.equal(lockMetadata.packages[""].version, "1.2.0");}
-assert.equal(registryMetadata.version, "1.2.0");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.2.0");
+assert.equal(packageMetadata.version, "1.3.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.3.0");assert.equal(lockMetadata.packages[""].version, "1.3.0");}
+assert.equal(registryMetadata.version, "1.3.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.3.0");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
 assert.equal(directRouteContract.route_count,76);
 assert.equal(directRouteContract.step_count,168);
@@ -62,7 +62,8 @@ assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native 
 assert.match(readmeMetadata.slice(0, 2500).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
 assert.doesNotMatch(readmeMetadata, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(readmeMetadata, /--to-chain base --to-token USDC/);
-assert.match(readmeMetadata, /assetfare-select[\s\S]{0,700}--maximum-input-base[\s\S]{0,700}assetfare-plan[\s\S]{0,400}--quote quote\.json --approval approval\.json/);
+assert.match(readmeMetadata, /assetfare-route-eval[\s\S]{0,500}--quote-output quote\.json[\s\S]{0,1200}assetfare-plan[\s\S]{0,400}--select-exact-quote-bounds/);
+assert.match(readmeMetadata, /custom stricter bounds[\s\S]{0,300}assetfare-select[\s\S]{0,300}--approval approval\.json/);
 
 function importedV2Base(extraEnvironment) {
   const result = spawnSync(process.execPath, [
@@ -150,7 +151,7 @@ function quote(intent, overrides = {}) {
     as_of: "2026-09-19T00:00:00Z",
     ttl_seconds: 60,
     intent: { from: `${intent.from_chain}:${intent.from_token}`, to: `${intent.to_chain}:${intent.to_token}`, amount_usd: intent.amount_usd, estimated_input_base: 2_500_000 },
-    cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:Math.min(intent.amount_usd/10000,5),included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:smallWarning,warning:smallWarning?"fixed provider fee":null},
+    cost_summary:{scope:"token_path_only_network_gas_excluded",input_value_usd:intent.amount_usd,expected_receive_value_usd:expectedReceive,minimum_receive_value_usd:minimumReceive,expected_total_cost_usd:expectedCost,maximum_total_cost_usd:maximumCost,expected_total_cost_percent:expectedCost/intent.amount_usd*100,maximum_total_cost_percent:maximumCost/intent.amount_usd*100,assetfare_service_fee:{bps:1,estimated_usd:intent.amount_usd/10000,included_in_receive_amount:true,note:"AssetFare service fee only; not total"},provider_fee_components:[],unpriced_costs:["source_chain_network_fee"],rankable_all_in:false,small_amount_warning:smallWarning,warning:smallWarning?"fixed provider fee":null},
     eta:{estimated_time_seconds:23,estimated_time_range_seconds:[8,23],complete_route_estimate:true,sources:["https://github.com/circlefin/cctp-go/blob/main/transfer.go"],note:"estimate"},
     offer: { expected_receive_amount: expectedReceive, estimated_min_receive_amount: minimumReceive, expected_receive_usd:expectedReceive, estimated_min_receive_usd:minimumReceive, output_symbol: intent.to_token, estimated_time_seconds: 23, assetfare_fee_bps: fee, fee_modeled_bps: fee, fee_collectible_now: true, fee_blocker: null, fee_collection_steps: [feeIndex], fee_collection: "only_on_eligible_successful_executor_step" },
     route: { status:"pass",version:"assetfare-direct-multichain-quote-v2",route:routeName,mode:contract.mode,input_base:2_500_000,expected_output_base:expectedInput,minimum_output_base:minimumInput,steps:rawSteps,quote_latency_ms:1,aggregator_api_used:false,external_intent_protocol_used:external,server_signing:false,server_submission:false },
@@ -299,7 +300,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.2.0");
+  assert.equal(card.serverInfo.version, "1.3.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -418,6 +419,11 @@ try {
   const uncapped = await call(client, "assetfare_v2_quote", { ...validIntent, amount_usd: 2500.25 });
   assert.equal(uncapped.isError, false, "finite amount above the retired USD 1,000 business cap was rejected");
   assert.equal(calls.length, beforeUncapped + 1, "uncapped quote did not reach upstream exactly once");
+  for (const [amountUsd, expectedFeeUsd] of [[100_000, 10], [1_000_000, 100]]) {
+    const large = await call(client, "assetfare_v2_quote", { ...validIntent, amount_usd: amountUsd });
+    assert.equal(large.isError, false, `exact 1bp no-maximum quote rejected at USD ${amountUsd}`);
+    assert.equal(parse(large).cost_summary.assetfare_service_fee.estimated_usd, expectedFeeUsd);
+  }
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
   const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra", "continuation-missing", "continuation-extra", "continuation-fingerprint", "continuation-summary-hash", "continuation-payload-hash", "continuation-payload-spec", "continuation-claim-payload-spec", "continuation-wallets", "continuation-signer", "continuation-mode", "continuation-bounds", "continuation-ttl", "continuation-expired", "continuation-future-issued", "continuation-quote-ttl-mismatch", "continuation-selected"];

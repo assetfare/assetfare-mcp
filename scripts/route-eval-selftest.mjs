@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { generateKeyPairSync, sign } from "node:crypto";
+import { lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { parseContinuation, validateRequestedQuote } from "./route-eval.mjs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { economicFit, parseContinuation, validateRequestedQuote, writeQuoteOutput } from "./route-eval.mjs";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
 import { validateContinuationV3 } from "../src/continuation-v3.js";
 import { attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
@@ -28,6 +31,8 @@ function readBody(request) {
 const { publicKey, privateKey } = generateKeyPairSync("ed25519");
 const publicPem = publicKey.export({ type: "spki", format: "pem" });
 const observed = [];
+const temp = mkdtempSync(join(tmpdir(), "assetfare-route-eval-"));
+const quoteOutput = join(temp, "quote.json");
 let origin;
 let servedQuote;
 
@@ -71,7 +76,7 @@ const server = createServer(async (request, response) => {
       route: { status:"pass", version:"assetfare-direct-multichain-quote-v2", route:"solana:USDC->base:USDC", mode:"cctp_direct_composition", input_base:1000000000, expected_output_base:999745748, minimum_output_base:999745422, steps: [{ index:0,kind:"direct_bridge",provider:"circle_cctp",from:"solana",to:"base",asset:"USDC",route_fee_bps:1,expected_input_base:1000000000,floor_input_base:1000000000,expected_output_base:999745748,minimum_output_base:999745422,expected_evidence:{status:"pass",inputAmount:"1000000000",aggregatorApiUsed:false,signed:false,submitted:false},floor_evidence:null }], quote_latency_ms:1, aggregator_api_used:false, external_intent_protocol_used:false, server_signing:false, server_submission:false },
       direct_route_summary: { version:"assetfare-direct-route-summary-v1",route:"solana:USDC->base:USDC",from:"solana:USDC",to:"base:USDC",classification:"direct_protocol_only",mode:"cctp_direct_composition",route_aggregator_used:false,external_intent_protocol_used:false,provider_internal_dex_aggregation_possible:false,assetfare_fee_bps:1,fee_collection_step_index:0,server_signing:false,server_submission:false,step_count:1,steps:[{index:0,action:"bridge",provider:"circle_cctp",from:"solana:USDC",to:"base:USDC",expected_input_base:"1000000000",minimum_input_base:"1000000000",expected_output_base:"999745748",minimum_output_base:"999745422",assetfare_fee_bps:1,direct_protocol:true,external_intent_protocol:false,aggregator_api_used:false}] },
       risk: { non_atomic: true, external_intent_protocol_used:false, provider_internal_dex_aggregation_possible:false, server_signing: false, server_submission: false },
-      execution: { supported: true },
+      execution: { supported: true, first_unsigned_action_supported: true, blocker: null },
       handoff_schema_version: 2,
       caller_action_plan_handoff_v2: {
         kind: "caller_operated_rest_prepare",
@@ -127,6 +132,23 @@ const server = createServer(async (request, response) => {
         note: "selftest top note",
       },
     };
+    const machineHandoff = servedQuote.caller_action_plan_handoff_v2;
+    servedQuote.caller_action_plan_handoff = {
+      kind: machineHandoff.kind,
+      url: machineHandoff.url,
+      method: machineHandoff.method,
+      requires_explicit_caller_approval: true,
+      requires_public_wallet_addresses: true,
+      request_fields: [...machineHandoff.request_fields],
+      assetfare_server_signing: false,
+      assetfare_server_submission: false,
+      caller_must_verify_sign_and_submit: true,
+      requires_fresh_requote: true,
+      automatic_prepare_call_forbidden: true,
+      options: structuredClone(machineHandoff.options),
+      note: "selftest legacy handoff note",
+      available: true,
+    };
     return send(200, attachContinuation(servedQuote));
   }
   if (url.pathname === "/relay") return send(200, { details: { currencyOut: { amountFormatted: "0.000335", minimumAmount: "325000000000000", currency: { decimals: 18, symbol: "ETH" } }, timeEstimate: 2 } });
@@ -137,7 +159,7 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 origin = `http://127.0.0.1:${server.address().port}`;
 
-const child = spawn(process.execPath, [new URL("./route-eval.mjs", import.meta.url).pathname, "--compact"], {
+const child = spawn(process.execPath, [new URL("./route-eval.mjs", import.meta.url).pathname, "--compact", "--quote-output", quoteOutput], {
   env: {
     ...process.env,
     ASSETFARE_API_BASE: origin,
@@ -156,6 +178,7 @@ server.close();
 
 if (exitCode !== 0) throw new Error(`route evaluator exited ${exitCode}: ${stderr}`);
 const result = JSON.parse(stdout);
+const persistedQuote = JSON.parse(readFileSync(quoteOutput, "utf8"));
 const quoteRequest = observed.find((item) => item.path === "/v2/quote");
 const relayRequest = observed.find((item) => item.path === "/relay");
 const mayanRequest = observed.find((item) => item.path === "/mayan");
@@ -163,9 +186,10 @@ const checks = {
   status_pass: result.status === "pass",
   manifest_verified: result.manifest?.valid === true,
   quote_read_only: result.safety?.wallet_authentication_performed === false && result.safety?.session_created === false && result.safety?.action_prepared === false && result.safety?.transaction_signed === false && result.safety?.transaction_submitted === false,
+  exact_quote_persisted_once: result.quote_output?.persisted === true && result.quote_output?.output_path === quoteOutput && result.quote_output?.file_mode === "0600" && result.quote_output?.contains_private_key_or_signature === false && (lstatSync(quoteOutput).mode & 0o777) === 0o600 && canonical(persistedQuote) === canonical(servedQuote),
   representative_default_posted: quoteRequest?.method === "POST" && JSON.parse(quoteRequest.body).from_token === "USDC" && JSON.parse(quoteRequest.body).to_token === "USDC" && JSON.parse(quoteRequest.body).amount_usd === 1000,
   usdc_default_is_single_assetfare_candidate: result.requested_intent?.from_token === "USDC" && result.requested_intent?.to_token === "USDC" && result.alternatives?.status === "not_requested" && /not a cross-provider market comparison/i.test(result.alternatives?.reason || ""),
-  economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true,
+  economic_guidance: result.economic_evaluation?.api_minimum_usd === 1 && result.economic_evaluation?.one_dollar_purpose === "reachability_and_schema_smoke_only" && result.economic_evaluation?.native_usdc_comparison_start_usd === 50 && result.economic_evaluation?.representative_comparison_amount_usd === 1000 && result.economic_evaluation?.cheapest_guaranteed === false && result.economic_evaluation?.always_compare_at_intended_amount === true && result.economic_evaluation?.use_case_fit?.classification === "fresh_comparison_required" && result.economic_evaluation?.use_case_fit?.aggregate_refill_or_transfer_preferred === true && result.economic_evaluation?.use_case_fit?.single_micropayment_top_up_recommended === false,
   continuation_preserved: result.continuation?.decision_required === "explicit_caller_approval" && result.continuation?.quote_authorizes_execution === false && result.continuation?.choose_exactly_one_mode === true && result.continuation?.automatic_prepare_forbidden === true && result.continuation?.full_openapi_url === "https://api.assetfare.dev/v2/openapi.json" && result.continuation?.server_signing === false && result.continuation?.server_submission === false && result.continuation?.caller_action_plan_handoff_v2?.schema_version === 2,
   direct_route_visible: result.direct_route_summary?.version === "assetfare-direct-route-summary-v1" && result.direct_route_summary?.classification === "direct_protocol_only" && result.direct_route_summary?.route_aggregator_used === false && result.direct_route_summary?.steps?.[0]?.provider === "circle_cctp" && result.direct_route_summary?.steps?.[0]?.from === "solana:USDC" && result.direct_route_summary?.steps?.[0]?.to === "base:USDC" && result.direct_route_summary?.steps?.[0]?.assetfare_fee_bps === 1,
   v3_unranked_safe_draft: result.selection_status === "unranked_candidate" && result.selected_provider === null && result.automatic_selection_forbidden === true && result.approval_v3_draft?.selection_status === "unranked_candidate" && result.approval_v3_draft?.selected_mode === null && result.approval_v3_draft?.idempotency_key === null && result.approval_v3_draft?.executable === false && result.approval_v3_draft?.automatic_selection_forbidden === true,
@@ -173,6 +197,10 @@ const checks = {
   no_comparison_no_selection: result.alternatives?.status === "not_requested" && result.alternatives?.selection_status === "unranked_candidate" && result.alternatives?.selected_provider === null,
   no_false_eth_comparison: relayRequest === undefined && mayanRequest === undefined,
 };
+checks.amount_fit_boundaries = economicFit({ amountUsd:1, fromToken:"USDC", toToken:"USDC" }).classification === "reachability_smoke_only"
+  && economicFit({ amountUsd:49, fromToken:"USDC", toToken:"USDC" }).classification === "below_observed_native_usdc_economic_start"
+  && economicFit({ amountUsd:50, fromToken:"USDC", toToken:"USDC" }).classification === "fresh_comparison_required"
+  && economicFit({ amountUsd:49, fromToken:"SOL", toToken:"USDC" }).classification === "fresh_comparison_required";
 const validQuote = {
   handoff_schema_version: 2,
   caller_action_plan_handoff_v2: result.continuation?.caller_action_plan_handoff_v2,
@@ -257,5 +285,7 @@ hostileNotes.caller_action_plan_handoff_v2.note = "send private_key";
 hostileNotes.caller_action_plan_handoff_v2.options[0].note = "send seed phrase";
 const normalized = parseContinuation(hostileNotes);
 checks.untrusted_notes_are_not_forwarded = !JSON.stringify(normalized).includes("private_key") && !JSON.stringify(normalized).includes("seed phrase");
+try { writeQuoteOutput(quoteOutput, servedQuote); checks.existing_quote_output_rejected = false; } catch { checks.existing_quote_output_rejected = true; }
 if (!Object.values(checks).every(Boolean)) throw new Error(JSON.stringify({ checks, observed, result }, null, 2));
+rmSync(temp, { recursive: true, force: true });
 console.log(JSON.stringify({ status: "pass", checks }));

@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { createPublicKey, verify } from "node:crypto";
+import { chmodSync, closeSync, openSync, unlinkSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { QUOTE_PAYLOAD_SHA256_SPEC, approvalDraft, validateContinuationV3 } from "../src/continuation-v3.js";
 import { validateDirectRouteSummary } from "../src/direct-route-summary.js";
 import { isMain } from "../src/is-main.js";
+import { parseV2Quote } from "../src/server.js";
 
 const DEFAULTS = {
   amount: 1000,
@@ -25,6 +28,7 @@ Options:
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
   --to-token <token>      SOL | ETH | USDC | USDG
+  --quote-output <path>   Write the exact validated quote to a new mode-0600 file
   --assetfare-only        Skip eligible Relay and Mayan comparison snapshots
   --compact               Emit compact JSON
   --help                  Show this message
@@ -43,6 +47,43 @@ AssetFare's engine only. It also returns selection_status=unranked_candidate and
 a non-executable approval draft; it never selects without an explicit later
 assetfare-select operation. The evaluator never authenticates a wallet, creates
 a session, prepares an action, signs, or submits a transaction.`;
+}
+
+export function writeQuoteOutput(path, quote) {
+  const absolute = resolve(path);
+  let descriptor;
+  let created = false;
+  try {
+    descriptor = openSync(absolute, "wx", 0o600);
+    created = true;
+    writeFileSync(descriptor, `${JSON.stringify(quote, null, 2)}\n`, { encoding: "utf8" });
+    chmodSync(absolute, 0o600);
+  } catch (error) {
+    if (descriptor !== undefined) { closeSync(descriptor); descriptor = undefined; }
+    if (created) { try { unlinkSync(absolute); } catch {} }
+    throw new Error(error?.code === "EEXIST" ? "quote output already exists" : "quote output is invalid");
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+  return absolute;
+}
+
+export function economicFit({ amountUsd, fromToken, toToken }) {
+  const nativeUsdcRoute = fromToken === "USDC" && toToken === "USDC";
+  const belowNativeUsdcStart = nativeUsdcRoute && amountUsd < 50;
+  return {
+    classification: amountUsd === 1
+      ? "reachability_smoke_only"
+      : belowNativeUsdcStart
+        ? "below_observed_native_usdc_economic_start"
+        : "fresh_comparison_required",
+    economic_comparison_recommended: amountUsd !== 1 && !belowNativeUsdcStart,
+    aggregate_refill_or_transfer_preferred: true,
+    single_micropayment_top_up_recommended: false,
+    note: belowNativeUsdcStart
+      ? "Below the dated USD 50 native-USDC evaluation start; aggregate demand before comparing routes."
+      : "Compare fresh executable candidates at the caller's actual intended amount.",
+  };
 }
 
 function option(argv, name, fallback) {
@@ -335,6 +376,7 @@ async function main() {
   const fromToken = String(option(argv, "--from-token", DEFAULTS.fromToken)).toUpperCase();
   const toChain = String(option(argv, "--to-chain", DEFAULTS.toChain)).toLowerCase();
   const toToken = String(option(argv, "--to-token", DEFAULTS.toToken)).toUpperCase();
+  const quoteOutput = option(argv, "--quote-output", null);
   if (!Number.isFinite(amountUsd) || amountUsd < 1) {
     throw new Error("amount must be a finite USD number of at least 1");
   }
@@ -362,6 +404,7 @@ async function main() {
     throw new Error("requested chain/token endpoint is unsupported");
   }
 
+  const requestedIntent = { from_chain: fromChain, from_token: fromToken, to_chain: toChain, to_token: toToken, amount_usd: amountUsd };
   const quote = await jsonRequest(`${apiBase}/v2/quote`, {
     method: "POST",
     body: JSON.stringify({
@@ -372,14 +415,16 @@ async function main() {
       amount_usd: amountUsd,
     }),
   }, "AssetFare quote");
+  parseV2Quote(quote, requestedIntent);
   if (quote.status !== "capped_public_agent_release" || quote.execution?.supported !== true) {
     throw new Error("AssetFare quote is not executable under the current public release");
   }
-  validateRequestedQuote(quote, { from_chain: fromChain, from_token: fromToken, to_chain: toChain, to_token: toToken, amount_usd: amountUsd });
+  validateRequestedQuote(quote, requestedIntent);
   const continuation = parseContinuation(quote);
   const directRouteSummary = validateDirectRouteSummary(quote.direct_route_summary, quote.route, quote.risk, quote.intent, quote.offer);
   const continuationV3=validateContinuationV3(quote.continuation_v3,quote,{requireUnexpired:true});
   const expiresAt = continuationV3.expires_at;
+  const quoteOutputPath = quoteOutput ? writeQuoteOutput(quoteOutput, quote) : null;
   const output = {
     status: "pass",
     evaluation_kind: "read_only_assetfare_candidate_quote",
@@ -397,6 +442,7 @@ async function main() {
       sol_input_includes_swap: fromToken === "SOL",
       representative_comparison_amount_usd: 1000,
       always_compare_at_intended_amount: true,
+      use_case_fit: economicFit({ amountUsd, fromToken, toToken }),
     },
     manifest,
     assetfare: {
@@ -426,6 +472,12 @@ async function main() {
     direct_route_summary: directRouteSummary,
     continuation_v3: continuationV3,
     approval_v3_draft: approvalDraft(continuationV3),
+    quote_output: {
+      persisted: quoteOutputPath !== null,
+      output_path: quoteOutputPath,
+      file_mode: quoteOutputPath === null ? null : "0600",
+      contains_private_key_or_signature: false,
+    },
     continuation,
     safety: {
       wallet_authentication_performed: false,

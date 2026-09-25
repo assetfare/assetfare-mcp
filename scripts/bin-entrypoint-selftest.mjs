@@ -31,7 +31,7 @@ try {
   await symlink(root, packageDirectory, "dir");
   const bins = [
     ["assetfare-mcp", "src/server.js", /AssetFare MCP server/],
-    ["assetfare-plan", "scripts/plan.mjs", /Usage:\s+assetfare-plan[\s\S]*--quote quote\.json --approval approval\.json/],
+    ["assetfare-plan", "scripts/plan.mjs", /Usage:\s+assetfare-plan[\s\S]*--select-exact-quote-bounds/],
     ["assetfare-select", "scripts/select.mjs", /Usage:\s+assetfare-select[\s\S]*--maximum-input-base/],
     ["assetfare-route-eval", "scripts/route-eval.mjs", /AssetFare read-only route evaluator/],
     ["assetfare-verify", "scripts/assetfare-verify.mjs", /Usage:\s+assetfare-verify/],

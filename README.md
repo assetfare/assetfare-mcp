@@ -4,7 +4,7 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.2.0 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -46,6 +46,13 @@ based on dated 2026-09-23 evidence; it does not guarantee AssetFare is cheapest.
 SOL-input routes include a swap, so evaluate their full swap-and-bridge path at
 USD 1,000 or the actual intended amount. AssetFare is always one candidate, not
 an automatically preferred route.
+
+For agent-wallet funding, treat AssetFare as an aggregate refill or material
+transfer candidate, not as an automatic response to each failed x402
+micropayment. If a native-USDC need is below USD 50, aggregate the intended
+refill before comparing or use an existing direct deposit/onramp when it is
+cheaper. A wallet that is empty on every supported source chain is not an
+AssetFare use case.
 
 Verify before trusting: [public source](https://github.com/assetfare/assetfare-mcp),
 [Ed25519-signed manifest](https://api.assetfare.dev/.well-known/assetfare-manifest.json),
@@ -162,7 +169,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.2.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.3.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -210,38 +217,41 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.2.0 assetfare-route-eval \
-  --amount 1000 --from-chain solana --from-token USDC --to-chain base --to-token USDC
+npx --yes --package=assetfare-mcp@1.3.0 assetfare-route-eval \
+  --amount 1000 --from-chain solana --from-token USDC \
+  --to-chain base --to-token USDC --quote-output quote.json
 ```
 
 From a cloned repository, the equivalent command is `npm run route-eval -- ...`.
 
-For a server-enforced quote → explicit selection → unsigned-plan flow, first
-save the exact fresh REST or MCP quote as `quote.json`. Then select a mode and
-bounds offline (zero network requests):
+The evaluator writes the exact validated quote only when `--quote-output` is
+explicitly supplied. The path must not exist and is created mode 0600. The
+evaluation remains read-only and unranked; compare it with fresh executable
+alternatives before selection.
+
+After that comparison and explicit caller approval, the shortest
+server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.2.0 assetfare-select \
-  --quote quote.json --mode session \
-  --maximum-input-base <CONTINUATION_MAXIMUM_INPUT_BASE> \
-  --minimum-output-base <CONTINUATION_MINIMUM_OUTPUT_BASE> \
-  --output approval.json
-
-npx --yes --package=assetfare-mcp@1.2.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.3.0 assetfare-plan \
   --caller-approved --mode session \
-  --quote quote.json --approval approval.json \
+  --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
   --wallet base=<CALLER_BASE_PUBLIC_ADDRESS> \
   --event-signer-public <CALLER_OWNED_SOLANA_PUBLIC_KEY> \
   --session-token-output ./session-capability.json
 ```
 
-`assetfare-select` refuses expired/tampered quotes, weak bounds, one-shot on a
-multi-step path, existing output files and secret material. It writes the exact
-approval object with mode 0600 and never claims that selection proves human
-approval. `assetfare-plan` validates both files and their exact hashes, makes
-only the selected prepare/session POST, checks the returned path/provider/bounds
-and ActionSafetyReceiptV1/raw/action/bundle hashes, and stops unsigned and
+`--select-exact-quote-bounds` is an explicit local selection of the quote's
+maximum-input and minimum-output bounds. It generates strict `approval_v3` in
+memory and does not claim that `--caller-approved` proves human approval. For
+custom stricter bounds or an independently reviewable approval artifact, keep
+the three-step path: run `assetfare-select` with explicit bounds and pass its
+mode-0600 `approval.json` to `assetfare-plan --approval approval.json`.
+
+`assetfare-plan` validates the quote and approval binding, makes only the
+selected prepare/session POST, checks the returned path/provider/bounds and
+ActionSafetyReceiptV1/raw/action/bundle hashes, and stops unsigned and
 unsubmitted. Session tokens never appear in stdout or structured results. The
 optional token output path must not exist and is created mode 0600; omit it only
 if loss of recovery after process exit is acceptable.
