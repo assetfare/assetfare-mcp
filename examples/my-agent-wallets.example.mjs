@@ -4,7 +4,7 @@
  * signer secret in this file. AssetFare consumes only these standard provider
  * interfaces inside your process.
  */
-export const evmProvider=globalThis.ethereum ?? null; // EIP-1193 request({method,params})
+export const evmProvider=globalThis.ethereum ?? null; // EIP-1193 object, or async (chainId)=>provider
 export const solanaWallet=null;                       // Solana Wallet Standard wallet
 export const solanaAccount=null;                      // account from solanaWallet.accounts
 export const solanaRpcUrl=process.env.CALLER_SOLANA_RPC_URL ?? null;

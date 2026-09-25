@@ -11,7 +11,7 @@ import { evmProvider, solanaAccount, solanaRpcUrl, solanaWallet } from "./my-age
 
 export async function createCallerWalletAdapter(){
   return createStandardCallerWalletAdapter({
-    evmProvider,             // standard EIP-1193 provider; optional for Solana-only routes
+    evmProvider,             // EIP-1193 provider or async (chainId)=>provider resolver
     solanaWallet,            // Solana Wallet Standard wallet; optional for EVM-only routes
     solanaAccount,           // Wallet Standard account used as fee payer
     solanaRpcUrl,            // caller-selected RPC endpoint
