@@ -41,13 +41,13 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.7.1");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.7.1");assert.equal(lockMetadata.packages[""].version, "1.7.1");}
-assert.equal(registryMetadata.version, "1.7.1");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.7.1");
-assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:168 });
+assert.equal(packageMetadata.version, "1.8.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.8.0");assert.equal(lockMetadata.packages[""].version, "1.8.0");}
+assert.equal(registryMetadata.version, "1.8.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.8.0");
+assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:172 });
 assert.equal(directRouteContract.route_count,76);
-assert.equal(directRouteContract.step_count,168);
+assert.equal(directRouteContract.step_count,172);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -104,10 +104,10 @@ function capabilities(overrides = {}) {
     temporarily_unavailable_routes: [],
     temporarily_unavailable_route_count: 0,
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
-    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:168,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
+    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:172,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
     continuation_v3:continuationCapability(),
     action_lifetime:{quote_ttl_seconds:60,action_bundle_ttl_seconds:180,onchain_deadline_seconds:240,wallet_ready_minimum_remaining_seconds:120,refresh_policy:"expired_unsubmitted_only",server_signing:false,server_submission:false},
-    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.7.1",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
+    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.8.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -139,6 +139,7 @@ function quote(intent, overrides = {}) {
     const evidence={status:"pass",inputAmount:String(expectedInput),aggregatorApiUsed:false,signed:false,submitted:false};
     let raw;
     if(planned.action==="swap")raw={kind:"direct_swap",chain:fromChain,provider:planned.provider,from:fromAsset,to:toAsset,route_fee_bps:planned.assetfare_fee_bps};
+    else if(planned.action==="receive")raw={kind:"direct_receive",provider:planned.provider,chain:fromChain,from:fromAsset,to:toAsset,source_chain:intent.from_chain,cctp_mode:"no_forward",destination_native_gas_required:true,route_fee_bps:0};
     else if(planned.provider==="across_intent_bridge")raw={kind:"direct_bridge",provider:planned.provider,from:fromChain,to:toChain,from_asset:fromAsset,to_asset:toAsset,external_intent_protocol:true,route_fee_bps:planned.assetfare_fee_bps};
     else raw={kind:"direct_bridge",provider:planned.provider,from:fromChain,to:toChain,asset:fromAsset,route_fee_bps:planned.assetfare_fee_bps,...(planned.provider==="circle_cctp"&&["polygon","optimism"].includes(fromChain)?{cctp_mode:"no_forward",finality_threshold:2000,destination_native_gas_required:true,economics_informational_only:true}:{})};
     rawSteps.push({index:planned.index,...raw,expected_input_base:expectedInput,floor_input_base:minimumInput,expected_output_base:expectedOutput,minimum_output_base:minimumOutput,expected_evidence:evidence,floor_evidence:null});
@@ -302,7 +303,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.7.1");
+  assert.equal(card.serverInfo.version, "1.8.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

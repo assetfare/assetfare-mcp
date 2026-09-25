@@ -6,7 +6,7 @@ const STEP_KEYS = ["index", "action", "provider", "from", "to", "expected_input_
 const ROUTE_KEYS = ["status", "version", "route", "mode", "input_base", "expected_output_base", "minimum_output_base", "steps", "quote_latency_ms", "aggregator_api_used", "external_intent_protocol_used", "server_signing", "server_submission"];
 const ADDED_STEP_KEYS = ["index", "expected_input_base", "floor_input_base", "expected_output_base", "minimum_output_base", "expected_evidence", "floor_evidence"];
 const SWAP_PROVIDERS = new Set(["raydium_clmm", "orca_whirlpool", "uniswap_v3"]);
-const DIRECT_BRIDGE_PROVIDERS = new Set(["circle_cctp", "paxos_usdg_layerzero_oft"]);
+const DIRECT_BRIDGE_PROVIDERS = new Set(["circle_cctp", "circle_cctp_receive", "paxos_usdg_layerzero_oft"]);
 const AMOUNT = /^[1-9][0-9]*$/;
 
 function exactKeys(value, expected) {
@@ -47,6 +47,7 @@ function rawNumberMatches(raw, exact) {
 
 function rawStepKeys(raw, definition) {
   if (SWAP_PROVIDERS.has(definition.provider)) return ["kind", "chain", "provider", "from", "to", "route_fee_bps", ...ADDED_STEP_KEYS];
+  if (definition.provider === "circle_cctp_receive") return ["kind", "provider", "chain", "from", "to", "source_chain", "cctp_mode", "destination_native_gas_required", "route_fee_bps", ...ADDED_STEP_KEYS];
   if (definition.provider === "across_intent_bridge") return ["kind", "provider", "from", "to", "from_asset", "to_asset", "external_intent_protocol", "route_fee_bps", ...ADDED_STEP_KEYS];
   const sourceOnly = definition.provider === "circle_cctp" && /^(polygon|optimism):/.test(definition.from);
   return ["kind", "provider", "from", "to", "asset", ...(sourceOnly ? ["cctp_mode", "finality_threshold", "destination_native_gas_required", "economics_informational_only"] : []), "route_fee_bps", ...ADDED_STEP_KEYS];
@@ -54,6 +55,7 @@ function rawStepKeys(raw, definition) {
 
 function rawEndpoints(raw, definition) {
   if (SWAP_PROVIDERS.has(definition.provider)) return [`${raw.chain}:${raw.from}`, `${raw.chain}:${raw.to}`];
+  if (definition.provider === "circle_cctp_receive") return [`${raw.chain}:${raw.from}`, `${raw.chain}:${raw.to}`];
   if (definition.provider === "across_intent_bridge") return [`${raw.from}:${raw.from_asset}`, `${raw.to}:${raw.to_asset}`];
   return [`${raw.from}:${raw.asset}`, `${raw.to}:${raw.asset}`];
 }
@@ -68,26 +70,29 @@ export function validateDirectRouteSummary(summary, route, risk, intent, offer) 
   const routeName = `${intent.from}->${intent.to}`;
   const definition = CONTRACT.routes[routeName];
   if (!definition || summary.version !== "assetfare-direct-route-summary-v1" || summary.route !== routeName || summary.from !== intent.from || summary.to !== intent.to || summary.mode !== definition.mode || summary.classification !== definition.classification) throw new Error("assetfare_v2_direct_route_binding_invalid");
+  const legacySourceOnly=definition.steps.length===2&&definition.steps[1]?.provider==="circle_cctp_receive"&&summary.step_count===1&&route.steps?.length===1;
+  const definitionSteps=legacySourceOnly?definition.steps.slice(0,1):definition.steps;
   const external = definition.classification === "external_intent";
-  if (summary.route_aggregator_used !== false || summary.external_intent_protocol_used !== external || summary.provider_internal_dex_aggregation_possible !== external || summary.assetfare_fee_bps !== 1 || summary.server_signing !== false || summary.server_submission !== false || summary.step_count !== definition.steps.length || !Array.isArray(summary.steps) || summary.steps.length !== definition.steps.length) throw new Error("assetfare_v2_direct_route_boundary_invalid");
-  if (route.status !== "pass" || route.version !== "assetfare-direct-multichain-quote-v2" || route.route !== routeName || route.mode !== definition.mode || route.aggregator_api_used !== false || route.external_intent_protocol_used !== external || route.server_signing !== false || route.server_submission !== false || !Array.isArray(route.steps) || route.steps.length !== definition.steps.length) throw new Error("assetfare_v2_direct_route_raw_invalid");
+  if (summary.route_aggregator_used !== false || summary.external_intent_protocol_used !== external || summary.provider_internal_dex_aggregation_possible !== external || summary.assetfare_fee_bps !== 1 || summary.server_signing !== false || summary.server_submission !== false || summary.step_count !== definitionSteps.length || !Array.isArray(summary.steps) || summary.steps.length !== definitionSteps.length) throw new Error("assetfare_v2_direct_route_boundary_invalid");
+  if (route.status !== "pass" || route.version !== "assetfare-direct-multichain-quote-v2" || route.route !== routeName || route.mode !== definition.mode || route.aggregator_api_used !== false || route.external_intent_protocol_used !== external || route.server_signing !== false || route.server_submission !== false || !Array.isArray(route.steps) || route.steps.length !== definitionSteps.length) throw new Error("assetfare_v2_direct_route_raw_invalid");
   if (risk.external_intent_protocol_used !== external || risk.provider_internal_dex_aggregation_possible !== external || risk.server_signing !== false || risk.server_submission !== false) throw new Error("assetfare_v2_direct_route_risk_invalid");
   let expectedCursor;
   let minimumCursor;
   let feeSum = 0;
   let feeIndex = -1;
   const safeSteps = [];
-  for (let index = 0; index < definition.steps.length; index += 1) {
-    const expected = definition.steps[index];
+  for (let index = 0; index < definitionSteps.length; index += 1) {
+    const expected = definitionSteps[index];
     const step = summary.steps[index];
     const raw = route.steps[index];
     if (!exactKeys(step, STEP_KEYS) || !exactKeys(raw, rawStepKeys(raw, expected))) throw new Error("assetfare_v2_direct_route_step_shape_invalid");
     for (const key of ["index", "action", "provider", "from", "to", "assetfare_fee_bps", "direct_protocol", "external_intent_protocol"]) if (step[key] !== expected[key]) throw new Error("assetfare_v2_direct_route_plan_invalid");
     if (step.aggregator_api_used !== false || raw.index !== index || raw.provider !== expected.provider || raw.route_fee_bps !== expected.assetfare_fee_bps) throw new Error("assetfare_v2_direct_route_step_invalid");
-    const rawKind = expected.action === "swap" ? "direct_swap" : "direct_bridge";
+    const rawKind = expected.action === "swap" ? "direct_swap" : expected.action === "receive" ? "direct_receive" : "direct_bridge";
     const [rawFrom, rawTo] = rawEndpoints(raw, expected);
     if (raw.kind !== rawKind || rawFrom !== expected.from || rawTo !== expected.to || (expected.provider === "across_intent_bridge" ? raw.external_intent_protocol !== true : Object.hasOwn(raw, "external_intent_protocol"))) throw new Error("assetfare_v2_direct_route_raw_plan_invalid");
     if (expected.provider === "circle_cctp" && /^(polygon|optimism):/.test(expected.from) && !(raw.cctp_mode === "no_forward" && raw.finality_threshold === 2000 && raw.destination_native_gas_required === true && raw.economics_informational_only === true)) throw new Error("assetfare_v2_direct_route_source_only_invalid");
+    if (expected.provider === "circle_cctp_receive" && !(raw.source_chain===(intent.from.split(":")[0])&&raw.cctp_mode==="no_forward"&&raw.destination_native_gas_required===true&&raw.route_fee_bps===0)) throw new Error("assetfare_v2_direct_route_receive_invalid");
     if (!evidenceValid(raw.expected_evidence) || (raw.floor_evidence !== null && !evidenceValid(raw.floor_evidence))) throw new Error("assetfare_v2_direct_route_evidence_invalid");
     const expectedInput = amountString(step.expected_input_base);
     const minimumInput = amountString(step.minimum_input_base);

@@ -826,6 +826,16 @@
           "index": 0,
           "provider": "circle_cctp",
           "to": "arbitrum:USDC"
+        },
+        {
+          "action": "receive",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp_receive",
+          "to": "arbitrum:USDC"
         }
       ]
     },
@@ -841,6 +851,16 @@
           "from": "optimism:USDC",
           "index": 0,
           "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "receive",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp_receive",
           "to": "base:USDC"
         }
       ]
@@ -858,6 +878,16 @@
           "index": 0,
           "provider": "circle_cctp",
           "to": "arbitrum:USDC"
+        },
+        {
+          "action": "receive",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "arbitrum:USDC",
+          "index": 1,
+          "provider": "circle_cctp_receive",
+          "to": "arbitrum:USDC"
         }
       ]
     },
@@ -873,6 +903,16 @@
           "from": "polygon:USDC",
           "index": 0,
           "provider": "circle_cctp",
+          "to": "base:USDC"
+        },
+        {
+          "action": "receive",
+          "assetfare_fee_bps": 0,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "base:USDC",
+          "index": 1,
+          "provider": "circle_cctp_receive",
           "to": "base:USDC"
         }
       ]
@@ -2138,6 +2178,6 @@
       ]
     }
   },
-  "step_count": 168,
+  "step_count": 172,
   "version": "assetfare-direct-route-contract-v1"
 }
