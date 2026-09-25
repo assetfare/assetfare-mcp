@@ -285,8 +285,8 @@ export function assetFareAgentCard(serviceUrl = "https://api.assetfare.dev/a2a")
     skills: [{
       id: "quote-cross-chain-route",
       name: "Quote a cross-chain route",
-      description: "Return one unranked fresh quote with total token-path cost, direct_route_summary, and strict continuation_v3 full-payload/path/bounds binding. No automatic selection occurs. Always compare candidates, then explicitly provide approvalV3 in exactly one mode. Read-only; never prepares, signs, or submits.",
-      tags: ["native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
+      description: "Return one unranked fresh quote with total token-path cost, direct_route_summary, and strict continuation_v3 full-payload/path/bounds binding. Use for an explicitly requested agent-wallet, payment-wallet, or x402-wallet funding comparison only when the caller already knows the supported source, target, and amount. It does not inspect balances, react automatically to a 402, or auto-select or auto-prepare. Always compare candidates, then explicitly provide approvalV3 in exactly one mode. Read-only; never prepares, signs, or submits.",
+      tags: ["native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "agent-wallet-funding", "payment-wallet-funding", "x402-wallet-funding", "cross-chain", "bridge", "swap", "crypto", "quote", "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "non-custodial"],
       examples: ['{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}', '{"fromChain":"solana","fromToken":"SOL","toChain":"base","toToken":"USDC","amountUsd":1000}', '{"fromChain":"optimism","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}'],
       inputModes: ["application/json"],
       outputModes: ["application/json"],
