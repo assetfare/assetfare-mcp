@@ -14,7 +14,7 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.5.2";
+const VERSION = "1.5.3";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,

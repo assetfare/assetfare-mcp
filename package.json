@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated provider paths, quote-bound approval, and fee steps; exact 1bp service fee plus Circle/provider/network fees; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",

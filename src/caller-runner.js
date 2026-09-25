@@ -161,7 +161,7 @@ async function sessionCall(operation,capabilityPath,{idempotencyKey,transactionH
 }
 
 async function preflightCallerOwnedSession({capabilityFile,policyFile,walletAdapter,apiBase,fetchImpl=fetch,clock=Date.now,sessionClient=null}){
-  const capability=readSessionCapability(capabilityFile),{value:rawPolicy}=readPrivateJson(policyFile,"policy"),policy=validatePolicy(rawPolicy,capability,clock()),adapter=validateAdapter(walletAdapter),call=sessionClient?.call?((operation,options={})=>sessionClient.call(operation,options)):((operation,options={})=>sessionCall(operation,capabilityFile,{...options,apiBase,fetchImpl})),current=await call("get",{nowMs:clock()}),session=current.session;
+  const capability=readSessionCapability(capabilityFile),{value:rawPolicy}=readPrivateJson(policyFile,"policy"),policy=validatePolicy(rawPolicy,capability,clock()),adapter=validateAdapter(walletAdapter),call=sessionClient?.call?((operation,options={})=>sessionClient.call(operation,options)):((operation,options={})=>sessionCall(operation,capabilityFile,{...options,apiBase,fetchImpl,nowMs:undefined})),current=await call("get",{}),session=current.session;
   let handoffReady=false,remainingSeconds=null,actionId=null;
   if(current.caller_wallet_handoff){const handoff=validateHandoff(current.caller_wallet_handoff,policy,capability,clock());handoffReady=true;remainingSeconds=Math.floor((Date.parse(handoff.expires_at)-clock())/1000);actionId=handoff.action_id;}
   return {status:"preflight_pass",authorization_id:policy.authorization_id,session_id:policy.session_id,route:policy.route,session_status:session.status,current_step:session.current_step??null,action_id:actionId,handoff_wallet_ready:handoffReady,remaining_seconds:remainingSeconds,key_location:"caller_wallet_adapter_only",wallet_adapter_contract:adapter.info.version,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false,signing:false,submission:false};
@@ -169,30 +169,30 @@ async function preflightCallerOwnedSession({capabilityFile,policyFile,walletAdap
 
 async function runCallerOwnedSession({capabilityFile,policyFile,stateFile,walletAdapter,apiBase,fetchImpl=fetch,pollIntervalMs=5_000,clock=Date.now,sleep=wait,onProgress=()=>{},sessionClient=null}){
   const capability=readSessionCapability(capabilityFile),{value:rawPolicy}=readPrivateJson(policyFile,"policy"),policy=validatePolicy(rawPolicy,capability,clock()),adapter=validateAdapter(walletAdapter),state=loadState(stateFile,policy,clock()),started=clock();
-  const call=sessionClient?.call?((operation,options={})=>sessionClient.call(operation,options)):((operation,options={})=>sessionCall(operation,capabilityFile,{...options,apiBase,fetchImpl}));
+  const call=sessionClient?.call?((operation,options={})=>sessionClient.call(operation,options)):((operation,options={})=>sessionCall(operation,capabilityFile,{...options,apiBase,fetchImpl,nowMs:undefined}));
   if(state.status==="complete")return runnerResult(state,policy);
   for(let cycle=0;cycle<256;cycle++){
     if(clock()-started>policy.maximum_runtime_seconds*1000)throw new Error("assetfare_runner_runtime_exceeded");
-    let current=await call("get",{nowMs:clock()});const session=current.session;
+    let current=await call("get",{});const session=current.session;
     if(session.status==="complete"){
       const last=session.workflow?.steps?.at(-1),actual=bigint(last?.actual_output_base,"final_output");if(actual<policy.minimumFinal)throw new Error("assetfare_runner_final_output_below_policy");state.status="complete";state.completed_at=nowIso(clock());state.final_output_base=actual.toString();saveState(stateFile,state,clock());onProgress({event:"complete",session_id:policy.session_id,final_output_base:actual.toString()});return runnerResult(state,policy);
     }
     if(["bridge_in_flight","awaiting_output_receipt"].includes(session.status)){
       state.idempotency??={};const keyName=`output_${session.current_step}`;state.idempotency[keyName]??=nextOperation(state,policy,keyName,stateFile);saveState(stateFile,state,clock());
-      try{current=await call("observe-output",{idempotencyKey:state.idempotency[keyName],nowMs:clock()});onProgress({event:"output_observed",step_index:session.current_step});}
-      catch(error){const live=await call("get",{nowMs:clock()});if(!["bridge_in_flight","awaiting_output_receipt"].includes(live.session.status))continue;if(!["assetfare_plan_request_rejected","assetfare_plan_upstream_unavailable","assetfare_plan_rate_limited"].includes(String(error.message)))throw error;await sleep(pollIntervalMs);continue;}
+      try{current=await call("observe-output",{idempotencyKey:state.idempotency[keyName]});onProgress({event:"output_observed",step_index:session.current_step});}
+      catch(error){const live=await call("get",{});if(!["bridge_in_flight","awaiting_output_receipt"].includes(live.session.status))continue;if(!["assetfare_plan_request_rejected","assetfare_plan_upstream_unavailable","assetfare_plan_rate_limited"].includes(String(error.message)))throw error;await sleep(pollIntervalMs);continue;}
       continue;
     }
     if(!["action_ready","action_expired","awaiting_action_build"].includes(session.status))throw new Error(`assetfare_runner_session_state_unsupported:${session.status}`);
     let handoff=current.caller_wallet_handoff,remaining=session.current_action?Date.parse(session.current_action.expires_at)-clock():null;
     if(session.status!=="action_ready"||!handoff||remaining<policy.minimum_action_remaining_seconds*1000){
       if(session.status==="action_ready"&&Number.isFinite(remaining)&&remaining>0){await sleep(Math.min(remaining+1000,180_000));continue;}
-      const key=nextOperation(state,policy,`ready_${session.current_step}`,stateFile);current=await call("refresh",{idempotencyKey:key,nowMs:clock()});handoff=current.caller_wallet_handoff;if(!handoff)continue;
+      const key=nextOperation(state,policy,`ready_${session.current_step}`,stateFile);current=await call("refresh",{idempotencyKey:key});handoff=current.caller_wallet_handoff;if(!handoff)continue;
     }
     validateHandoff(handoff,policy,capability,clock());onProgress({event:"wallet_ready",action_id:handoff.action_id,step_index:handoff.step_index,chain_family:handoff.chain_family,remaining_seconds:Math.floor((Date.parse(handoff.expires_at)-clock())/1000)});
     const hashes=handoff.chain_family==="evm"?await executeEvm({handoff,adapter,policy,state,statePath:stateFile,capability,clock}):handoff.chain_family==="solana"?await executeSolana({handoff,adapter,policy,state,statePath:stateFile,clock}):(()=>{throw new Error("assetfare_runner_chain_family_invalid");})();
     state.idempotency??={};const keyName=`source_${handoff.step_index}_${handoff.action_id}`,key=state.idempotency[keyName]??nextOperation(state,policy,keyName,stateFile);state.idempotency[keyName]=key;saveState(stateFile,state,clock());
-    await call("observe-source",{idempotencyKey:key,transactionHashes:hashes,nowMs:clock()});const action=actionState(state,handoff);action.status="observed";saveState(stateFile,state,clock());onProgress({event:"source_observed",action_id:handoff.action_id,transaction_hashes:[...hashes]});
+    await call("observe-source",{idempotencyKey:key,transactionHashes:hashes});const action=actionState(state,handoff);action.status="observed";saveState(stateFile,state,clock());onProgress({event:"source_observed",action_id:handoff.action_id,transaction_hashes:[...hashes]});
   }
   throw new Error("assetfare_runner_cycle_limit_exceeded");
 }
