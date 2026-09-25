@@ -17,6 +17,7 @@ const packaged=[
   "scripts/plan-selftest.mjs",
   "scripts/session-selftest.mjs",
   "scripts/remote-session-selftest.mjs",
+  "scripts/a2a-session-selftest.mjs",
   "scripts/route-eval-selftest.mjs",
   "scripts/package-contents-selftest.mjs",
   "scripts/assetfare-verify-selftest.mjs",

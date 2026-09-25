@@ -5,6 +5,7 @@ import { Message, Role, canonicalizeAgentCard } from "@a2a-js/sdk";
 import { JsonRpcTransportHandler, defaultServerCallContextBuilder } from "@a2a-js/sdk/server";
 import { A2A_PROTOCOL_VERSION, assetFareAgentCard, createAssetFareA2A } from "./a2a.js";
 import { approvalFor, attachContinuation, continuationCapability, sessionBindingFor } from "../test/continuation-fixture.mjs";
+import { sessionVerificationContext } from "../scripts/plan.mjs";
 
 const ok = (value) => new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
 const endpoints=[["solana","SOL"],["solana","USDC"],["solana","USDG"],["base","ETH"],["base","USDC"],["arbitrum","ETH"],["arbitrum","USDC"],["robinhood","ETH"],["robinhood","USDG"],["polygon","USDC"],["optimism","USDC"]];
@@ -40,7 +41,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "0.3.0");
+assert.equal(card.version, "0.3.1");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -145,7 +146,7 @@ let execBody; let execHeaders; let execPath;
 const execFetch = async (url, init = {}) => {
   execPath = new URL(String(url)).pathname; execHeaders = init.headers;
   if (execPath === "/v2/prepare") { execBody = JSON.parse(String(init.body)); return ok({ status: "pass", version: "assetfare-direct-multichain-action-v2", workflow_id: "wf-1", step_index: 0, unsigned_action: { transaction: "0xUNSIGNED" }, server_signing: false, server_submission: false, signed: false, submitted: false }); }
-  if (execPath === "/v2/session") { execBody = JSON.parse(String(init.body)); return ok({ session_id: "00000000-0000-4000-8000-000000000001", status: "action_ready", action_available: true, current_action: { unsigned_action: { transaction: "0xUNSIGNED" } }, quote_binding:sessionBindingFor(execBody.approval_v3||null), server_signing: false, server_submission: false, signed: false, submitted: false }); }
+  if (execPath === "/v2/session") { execBody = JSON.parse(String(init.body)); return ok({ session_id: "00000000-0000-4000-8000-000000000001", status: "ready", action_available: false, current_action: null, quote_binding:sessionBindingFor(execBody.approval_v3||null), server_signing: false, server_submission: false, signed: false, submitted: false }); }
   return new Response("{}", { status: 404 });
 };
 const execHandler = new JsonRpcTransportHandler(createAssetFareA2A({ fetch: execFetch }).requestHandler);
@@ -178,26 +179,29 @@ assert.equal(dataOf(badPrepare).error.code, "prepare_intent_invalid");
 const sourceOnlyPrepare = await execHandler.handle(request([data({ operation: "prepare", callerApproved: true, fromChain: "polygon", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 25, wallets: { polygon: "0x3333333333333333333333333333333333333333", base: "0x1111111111111111111111111111111111111111" } })], "src-prepare"), context());
 assert.ok(dataOf(sourceOnlyPrepare).bundle.unsigned_action);
 
-// session_create happy path: sends X-AssetFare-Session-Token and caller_approved:true
-const sessionResult = await execHandler.handle(request([data({ operation: "session_create", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets, sessionToken, idempotencyKey: "a2a-create-0001" })], "session"), context());
+const selectedQuote=quoteFor({from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25}),sessionApproval=approvalFor(selectedQuote,"session","a2a.session.0001"),storedContext=sessionVerificationContext({intent:{from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25},wallets,approval:sessionApproval,directRouteSummary:selectedQuote.direct_route_summary}),verificationContext={...storedContext.value,verification_context_sha256:storedContext.sha256};
+
+// session_create requires strict approval and validates the caller-held context before POST.
+const sessionResult = await execHandler.handle(request([data({ operation: "session_create", callerApproved: true, fromChain: "base", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 25, wallets, sessionToken, idempotencyKey: sessionApproval.idempotency_key, approvalV3:sessionApproval,verificationContext })], "session"), context());
 assert.equal(dataOf(sessionResult).session.session_id, "00000000-0000-4000-8000-000000000001");
+assert.equal(dataOf(sessionResult).session.semantic_verification,true);
+assert.equal(dataOf(sessionResult).session.caller_wallet_handoff,null);
 assert.equal(execHeaders.get("x-assetfare-session-token"), sessionToken);
 assert.equal(execBody.caller_approved, true);
-const compatibleKey="legacy key/1";
-const compatibleSession=await execHandler.handle(request([data({operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:compatibleKey})],"session-compatible-key"),context());
-assert.equal(dataOf(compatibleSession).session.session_id,"00000000-0000-4000-8000-000000000001");assert.equal(execBody.idempotency_key,compatibleKey);
+assert.equal(Object.prototype.hasOwnProperty.call(execBody,"verificationContext"),false);
+assert.equal(Object.prototype.hasOwnProperty.call(execBody,"verification_context"),false);
 
 // Strict approval_v3 is passed byte-semantically and never synthesized by A2A.
-const selectedQuote=quoteFor({from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25}),oneApproval=approvalFor(selectedQuote,"one_shot","a2a.one.0001");
+const oneApproval=approvalFor(selectedQuote,"one_shot","a2a.one.0001");
 const v3Prepare=await execHandler.handle(request([data({ operation:"prepare",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,approvalV3:oneApproval})],"prepare-v3"),context());assert.ok(dataOf(v3Prepare).bundle);assert.deepEqual(execBody.approval_v3,oneApproval);
-const sessionApproval=approvalFor(selectedQuote,"session","a2a.session.0001"),v3Session=await execHandler.handle(request([data({operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:sessionApproval.idempotency_key,approvalV3:sessionApproval})],"session-v3"),context());assert.equal(dataOf(v3Session).session.quote_binding.quote_fingerprint,sessionApproval.quote_fingerprint);assert.deepEqual(execBody.approval_v3,sessionApproval);
+const v3Session=await execHandler.handle(request([data({operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:sessionApproval.idempotency_key,approvalV3:sessionApproval,verificationContext})],"session-v3"),context());assert.equal(dataOf(v3Session).session.quote_binding.quote_fingerprint,sessionApproval.quote_fingerprint);assert.deepEqual(execBody.approval_v3,sessionApproval);
 const beforePath=execPath;const noApprovalBoolean=await execHandler.handle(request([data({operation:"prepare",fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,approvalV3:oneApproval})],"prepare-no-boolean"),context());assert.equal(dataOf(noApprovalBoolean).error.code,"prepare_intent_invalid");assert.equal(execPath,beforePath);
 
 // Hostile Core output must fail closed recursively for A2A prepare/session.
 const prepareInput={operation:"prepare",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets};
-const sessionInput={operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:"hostile-0001"};
+const sessionInput={operation:"session_create",callerApproved:true,fromChain:"base",fromToken:"USDC",toChain:"arbitrum",toToken:"USDC",amountUsd:25,wallets,sessionToken,idempotencyKey:sessionApproval.idempotency_key,approvalV3:sessionApproval,verificationContext};
 const prepareBase=()=>({unsigned_action:{transaction:"0xUNSIGNED"},server_signing:false,server_submission:false,signed:false,submitted:false});
-const sessionBase=()=>({session_id:"00000000-0000-4000-8000-000000000002",status:"ready",action_available:true,current_action:{unsigned_action:{transaction:"0xUNSIGNED"}},quote_binding:sessionBindingFor(null),server_signing:false,server_submission:false,signed:false,submitted:false});
+const sessionBase=()=>({session_id:"00000000-0000-4000-8000-000000000002",status:"ready",action_available:false,current_action:null,quote_binding:sessionBindingFor(sessionApproval),server_signing:false,server_submission:false,signed:false,submitted:false});
 async function hostileResult(kind,mutate){const payload=kind==="prepare"?prepareBase():sessionBase();mutate(payload);const hostileHandler=new JsonRpcTransportHandler(createAssetFareA2A({fetch:async()=>ok(payload)}).requestHandler);return hostileHandler.handle(request([data(kind==="prepare"?prepareInput:sessionInput)],`hostile-${kind}-${Math.random()}`),context());}
 for(const mutate of [
   (value)=>{value.unsigned_action.nested={private_key:"TEST_ONLY"};},
@@ -207,11 +211,11 @@ for(const mutate of [
   (value)=>{value.signature="0xdead";},
 ]){const hostile=await hostileResult("prepare",mutate);assert.equal(dataOf(hostile).error.code,"assetfare_safety_boundary_failed");}
 for(const mutate of [
-  (value)=>{value.current_action.unsigned_action.nested={eventSignerPrivateKey:"TEST_ONLY"};},
+  (value)=>{value.current_action={unsigned_action:{nested:{eventSignerPrivateKey:"TEST_ONLY"}}};},
   (value)=>{value.observation={signature:"0xdead"};},
   (value)=>{value.session_token=sessionToken;},
   (value)=>{value.diagnostic={capability:sessionToken};},
 ]){const hostile=await hostileResult("session",mutate);assert.equal(dataOf(hostile).error.code,"assetfare_safety_boundary_failed");}
 const hashOnly=sessionBase();hashOnly.session_token_hash="f".repeat(64);const hashOnlyHandler=new JsonRpcTransportHandler(createAssetFareA2A({fetch:async()=>ok(hashOnly)}).requestHandler);const hashOnlyResult=await hashOnlyHandler.handle(request([data(sessionInput)],"hash-only"),context());assert.equal(dataOf(hashOnlyResult).session.session_token_hash,"f".repeat(64));
 
-console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_version:card.version,card_skills: card.skills.length, quote: true, continuation_v3:true,unranked_candidate:true,prepare: true, session_create: true, approval_v3:true,no_auto_caller_approved:true,legacy_idempotency_compatible:true,hostile_output_rejections:9,raw_session_token_echo_rejected:true,remote_session_secret_generation: false, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));
+console.log(JSON.stringify({ status: "pass", official_sdk: "@a2a-js/sdk@1.1.0", card: true, card_version:card.version,card_skills: card.skills.length, quote: true, continuation_v3:true,unranked_candidate:true,prepare: true, session_create: true, approval_v3:true,verification_context_required:true,no_auto_caller_approved:true,hostile_output_rejections:9,raw_session_token_echo_rejected:true,remote_session_secret_generation: false, execution_ready_routes: 76, phase_b_blocked_routes: 0, provenance: true, v0_method_rejected: true, free_text_rejected: true, unsafe_quote_rejected: true, sanitized_errors: true, signed: false, submitted: false }));

@@ -10,6 +10,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer, parseV2Session } from "./server.js";
 import { sessionBindingFor } from "../test/continuation-fixture.mjs";
+import { sessionVerificationContext } from "../scripts/plan.mjs";
 
 const EXECUTABLE_ROUTES={"solana:SOL->solana:USDC":{"chains":["solana"],"signer":false},"solana:SOL->solana:USDG":{"chains":["solana"],"signer":false},"solana:SOL->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:SOL->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:SOL->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:SOL->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:SOL->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDC->solana:USDG":{"chains":["solana"],"signer":false},"solana:USDC->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDC->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDC->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDC->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDC->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->solana:SOL":{"chains":["solana"],"signer":false},"solana:USDG->solana:USDC":{"chains":["solana"],"signer":false},"solana:USDG->base:ETH":{"chains":["base", "solana"],"signer":true},"solana:USDG->base:USDC":{"chains":["base", "solana"],"signer":true},"solana:USDG->arbitrum:ETH":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->arbitrum:USDC":{"chains":["arbitrum", "solana"],"signer":true},"solana:USDG->robinhood:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"solana:USDG->robinhood:USDG":{"chains":["base", "robinhood", "solana"],"signer":true},"base:ETH->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:ETH->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:ETH->base:USDC":{"chains":["base"],"signer":false},"base:ETH->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:ETH->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:ETH->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"base:USDC->solana:SOL":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDC":{"chains":["base", "solana"],"signer":false},"base:USDC->solana:USDG":{"chains":["base", "solana"],"signer":false},"base:USDC->base:ETH":{"chains":["base"],"signer":false},"base:USDC->arbitrum:ETH":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->arbitrum:USDC":{"chains":["arbitrum", "base"],"signer":false},"base:USDC->robinhood:ETH":{"chains":["base", "robinhood"],"signer":false},"base:USDC->robinhood:USDG":{"chains":["base", "robinhood"],"signer":false},"arbitrum:ETH->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:ETH->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:ETH->arbitrum:USDC":{"chains":["arbitrum"],"signer":false},"arbitrum:ETH->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:ETH->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->solana:SOL":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDC":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->solana:USDG":{"chains":["arbitrum", "solana"],"signer":false},"arbitrum:USDC->base:ETH":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->base:USDC":{"chains":["arbitrum", "base"],"signer":false},"arbitrum:USDC->arbitrum:ETH":{"chains":["arbitrum"],"signer":false},"arbitrum:USDC->robinhood:ETH":{"chains":["arbitrum", "robinhood"],"signer":false},"arbitrum:USDC->robinhood:USDG":{"chains":["arbitrum", "robinhood"],"signer":false},"robinhood:ETH->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:ETH->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:ETH->robinhood:USDG":{"chains":["robinhood"],"signer":false},"robinhood:USDG->solana:SOL":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDC":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->solana:USDG":{"chains":["robinhood", "solana"],"signer":false},"robinhood:USDG->base:ETH":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->base:USDC":{"chains":["base", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:ETH":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->arbitrum:USDC":{"chains":["arbitrum", "robinhood", "solana"],"signer":true},"robinhood:USDG->robinhood:ETH":{"chains":["robinhood"],"signer":false}};
 const SOURCE_ONLY_ROUTES={"polygon:USDC->base:USDC":{"chains":["base", "polygon"],"signer":false},"polygon:USDC->arbitrum:USDC":{"chains":["arbitrum", "polygon"],"signer":false},"optimism:USDC->base:USDC":{"chains":["base", "optimism"],"signer":false},"optimism:USDC->arbitrum:USDC":{"chains":["arbitrum", "optimism"],"signer":false}};
@@ -146,6 +147,12 @@ async function expectError(name, args) {
 const SOL_ADDR = "So11111111111111111111111111111111111111112";
 const EVM = (n) => "0x" + String(n).repeat(40).slice(0, 40);
 function walletsFor(chains) { const w = {}; let i = 1; for (const c of chains) { w[c] = c === "solana" ? SOL_ADDR : EVM(i); i += 1; } return w; }
+function strictContext(intent,wallets,idempotencyKey,eventSignerPublic=null) {
+  const route=`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`,summary={version:"assetfare-direct-route-summary-v1",route,from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,classification:"direct_protocol_only",mode:"cctp_direct_composition",route_aggregator_used:false,external_intent_protocol_used:false,provider_internal_dex_aggregation_possible:false,assetfare_fee_bps:1,fee_collection_step_index:0,server_signing:false,server_submission:false,step_count:1,steps:[{index:0,action:"bridge",provider:"circle_cctp",from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,expected_input_base:"25000000",minimum_input_base:"25000000",expected_output_base:"24900000",minimum_output_base:"24900000",assetfare_fee_bps:1,direct_protocol:true,external_intent_protocol:false,aggregator_api_used:false}]};
+  const approval={version:"assetfare-quote-bound-approval-v3",quote_id:"00000000-0000-4000-8000-000000000001",quote_fingerprint:"a".repeat(64),selection_status:"selected",selected_mode:"session",maximum_input_base:"25000000",minimum_output_base:"24900000",direct_route_summary_sha256:bundleHash(summary),idempotency_key:idempotencyKey};
+  const stored=sessionVerificationContext({intent,wallets,eventSignerPublic,approval,directRouteSummary:summary});
+  return {approval_v3:approval,verification_context:{...stored.value,verification_context_sha256:stored.sha256}};
+}
 
 let passed = 0;
 try {
@@ -165,14 +172,15 @@ try {
 
   // 2) full session lifecycle happy path (token -> create -> get -> observe-source -> observe-output)
   const token = randomBytes(32).toString("base64url");
-  const created = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: token, idempotency_key: "create-0001" }));
+  const mainIntent={from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:25},mainWallets=walletsFor(["arbitrum","base"]),mainStrict=strictContext(mainIntent,mainWallets,"create-0001");
+  const created = parse(await call("assetfare_v2_session_create", { caller_approved: true,...mainIntent,wallets:mainWallets,session_token: token, idempotency_key: "create-0001",...mainStrict }));
   assert.ok(created.session_id); assert.equal(created.signed, false); assert.equal(created.action_available, false);
   const sid = created.session_id;
-  const got = parse(await call("assetfare_v2_session_get", { session_token: token, session_id: sid }));
+  const got = parse(await call("assetfare_v2_session_get", { session_token: token, session_id: sid,verification_context:mainStrict.verification_context }));
   assert.equal(got.session_id, sid);
-  const obsSrc = parse(await call("assetfare_v2_session_observe_source", { session_token: token, session_id: sid, idempotency_key: "src-0001", transaction_hashes: ["0x" + "a".repeat(40)] }));
+  const obsSrc = parse(await call("assetfare_v2_session_observe_source", { session_token: token, session_id: sid, idempotency_key: "src-0001", transaction_hashes: ["0x" + "a".repeat(40)],verification_context:mainStrict.verification_context }));
   assert.equal(obsSrc.next_operation, "observe_output"); assert.equal(obsSrc.observation.source_observation.verified, true);
-  const obsOut = parse(await call("assetfare_v2_session_observe_output", { session_token: token, session_id: sid, idempotency_key: "out-0001" }));
+  const obsOut = parse(await call("assetfare_v2_session_observe_output", { session_token: token, session_id: sid, idempotency_key: "out-0001",verification_context:mainStrict.verification_context }));
   assert.equal(obsOut.status, "complete"); assert.equal(obsOut.submitted, false);
   const publicRecord=publicSession(sessions.get(sid));
   for(const mutate of [
@@ -185,41 +193,43 @@ try {
 
   // 3) hostile: missing token (schema-rejected, no network) and wrong token (upstream 404)
   const netBeforeMissing = netlog.length;
-  assert.ok(await expectError("assetfare_v2_session_get", { session_id: sid }), "missing token must be rejected");
+  assert.ok(await expectError("assetfare_v2_session_get", { session_id: sid,verification_context:mainStrict.verification_context }), "missing token must be rejected");
   assert.equal(netlog.length, netBeforeMissing, "missing-token get reached upstream");
-  assert.ok(await expectError("assetfare_v2_session_get", { session_token: newToken(), session_id: sid }), "wrong token must be rejected");
+  assert.ok(await expectError("assetfare_v2_session_get", { session_token: newToken(), session_id: sid,verification_context:mainStrict.verification_context }), "wrong token must be rejected");
   passed += 1;
 
   // 4) hostile: replay SAME token + SAME idempotency_key -> SAME session (no duplicate)
-  const replay = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: token, idempotency_key: "create-0001" }));
+  const replay = parse(await call("assetfare_v2_session_create", { caller_approved: true,...mainIntent,wallets:mainWallets,session_token:token,idempotency_key:"create-0001",...mainStrict }));
   assert.equal(replay.session_id, sid, "same token+key must recover the same session");
   assert.equal(replay.idempotent_replay, true);
   passed += 1;
 
   // 5) hostile: LOST create response retried with SAME token+key recovers SAME session_id (no duplicate)
   const lostToken = newToken();
-  const first = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "arbitrum", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 30, wallets: walletsFor(["arbitrum", "base"]), session_token: lostToken, idempotency_key: "lost-0001" }));
-  const retry = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "arbitrum", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 30, wallets: walletsFor(["arbitrum", "base"]), session_token: lostToken, idempotency_key: "lost-0001" }));
+  const lostIntent={from_chain:"arbitrum",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:30},lostWallets=walletsFor(["arbitrum","base"]),lostStrict=strictContext(lostIntent,lostWallets,"lost-0001");
+  const first = parse(await call("assetfare_v2_session_create", { caller_approved: true,...lostIntent,wallets:lostWallets,session_token:lostToken,idempotency_key:"lost-0001",...lostStrict }));
+  const retry = parse(await call("assetfare_v2_session_create", { caller_approved: true,...lostIntent,wallets:lostWallets,session_token:lostToken,idempotency_key:"lost-0001",...lostStrict }));
   assert.equal(retry.session_id, first.session_id, "lost-create retry must recover the same session");
   assert.equal(retry.idempotent_replay, true);
   passed += 1;
 
   // 6) hostile: DIFFERENT token + SAME idempotency_key -> INDEPENDENT session
   const otherToken = newToken();
-  const independent = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: otherToken, idempotency_key: "create-0001" }));
+  const independent = parse(await call("assetfare_v2_session_create", { caller_approved: true,...mainIntent,wallets:mainWallets,session_token:otherToken,idempotency_key:"create-0001",...mainStrict }));
   assert.notEqual(independent.session_id, sid, "different token + same key must be an independent session");
   passed += 1;
 
   // 7) hostile: expired action -> observe-source fails, refresh-action returns a fresh action
   const exToken = newToken();
-  const exCreated = parse(await call("assetfare_v2_session_create", { caller_approved: true, from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25, wallets: walletsFor(["arbitrum", "base"]), session_token: exToken, idempotency_key: "exp-0001" }));
+  const exStrict=strictContext(mainIntent,mainWallets,"exp-0001");
+  const exCreated = parse(await call("assetfare_v2_session_create", { caller_approved: true,...mainIntent,wallets:mainWallets,session_token:exToken,idempotency_key:"exp-0001",...exStrict }));
   sessions.get(exCreated.session_id).status="action_ready";forceExpired = true;
-  const expiredGet = parse(await call("assetfare_v2_session_get", { session_token: exToken, session_id: exCreated.session_id }));
+  const expiredGet = parse(await call("assetfare_v2_session_get", { session_token: exToken, session_id: exCreated.session_id,verification_context:exStrict.verification_context }));
   assert.equal(expiredGet.status, "action_expired");
   assert.equal(expiredGet.next_operation, "refresh_action");
-  assert.ok(await expectError("assetfare_v2_session_observe_source", { session_token: exToken, session_id: exCreated.session_id, idempotency_key: "exp-src-0001", transaction_hashes: ["0x" + "b".repeat(40)] }), "observe on an expired action must fail");
-  const refreshedError=await expectError("assetfare_v2_session_refresh_action",{session_token:exToken,session_id:exCreated.session_id,idempotency_key:"exp-refresh-0001"});
-  assert.match(refreshedError,/verification_context_required/,"remote MCP must not expose a refreshed action without strict verification context");
+  assert.ok(await expectError("assetfare_v2_session_observe_source", { session_token: exToken, session_id: exCreated.session_id, idempotency_key: "exp-src-0001", transaction_hashes: ["0x" + "b".repeat(40)],verification_context:exStrict.verification_context }), "observe on an expired action must fail");
+  const refreshedError=await expectError("assetfare_v2_session_refresh_action",{session_token:exToken,session_id:exCreated.session_id,idempotency_key:"exp-refresh-0001",verification_context:exStrict.verification_context});
+  assert.match(refreshedError,/bundle_receipt_invalid|receipt_version|assetfare_plan_verification_failed/,"remote MCP must reject an invalid refreshed action");
   passed += 1;
 
   // 8) 76-route e2e mock matrix: every route completes, including four directional
@@ -231,14 +241,15 @@ try {
     const [to_chain, to_token] = to.split(":");
     const rtoken = newToken();
     const tag = String(completed).padStart(3, "0");
-    const args = { caller_approved: true, from_chain, from_token, to_chain, to_token, amount_usd: 10, wallets: walletsFor(spec.chains), session_token: rtoken, idempotency_key: `matrix-create-${tag}` };
+    const matrixIntent={from_chain,from_token,to_chain,to_token,amount_usd:10},matrixWallets=walletsFor(spec.chains),matrixStrict=strictContext(matrixIntent,matrixWallets,`matrix-create-${tag}`,spec.signer?SOL_ADDR:null);
+    const args = { caller_approved: true,...matrixIntent,wallets:matrixWallets,session_token:rtoken,idempotency_key:`matrix-create-${tag}`,...matrixStrict };
     if (spec.signer) args.event_signer_public = SOL_ADDR;
     const cr = await call("assetfare_v2_session_create", args);
     assert.equal(cr.isError, false, `create failed for ${route}: ${cr.isError ? parse(cr).error : ""}`);
     const rec = parse(cr);
-    const os = parse(await call("assetfare_v2_session_observe_source", { session_token: rtoken, session_id: rec.session_id, idempotency_key: `matrix-src-${tag}`, transaction_hashes: ["0x" + "c".repeat(40)] }));
+    const os = parse(await call("assetfare_v2_session_observe_source", { session_token: rtoken, session_id: rec.session_id, idempotency_key: `matrix-src-${tag}`, transaction_hashes: ["0x" + "c".repeat(40)],verification_context:matrixStrict.verification_context }));
     assert.equal(os.next_operation, "observe_output", `observe-source failed for ${route}`);
-    const oo = parse(await call("assetfare_v2_session_observe_output", { session_token: rtoken, session_id: rec.session_id, idempotency_key: `matrix-out-${tag}` }));
+    const oo = parse(await call("assetfare_v2_session_observe_output", { session_token: rtoken, session_id: rec.session_id, idempotency_key: `matrix-out-${tag}`,verification_context:matrixStrict.verification_context }));
     assert.equal(oo.status, "complete", `observe-output failed for ${route}`);
     completed += 1;
   }

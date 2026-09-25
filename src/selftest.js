@@ -82,7 +82,8 @@ if (v2PrepareTool?.inputSchema?.required?.includes("approval_v3") || v2PrepareTo
 if (v2PrepareTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2PrepareTool.inputSchema.properties.amount_usd) throw new Error("v2 prepare amount schema mismatch");
 const v2SessionCreateTool = result.tools.find((tool) => tool.name === "assetfare_v2_session_create");
 if (!v2SessionCreateTool?.inputSchema?.required?.includes("caller_approved") || !v2SessionCreateTool?.inputSchema?.required?.includes("session_token")) throw new Error("v2 session_create must require caller_approved and session_token");
-if (v2SessionCreateTool?.inputSchema?.required?.includes("approval_v3") || v2SessionCreateTool?.inputSchema?.properties?.approval_v3?.properties?.selected_mode?.const !== "session") throw new Error("v2 session approval_v3 schema mismatch");
+if (!v2SessionCreateTool?.inputSchema?.required?.includes("approval_v3") || !v2SessionCreateTool?.inputSchema?.required?.includes("verification_context") || v2SessionCreateTool?.inputSchema?.properties?.approval_v3?.properties?.selected_mode?.const !== "session") throw new Error("v2 session strict context schema mismatch");
+for (const name of ["assetfare_v2_session_get","assetfare_v2_session_observe_source","assetfare_v2_session_observe_output","assetfare_v2_session_refresh_action"]) if (!result.tools.find((tool)=>tool.name===name)?.inputSchema?.required?.includes("verification_context")) throw new Error(`${name} must require verification_context`);
 if (v2SessionCreateTool.inputSchema.properties.amount_usd?.minimum !== 1 || "maximum" in v2SessionCreateTool.inputSchema.properties.amount_usd) throw new Error("v2 session_create amount schema mismatch");
 const priorTransport = process.env.ASSETFARE_MCP_TRANSPORT;
 process.env.ASSETFARE_MCP_TRANSPORT = "stdio";
@@ -130,8 +131,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "1.3.4" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.3.4" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "1.3.5" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.3.5" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
   if (legacyCardHttp.status !== 200 || legacyCardHttp.body?.tools?.length !== 13 || legacyCardHttp.body?.profile !== "legacy") throw new Error("legacy server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || legacyMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow || canonicalMcpHead.allow !== legacyMcpHead.allow) throw new Error("MCP endpoint discovery mismatch");
@@ -160,6 +161,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.3.4", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.3.5", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_version_http_status: 400, a2a_patch_version_accepted: true, a2a_http_integration: true }));
 await client.close();
 await server.close();

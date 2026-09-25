@@ -4,7 +4,7 @@ USDC bridge API for AI agents and agent-wallet funding: Solana to Base plus 76
 cross-chain routes, each with a validated ordered provider path and exact 1bp
 fee step. Caller approves and signs; the server never signs or submits.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.4 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.3.5 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -157,7 +157,7 @@ MCP:
 - `assetfare_v2_capabilities` and `assetfare_v2_quote` expose the primary eleven-endpoint, 76-route v2 scope. Availability is live, not static: check it in capabilities/quote before preparing. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC.
 - New clients must send strict `approval_v3` to `assetfare_v2_prepare` and `assetfare_v2_session_create`. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. Schema optionality remains only for explicit backward compatibility; omission is `legacy_advisory`, not the recommended public flow. Each call also requires literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
 - A session capability is a sensitive bearer credential, never a private key. Remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply it only in `X-AssetFare-Session-Token`. The server stores only its hash. The remote MCP/A2A service never generates the secret; `assetfare-plan` keeps it in memory by default and writes it only to an explicit new mode-0600 file. The optional local stdio helper remains offline-only.
-- Remote MCP session create/get/observe/refresh calls must also retain the strict caller-side `verification_context` from the selected quote, approval and public wallet map. The adapter hashes this context, keeps it out of the upstream request, applies the complete semantic verifier to every returned `current_action`, and emits a fresh self-verifying wallet handoff. If context is missing after a restart or any target/program/bounds/binding drifts, the adapter fails before exposing an action.
+- Remote MCP session create/get/observe/refresh calls must also retain the strict caller-side `verification_context` from the selected quote, approval and public wallet map. A2A v1 uses the same object as required `verificationContext`. Both adapters validate it before any upstream call, keep it out of the upstream request, apply the complete semantic verifier to every returned `current_action`, and emit a fresh self-verifying wallet handoff. If context is missing after a restart or any target/program/bounds/binding drifts, the adapter fails before creating state or exposing an action.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are isolated at `/mcp/legacy` for original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
@@ -171,7 +171,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.3.4` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.3.5` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 76 directed routes across eleven v2 source endpoints,
@@ -220,7 +220,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.4 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.3.5 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -236,7 +236,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.4 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.3.5 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -279,10 +279,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.3.4 assetfare-session \
+npx --yes --package=assetfare-mcp@1.3.5 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.3.4 assetfare-session \
+npx --yes --package=assetfare-mcp@1.3.5 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -333,8 +333,8 @@ revision. The complete source and tests are in
 
 ## A2A v1 quote adapter
 
-AssetFare also exposes a read-only A2A v1 interface for agents that discover
-and invoke Agent Cards without MCP:
+AssetFare also exposes A2A Agent Card version 0.3.1 for agents that discover
+quote and caller-approved unsigned workflows without MCP:
 
 - canonical Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
 - legacy discovery alias returning the identical card: `https://api.assetfare.dev/.well-known/agent.json`
@@ -352,10 +352,16 @@ skills mirror the MCP execution tools: a one-shot `prepare` operation and the fu
 (`session_create`, `session_get`, `observe_source`, `observe_output`,
 `refresh_action`). Before calling `session_create`, the A2A client generates
 its session token locally; the remote A2A endpoint deliberately exposes no
-token-generation operation. Each execution operation requires an explicit
-`callerApproved:true` and the caller's public wallet addresses; AssetFare never
-signs or submits, and only the caller's own submitted transaction hashes are
-observed.
+token-generation operation. Every session operation also requires the same
+hash-bound `verificationContext` copied from the exact selected quote, strict
+approval and public-wallet map. The adapter validates that context before the
+upstream request, deeply verifies every EVM/Solana `current_action`, and emits
+a fresh self-verifying caller-wallet handoff. Each execution operation requires
+an explicit `callerApproved:true` and the caller's public wallet addresses;
+AssetFare never signs or submits, and only the caller's own submitted
+transaction hashes are observed. A safe 409 response is preserved as structured
+reapproval/recovery guidance; it never authorizes automatic requoting, replay,
+or a replacement session.
 
 A card fetch, registry health check, TCK request, or registry-generated
 `SendMessage` probe is discovery/conformance traffic, not customer demand.
