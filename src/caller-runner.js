@@ -87,6 +87,15 @@ function loadState(path,policy,nowMs=Date.now()){
   try{const {value}=readPrivateJson(path,"state",1_048_576);if(value.version!==STATE_VERSION||value.authorization_id!==policy.authorization_id||value.policy_sha256!==policy.sha256||value.session_id!==policy.session_id||value.route!==policy.route||value.assetfare_server_key_access!==false||value.assetfare_server_signing!==false||value.assetfare_server_submission!==false||!Array.isArray(value.actions)||!Number.isSafeInteger(value.operation_counter))throw new Error("invalid");assertPublic(value,"state");return value;}catch(error){if(error.message!=="assetfare_runner_state_invalid")throw error;const absolute=resolve(path);try{lstatSync(absolute);throw error;}catch(statError){if(statError?.code!=="ENOENT")throw error;}const value=initialState(policy,nowMs);atomicPrivateJson(path,value);return value;}
 }
 function saveState(path,state,nowMs=Date.now()){state.updated_at=nowIso(nowMs);assertPublic(state,"state");atomicPrivateJson(path,state);return state;}
+function releaseConfirmedEvmReserves(state){
+  let changed=false,total=bigint(state.totals.evm_maximum_native_spend_wei,"state_evm_maximum_total");
+  for(const action of state.actions){
+    if(action.chain_family!=="evm"||!["confirmed","observed"].includes(action.status)||action.maximum_native_reserve_wei===undefined)continue;
+    const reserved=bigint(action.maximum_native_reserve_wei,"action_evm_reserve"),actual=(action.requests||[]).reduce((sum,row)=>sum+bigint(row.actual_fee_wei??0,"action_evm_actual_fee")+bigint(row.protocol_value_wei??0,"action_evm_protocol_value"),0n);
+    if(total<reserved||actual>reserved)throw new Error("assetfare_runner_state_evm_reserve_invalid");total=total-reserved+actual;delete action.maximum_native_reserve_wei;changed=true;
+  }
+  if(changed)state.totals.evm_maximum_native_spend_wei=total.toString();return changed;
+}
 function nextOperation(state,policy,kind,statePath){state.operation_counter+=1;saveState(statePath,state);const value=`${cleanId(policy.authorization_id)}.${cleanId(kind)}.${state.operation_counter}`;if(!ID.test(value))throw new Error("assetfare_runner_idempotency_invalid");return value;}
 function actionState(state,handoff){let value=state.actions.find(item=>item.action_id===handoff.action_id);if(!value){value={action_id:handoff.action_id,step_index:handoff.step_index,chain_family:handoff.chain_family,attempt:1,status:"ready",requests:[],transaction_hashes:[]};state.actions.push(value);}if(value.step_index!==handoff.step_index||value.chain_family!==handoff.chain_family)throw new Error("assetfare_runner_action_state_mismatch");return value;}
 
@@ -148,7 +157,7 @@ async function executeEvm({handoff,adapter,policy,state,statePath,capability,clo
     }
     throw error;
   }
-  action.status="confirmed";saveState(statePath,state,clock());return [...action.transaction_hashes];
+  action.status="confirmed";releaseConfirmedEvmReserves(state);saveState(statePath,state,clock());return [...action.transaction_hashes];
 }
 
 async function executeSolana({handoff,adapter,policy,state,statePath,clock,executionStartedMs}){
@@ -178,7 +187,7 @@ async function preflightCallerOwnedSession({capabilityFile,policyFile,walletAdap
 }
 
 async function runCallerOwnedSession({capabilityFile,policyFile,stateFile,walletAdapter,apiBase,fetchImpl=fetch,pollIntervalMs=5_000,clock=Date.now,sleep=wait,onProgress=()=>{},sessionClient=null}){
-  const capability=readSessionCapability(capabilityFile),{value:rawPolicy}=readPrivateJson(policyFile,"policy"),policy=validatePolicy(rawPolicy,capability,clock()),adapter=validateAdapter(walletAdapter),state=loadState(stateFile,policy,clock()),started=Date.parse(state.created_at);if(!Number.isFinite(started)||started>clock()+5_000)throw new Error("assetfare_runner_state_started_at_invalid");
+  const capability=readSessionCapability(capabilityFile),{value:rawPolicy}=readPrivateJson(policyFile,"policy"),policy=validatePolicy(rawPolicy,capability,clock()),adapter=validateAdapter(walletAdapter),state=loadState(stateFile,policy,clock()),started=Date.parse(state.created_at);if(!Number.isFinite(started)||started>clock()+5_000)throw new Error("assetfare_runner_state_started_at_invalid");if(releaseConfirmedEvmReserves(state))saveState(stateFile,state,clock());
   const call=sessionClient?.call?((operation,options={})=>sessionClient.call(operation,options)):((operation,options={})=>sessionCall(operation,capabilityFile,{...options,apiBase,fetchImpl,nowMs:undefined}));
   if(state.status==="complete")return runnerResult(state,policy);
   for(let cycle=0;cycle<256;cycle++){
