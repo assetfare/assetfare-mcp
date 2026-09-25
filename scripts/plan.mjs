@@ -13,6 +13,8 @@ const DEFAULT_API_BASE = "https://api.assetfare.dev";
 const MAX_RESPONSE_BYTES = 1_048_576;
 const TIMEOUT_MS = 45_000;
 const MINIMUM_PLAN_REMAINING_MS = 15_000;
+const MAX_ACTION_TTL_MS = 180_000;
+const ACTION_CLOCK_SKEW_MS = 5_000;
 const CHAINS = new Set(["solana","base","arbitrum","robinhood","polygon","optimism"]);
 const SELECTORS={approve:"0x095ea7b3",swapNative:"0xc6fa57fb",swapStable:"0xfee8180b",bridgeUsdc:"0xa17f6982",bridgeUsdg:"0xedf202ce",across:"0xad5425c6"};
 const PROGRAMS={system:"11111111111111111111111111111111",compute:"ComputeBudget111111111111111111111111111111",token:"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",token2022:"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",ata:"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",memo:"MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",cctp:"CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",raydium:"CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",orca:"whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",paxos:"paxosVkYuJBKUQoZGAidRA47Qt4uidqG5fAt5kmr1nR"};
@@ -148,8 +150,9 @@ function verifyPlanBundle(bundle,intent,nowMs=Date.now()){
   parseV2Bundle(bundle);
   const checks=[];const check=(condition,label)=>{if(!condition)throw new Error(`assetfare_plan_verification_failed:${label}`);checks.push(label);};
   check(bundle.payload_sha256===sha256(withoutKey(bundle,"payload_sha256")),"bundle_payload_sha256");
-  const expires=Date.parse(bundle.expires_at),prepared=Date.parse(bundle.prepared_at);check(Number.isFinite(expires)&&expires>nowMs&&expires<=nowMs+120_000,"bundle_fresh_expiry");
-  check(Number.isFinite(prepared)&&prepared<=nowMs+5_000&&prepared>=nowMs-120_000&&expires>=prepared&&expires-prepared<=120_000,"bundle_prepared_at");
+  const expires=Date.parse(bundle.expires_at),prepared=Date.parse(bundle.prepared_at);check(Number.isFinite(expires)&&expires>nowMs&&expires<=nowMs+MAX_ACTION_TTL_MS+ACTION_CLOCK_SKEW_MS,"bundle_fresh_expiry");
+  check(Number.isFinite(prepared)&&prepared<=nowMs+ACTION_CLOCK_SKEW_MS&&prepared>=nowMs-MAX_ACTION_TTL_MS&&expires>=prepared&&expires-prepared<=MAX_ACTION_TTL_MS,"bundle_prepared_at");
+  if(bundle.expires_in_seconds!==undefined)check(Number(bundle.expires_in_seconds)===Math.round((expires-prepared)/1000),"bundle_ttl_seconds");
   const action=bundle.unsigned_action,receipt=action?.safety_receipt;
   check(receipt?.schema==="https://assetfare.dev/schemas/action-safety-receipt-v1"&&receipt?.schema_version===1,"receipt_version");
   check(receipt?.generation==="decoded_built_action_only"&&!hasSubjectiveSafetyKey(receipt),"receipt_objective_only");
@@ -349,4 +352,4 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
 
 if(isMain(import.meta.url))runPlan(process.argv.slice(2)).catch((error)=>{process.stderr.write(`${JSON.stringify({status:"fail",error:error?.message||"assetfare_plan_failed",server_signing:false,server_submission:false})}\n`);process.exitCode=1;});
 
-export { callerWalletHandoff, canonical, parseArgs, readSessionCapability, requestJson, requireNewWalletHandoffPath, runPlan, sessionVerificationContext, sha256, updateSessionCapability, usage, validatedBase, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken, writeWalletHandoff };
+export { ACTION_CLOCK_SKEW_MS, MAX_ACTION_TTL_MS, callerWalletHandoff, canonical, parseArgs, readSessionCapability, requestJson, requireNewWalletHandoffPath, runPlan, sessionVerificationContext, sha256, updateSessionCapability, usage, validatedBase, verifyApprovalBundleBounds, verifyPlanBundle, writeSessionToken, writeWalletHandoff };

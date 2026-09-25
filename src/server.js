@@ -14,7 +14,7 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.3.6";
+const VERSION = "1.4.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the six-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -168,6 +168,7 @@ const v2CapabilitiesResponse = z.object({
   execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(76), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
   direct_route_summary:z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(168),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
   continuation_v3: continuationV3CapabilitySchema,
+  action_lifetime:z.object({quote_ttl_seconds:z.literal(60),action_bundle_ttl_seconds:z.literal(180),onchain_deadline_seconds:z.literal(240),wallet_ready_minimum_remaining_seconds:z.literal(120),refresh_policy:z.literal("expired_unsubmitted_only"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
   phase_b_blocked_routes: z.literal(0),
   blocked_source_only_routes: z.array(z.never()).length(0),
   server_signing: z.literal(false),
