@@ -157,7 +157,7 @@ async function executeSolana({handoff,adapter,policy,state,statePath,clock}){
 }
 
 async function sessionCall(operation,capabilityPath,{idempotencyKey,transactionHashes=[],apiBase,fetchImpl,nowMs}={}){
-  const args=["--operation",operation,"--capability-file",capabilityPath,...(idempotencyKey?["--idempotency-key",idempotencyKey]:[]),...transactionHashes.flatMap(value=>["--transaction-hash",value]),...(apiBase?["--api-base",apiBase]:[])];return runSession(args,{fetchImpl,stdout:{write(){}},nowMs});
+  const args=["--operation",operation,"--capability-file",capabilityPath,...(idempotencyKey?["--idempotency-key",idempotencyKey]:[]),...transactionHashes.flatMap(value=>["--transaction-hash",value]),...(apiBase?["--api-base",apiBase]:[])];return runSession(args,{fetchImpl,stdout:{write(){}},nowMs,allowExpiredActionWithoutHandoff:true});
 }
 
 async function preflightCallerOwnedSession({capabilityFile,policyFile,walletAdapter,apiBase,fetchImpl=fetch,clock=Date.now,sessionClient=null}){

@@ -58,6 +58,10 @@ try{
   try{await runSession(["--operation","wallet-ready","--capability-file",capabilityPath,"--idempotency-key","wallet-ready-0003","--wallet-handoff-output",shortPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:shortNetwork.fetch,stdout:{write(){}},nowMs:NOW+100});}catch(error){shortError=error;}
   assert.match(shortError?.message||"",/wallet_ready_wait_for_expiry/);assert.ok(sessionFailure(shortError).retry_after_ms>0);assert.equal(shortNetwork.calls.length,1);
 
+  const expiredRaw=await runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:mock({action:evmBundle()}).fetch,stdout:{write(){}},nowMs:NOW+61_000,allowExpiredActionWithoutHandoff:true});
+  assert.equal(expiredRaw.current_action_expired_without_handoff,true);assert.equal(expiredRaw.verification,null);assert.equal("caller_wallet_handoff" in expiredRaw,false);
+  await assert.rejects(()=>runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:mock({action:evmBundle()}).fetch,stdout:{write(){}},nowMs:NOW+61_000}),/expired_action_refresh_required/);
+
   const missingReceipt=evmBundle();delete missingReceipt.unsigned_action.safety_receipt;rehashBundleOnly(missingReceipt);
   await assert.rejects(()=>runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:mock({action:missingReceipt}).fetch,stdout:{write(){}},nowMs:NOW+100}),/bundle_receipt_invalid|receipt_version/);
   const hostileTarget=evmBundle(),evilTarget="0xDeaD00000000000000000000000000000000BeeF";hostileTarget.unsigned_action.transactions[1].to=evilTarget;hostileTarget.unsigned_action.safety_receipt.target_or_program_allowlist=[hostileTarget.unsigned_action.transactions[0].to,evilTarget].sort();rehashEvm(hostileTarget);
@@ -81,5 +85,5 @@ try{
 
   let calls=0;await assert.rejects(()=>runSession(["--operation","observe-source","--capability-file",capabilityPath,"--idempotency-key","source-0002"],{fetchImpl:async()=>{calls+=1;},stdout:{write(){}}}),/transaction_hash_missing/);assert.equal(calls,0);
   const echo=mock({echo:true});await assert.rejects(()=>runSession(["--operation","get","--capability-file",capabilityPath,"--api-base","http://127.0.0.1:8788"],{fetchImpl:echo.fetch,stdout:{write(){}},nowMs:NOW+100}),/session_token_echo_rejected/);
-  console.log(JSON.stringify({status:"pass",operations:5,strict_v3_binding:true,later_evm_handoff:true,later_solana_handoff:true,wallet_ready_minimum_remaining_seconds:120,wallet_ready_expired_auto_refresh:true,wallet_ready_live_action_not_replaced_early:true,later_action_hostiles_rejected:4,structured_409_recovery:true,capability_file_mode:"0600",raw_token_exposed:false,signing:false,submission:false,live_requests:false}));
+  console.log(JSON.stringify({status:"pass",operations:5,strict_v3_binding:true,later_evm_handoff:true,later_solana_handoff:true,expired_action_never_handed_off:true,wallet_ready_minimum_remaining_seconds:120,wallet_ready_expired_auto_refresh:true,wallet_ready_live_action_not_replaced_early:true,later_action_hostiles_rejected:4,structured_409_recovery:true,capability_file_mode:"0600",raw_token_exposed:false,signing:false,submission:false,live_requests:false}));
 }finally{rmSync(directory,{recursive:true,force:true});}

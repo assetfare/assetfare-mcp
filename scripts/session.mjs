@@ -76,7 +76,7 @@ function parseArgs(argv) {
   return out;
 }
 
-async function runSession(argv, { fetchImpl = fetch, stdout = process.stdout, nowMs } = {}) {
+async function runSession(argv, { fetchImpl = fetch, stdout = process.stdout, nowMs, allowExpiredActionWithoutHandoff=false } = {}) {
   const args = parseArgs(argv);
   if (args.help) { stdout.write(usage()); return { help: true }; }
   if(args.wallet_handoff_output)requireNewWalletHandoffPath(args.wallet_handoff_output);
@@ -111,19 +111,23 @@ async function runSession(argv, { fetchImpl = fetch, stdout = process.stdout, no
   if (session.session_id !== sessionId) throw new Error("assetfare_session_response_id_mismatch");
   let verification=null,walletHandoff=null,walletHandoffPath=null;
   const verificationNow=clock();
+  const expiredCurrentAction=Boolean(session.current_action)&&Number.isFinite(Date.parse(session.current_action.expires_at))&&Date.parse(session.current_action.expires_at)<=verificationNow;
   if(session.current_action){
     if(!context)throw new Error("assetfare_session_verification_context_required");
+    if(expiredCurrentAction&&allowExpiredActionWithoutHandoff!==true)throw new Error("assetfare_session_expired_action_refresh_required");
     if(args.operation==="wallet-ready"){
       const remaining=Date.parse(session.current_action.expires_at)-verificationNow;
       if(!Number.isFinite(remaining)||remaining<WALLET_READY_MINIMUM_REMAINING_MS){const error=Object.assign(new Error("assetfare_session_wallet_ready_wait_for_expiry"),{retry_after_ms:Number.isFinite(remaining)?Math.max(1000,remaining+1000):null});throw error;}
     }
-    const expected={...context.intent,wallets:context.wallets,...(context.event_signer_public?{event_signer_public:context.event_signer_public}:{})};
-    verification={...verifyPlanBundle(session.current_action,expected,verificationNow),approval_v3:verifyApprovalBundleBounds(session.current_action,{direct_route_summary:context.direct_route_summary},approval)};
-    walletHandoff=callerWalletHandoff(session.current_action,verification);
-    if(args.wallet_handoff_output)walletHandoffPath=writeWalletHandoff(args.wallet_handoff_output,walletHandoff);
+    if(!expiredCurrentAction){
+      const expected={...context.intent,wallets:context.wallets,...(context.event_signer_public?{event_signer_public:context.event_signer_public}:{})};
+      verification={...verifyPlanBundle(session.current_action,expected,verificationNow),approval_v3:verifyApprovalBundleBounds(session.current_action,{direct_route_summary:context.direct_route_summary},approval)};
+      walletHandoff=callerWalletHandoff(session.current_action,verification);
+      if(args.wallet_handoff_output)walletHandoffPath=writeWalletHandoff(args.wallet_handoff_output,walletHandoff);
+    }
   }else if(args.wallet_handoff_output)throw new Error("assetfare_session_wallet_handoff_unavailable");
   const remainingMs=session.current_action?Date.parse(session.current_action.expires_at)-verificationNow:null;
-  const result = { status: "pass", operation: args.operation, session,verification,...(walletHandoff?{caller_wallet_handoff:walletHandoff}:{}),wallet_handoff_output_path:walletHandoffPath,wallet_ready_auto_refreshed:autoRefreshed,wallet_ready_remaining_seconds:remainingMs===null?null:Math.floor(remainingMs/1000),session_capability_version:capability.version,strict_quote_binding_verified:approval!==null,session_capability_path: capability.path, raw_session_token_exposed: false, transaction_signed: false, transaction_submitted: false, server_signing: false, server_submission: false };
+  const result = { status: "pass", operation: args.operation, session,verification,...(walletHandoff?{caller_wallet_handoff:walletHandoff}:{}),wallet_handoff_output_path:walletHandoffPath,current_action_expired_without_handoff:expiredCurrentAction,wallet_ready_auto_refreshed:autoRefreshed,wallet_ready_remaining_seconds:remainingMs===null?null:Math.floor(remainingMs/1000),session_capability_version:capability.version,strict_quote_binding_verified:approval!==null,session_capability_path: capability.path, raw_session_token_exposed: false, transaction_signed: false, transaction_submitted: false, server_signing: false, server_submission: false };
   stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   return result;
 }
