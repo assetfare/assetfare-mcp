@@ -12,6 +12,9 @@ These instructions apply to the entire public MCP wrapper repository.
   Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only
   corridors. Polygon and Optimism are directional source-only origins to Base
   or Arbitrum USDC and use the same caller-approved prepare/session boundary.
+  Their no-forward paths use session mode: after the source receipt and Circle
+  attestation, the caller receives and signs a separately verified destination
+  `receiveMessage` handoff and pays destination native gas.
   The unversioned legacy workflow remains limited to
   `Solana SOL -> Base ETH` and `Solana SOL -> Arbitrum ETH`.
 - The primary remote `https://api.assetfare.dev/mcp` surface is v2-only: nine

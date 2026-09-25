@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, V2_MAX_RESPONSE_BYTES, V2_TIMEOUT_MS, createServer, serverCard } from "./server.js";
+import { validateDirectRouteSummary } from "./direct-route-summary.js";
 import { attachContinuation, continuationCapability } from "../test/continuation-fixture.mjs";
 
 const ENDPOINTS = [
@@ -384,6 +385,7 @@ try {
   assert.equal(routeCount, 76);
   assert.equal(sourceOnlyCount, 4);
   assert.ok(quoteValue && sourceOnlyQuoteValue);
+  const legacySourceOnly=structuredClone(sourceOnlyQuoteValue),legacyRaw=legacySourceOnly.route.steps[0],legacySummary=legacySourceOnly.direct_route_summary.steps[0];legacySourceOnly.route.steps=[legacyRaw];legacySourceOnly.route.expected_output_base=legacyRaw.expected_output_base;legacySourceOnly.route.minimum_output_base=legacyRaw.minimum_output_base;legacySourceOnly.direct_route_summary.steps=[legacySummary];legacySourceOnly.direct_route_summary.step_count=1;assert.equal(validateDirectRouteSummary(legacySourceOnly.direct_route_summary,legacySourceOnly.route,legacySourceOnly.risk,legacySourceOnly.intent,legacySourceOnly.offer).step_count,1);
   assert.equal(quoteValue.guidance.transactionSigned, false);
   assert.equal(quoteValue.guidance.transactionSubmitted, false);
 
