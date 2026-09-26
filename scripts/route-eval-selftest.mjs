@@ -59,7 +59,7 @@ const server = createServer(async (request, response) => {
     public_api_enabled: true,
     server_signing: false,
     server_submission: false,
-    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:67,external_coverage_only_route_count:9,step_count:170,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
+    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:76,external_coverage_only_route_count:0,step_count:184,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
     continuation_v3:continuationCapability(),
     asset_endpoints: [{ chain: "solana", token: "SOL" }, { chain: "solana", token: "USDC" }, { chain: "base", token: "USDC" }],
   });
@@ -212,17 +212,18 @@ checks.amount_decimal_boundaries = parseAmountUsd("1000000.01") === 1000000.01;
 for (const hostileAmount of ["70368744177664.01", "10000000000000000.01", "1e3", "1.1234567"]) {
   try { parseAmountUsd(hostileAmount); checks.amount_decimal_boundaries = false; } catch {}
 }
-const currentRouteCapability={version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:67,external_coverage_only_route_count:9,step_count:170,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false};
+const currentRouteCapability={version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:76,external_coverage_only_route_count:0,step_count:184,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false};
+const previousRouteCapability={...structuredClone(currentRouteCapability),primary_direct_route_count:67,external_coverage_only_route_count:9,step_count:170,external_intent:"Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible"};
 const legacyRouteCapability={version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,step_count:172,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false};
-checks.exact_release_transition_capabilities = validateDirectRouteCapability(currentRouteCapability)==="current"&&validateDirectRouteCapability(legacyRouteCapability)==="legacy"&&[
+checks.exact_release_transition_capabilities = validateDirectRouteCapability(currentRouteCapability)==="current"&&validateDirectRouteCapability(previousRouteCapability)==="previous"&&validateDirectRouteCapability(legacyRouteCapability)==="legacy"&&[
   (value)=>{value.step_count=171;},
   (value)=>{value.primary_direct_route_count=62;},
   (value)=>{value.external_intent=legacyRouteCapability.external_intent;},
   (value)=>{delete value.economic_eligibility_is_route_and_amount_conditioned;},
   (value)=>{value.unexpected=true;},
 ].every((mutate)=>{const hostile=structuredClone(currentRouteCapability);mutate(hostile);try{validateDirectRouteCapability(hostile);return false;}catch{return true;}})&&[
-  (value)=>{value.step_count=170;},
-  (value)=>{value.primary_direct_route_count=67;},
+  (value)=>{value.step_count=184;},
+  (value)=>{value.primary_direct_route_count=76;},
   (value)=>{value.external_intent=currentRouteCapability.external_intent;},
   (value)=>{value.unexpected=true;},
 ].every((mutate)=>{const hostile=structuredClone(legacyRouteCapability);mutate(hostile);try{validateDirectRouteCapability(hostile);return false;}catch{return true;}});

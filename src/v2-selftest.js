@@ -42,19 +42,19 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.9.0");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.9.0");assert.equal(lockMetadata.packages[""].version, "1.9.0");}
-assert.equal(registryMetadata.version, "1.9.0");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.9.0");
-assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:170 });
+assert.equal(packageMetadata.version, "1.10.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.10.0");assert.equal(lockMetadata.packages[""].version, "1.10.0");}
+assert.equal(registryMetadata.version, "1.10.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.10.0");
+assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:76, steps:184 });
 assert.equal(directRouteContract.route_count,76);
-assert.equal(directRouteContract.step_count,170);
-const publicPaxosRoutes=["solana:SOL->robinhood:USDG","solana:SOL->robinhood:ETH","solana:USDC->robinhood:USDG","solana:USDC->robinhood:ETH","solana:USDG->robinhood:ETH"];
-assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,67);
-assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="external_intent").length,9);
+assert.equal(directRouteContract.step_count,184);
+const publicPaxosRoutes=Object.keys(directRouteContract.legacy_routes).sort();assert.equal(publicPaxosRoutes.length,14);
+assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,76);
+assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="external_intent").length,0);
 for(const route of publicPaxosRoutes){const definition=directRouteContract.routes[route];assert.equal(definition.mode,"robinhood_paxos_ingress_composition");assert.equal(definition.classification,"direct_protocol_only");assert.equal(definition.steps.some((step)=>step.provider==="across_intent_bridge"),false);assert.equal(definition.steps.some((step)=>step.provider==="paxos_usdg_layerzero_oft"),true);assert.equal(definition.steps.reduce((sum,step)=>sum+step.assetfare_fee_bps,0),1);assert.equal(definition.steps.reduce((sum,step)=>sum+Number(step.minimum_guard_bps||0),0),50);}
-assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"external_intent");
-assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.some((step)=>step.provider==="across_intent_bridge"),true);
+assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
+assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
 assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
@@ -111,10 +111,10 @@ function capabilities(overrides = {}) {
     temporarily_unavailable_routes: [],
     temporarily_unavailable_route_count: 0,
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
-    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:67,external_coverage_only_route_count:9,step_count:170,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
+    direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:76,primary_direct_route_count:76,external_coverage_only_route_count:0,step_count:184,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
     continuation_v3:continuationCapability(),
     action_lifetime:{quote_ttl_seconds:60,action_bundle_ttl_seconds:180,onchain_deadline_seconds:240,wallet_ready_minimum_remaining_seconds:120,refresh_policy:"expired_unsubmitted_only",server_signing:false,server_submission:false},
-    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.9.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
+    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.10.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -239,7 +239,7 @@ globalThis.fetch = async (url, init = {}) => {
     if(mode==="direct-summary-risk-external"){const value=quote(intent);value.risk.external_intent_protocol_used=!value.risk.external_intent_protocol_used;return Response.json(value);}
     if(mode==="direct-summary-fee-index"){const value=quote(intent);value.direct_route_summary.fee_collection_step_index=7;return Response.json(value);}
     if(mode==="direct-summary-raw-extra"){const value=quote(intent);value.route.steps[0].unexpected="forbidden";return Response.json(value);}
-    if(mode==="direct-summary-across-false"){const value=quote(intent);value.direct_route_summary.classification="direct_protocol_only";value.direct_route_summary.external_intent_protocol_used=false;value.direct_route_summary.provider_internal_dex_aggregation_possible=false;return Response.json(value);}
+    if(mode==="direct-summary-across-false"){const value=quote(intent,{}, {legacy:true});value.direct_route_summary.classification="direct_protocol_only";value.direct_route_summary.external_intent_protocol_used=false;value.direct_route_summary.provider_internal_dex_aggregation_possible=false;return Response.json(value);}
     if(mode==="direct-summary-intermediate-input"){const value=quote(intent);value.direct_route_summary.steps[1].expected_input_base=String(Number(value.direct_route_summary.steps[1].expected_input_base)+1);value.route.steps[1].expected_input_base+=1;return Response.json(value);}
     if(mode==="direct-summary-fee-move"){const value=quote(intent),fee=value.direct_route_summary.fee_collection_step_index;value.direct_route_summary.steps[fee].assetfare_fee_bps=0;value.route.steps[fee].route_fee_bps=0;value.direct_route_summary.steps[0].assetfare_fee_bps=1;value.route.steps[0].route_fee_bps=1;value.direct_route_summary.fee_collection_step_index=0;value.offer.fee_collection_steps=[0];return Response.json(value);}
     if(mode==="continuation-missing"){const value=quote(intent);delete value.continuation_v3;return Response.json(value);}
@@ -326,7 +326,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.9.0");
+  assert.equal(card.serverInfo.version, "1.10.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
