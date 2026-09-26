@@ -44,4 +44,4 @@ mode="legacy-binding";assert.equal(output(await handler.handle(request({operatio
 mode="token-echo";assert.equal(output(await handler.handle(request({operation:"session_get",...common},"token-echo"),context())).error.code,"assetfare_safety_boundary_failed");
 mode="reapproval";const stopped=output(await handler.handle(request({operation:"session_get",...common},"reapproval"),context())).error;assert.equal(stopped.code,"assetfare_reapproval_required");assert.deepEqual(stopped.reapproval,recovery);
 
-console.log(JSON.stringify({status:"pass",a2a_version:"0.3.2",operations_verified:5,evm_handoff:true,solana_handoff:true,hostiles_rejected:7,structured_409_recovery:true,context_required_before_upstream:true,context_not_forwarded:true,raw_token_exposed:false,signing:false,submission:false,live_requests:false}));
+console.log(JSON.stringify({status:"pass",a2a_version:"1.0.0",operations_verified:5,evm_handoff:true,solana_handoff:true,hostiles_rejected:7,structured_409_recovery:true,context_required_before_upstream:true,context_not_forwarded:true,raw_token_exposed:false,signing:false,submission:false,live_requests:false}));

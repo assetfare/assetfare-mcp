@@ -10,7 +10,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, closeSync, constants, fstatSync, fsyncSync, lstatSync, openSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { readSessionCapability, sha256 } from "../scripts/plan.mjs";
+import { callerWalletHandoff, readSessionCapability, sha256, verifyApprovalBundleBounds, verifyPlanBundle } from "../scripts/plan.mjs";
 import { runSession } from "../scripts/session.mjs";
 
 const POLICY_VERSION="assetfare-caller-owned-execution-policy-v2";
@@ -24,6 +24,7 @@ const ID=/^[A-Za-z0-9._:-]{8,128}$/;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EVM_HASH=/^0x[0-9a-fA-F]{64}$/;
 const SOL_HASH=/^[1-9A-HJ-NP-Za-km-z]{32,128}$/;
+const PAXOS_SOLANA_STEPS=new Map([["solana:SOL->robinhood:USDG",2],["solana:SOL->robinhood:ETH",2],["solana:USDC->robinhood:USDG",1],["solana:USDC->robinhood:ETH",1],["solana:USDG->robinhood:ETH",0]]);
 const FORBIDDEN=["privatekey","seedphrase","mnemonic","secretkey","secretjsonarray","signedtransaction","serializedtransaction","rawtransaction"];
 
 function canonical(value){return JSON.stringify(value,Object.keys(value||{}).sort());}
@@ -106,6 +107,8 @@ function validateHandoff(handoff,policy,capability,nowMs=Date.now()){
   const context=capability.verification_context,approval=context.approval_v3,receipt=handoff.verified_bundle.unsigned_action?.safety_receipt;
   if(approval.quote_id!==policy.quote_id||digest(context.wallets)!==digest(policy.wallets)||bigint(approval.maximum_input_base,"approval_maximum")>policy.maximumInput||bigint(approval.minimum_output_base,"approval_minimum")<policy.minimumFinal||receipt?.custody?.server_signing!==false||receipt?.custody?.server_submission!==false)throw new Error("assetfare_runner_handoff_policy_mismatch");
   if(handoff.step_index===0&&bigint(receipt.spend?.maximum_amount_base,"handoff_input")>policy.maximumInput)throw new Error("assetfare_runner_input_cap_exceeded");
+  if(handoff.chain_family==="solana"){const action=handoff.verified_bundle.unsigned_action,rows=Array.isArray(action.instructions)?action.instructions:action.instruction&&typeof action.instruction==="object"?[action.instruction]:null,expected={fee_payer:receipt.parties?.fee_payer,recent_blockhash:"FETCH_FRESH_FROM_CALLER_SELECTED_RPC",last_valid_block_height:"FETCH_WITH_RECENT_BLOCKHASH",instructions:structuredClone(rows),address_lookup_table_addresses:structuredClone(action.addressLookupTableAddresses||action.address_lookup_table_addresses||[]),required_signers:structuredClone(action.requiredSigners||action.signers)};if(!rows||digest(expected)!==digest(handoff.transaction_construction))throw new Error("assetfare_runner_handoff_bundle_binding_invalid");}
+  if(PAXOS_SOLANA_STEPS.get(policy.route)===handoff.step_index){let expected;try{const intent=context.intent,verification={...verifyPlanBundle(handoff.verified_bundle,{...intent,wallets:context.wallets,event_signer_public:context.event_signer_public},nowMs),approval_v3:verifyApprovalBundleBounds(handoff.verified_bundle,{direct_route_summary:context.direct_route_summary},approval)};expected=callerWalletHandoff(handoff.verified_bundle,verification);}catch{throw new Error("assetfare_runner_handoff_semantic_reverification_failed");}if(digest(expected)!==digest(handoff))throw new Error("assetfare_runner_handoff_semantic_reverification_failed");}
   return handoff;
 }
 

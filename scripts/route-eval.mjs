@@ -455,6 +455,18 @@ export function validateRequestedQuote(quote, requested) {
   }
 }
 
+export function validateDirectRouteCapability(routeContract) {
+  const commonKeys=["assetfare_fee_step_bound","base_unit_amounts_are_decimal_strings","classification_values","external_intent","normalized_chain_asset_endpoints","ordered_provider_path","required_on_every_quote","route_aggregator_used_scope","route_count","server_signing","server_submission","step_count","version"];
+  const legacyKeys=[...commonKeys].sort();
+  const currentKeys=[...commonKeys,"economic_eligibility_is_route_and_amount_conditioned","external_coverage_only_route_count","primary_direct_route_count","product_classification_values"].sort();
+  const keys=routeContract&&typeof routeContract==="object"&&!Array.isArray(routeContract)?Object.keys(routeContract).sort():[];
+  const common=routeContract?.version==="assetfare-direct-route-summary-v1"&&routeContract?.required_on_every_quote===true&&routeContract?.route_count===76&&routeContract?.ordered_provider_path===true&&routeContract?.normalized_chain_asset_endpoints===true&&routeContract?.base_unit_amounts_are_decimal_strings===true&&routeContract?.assetfare_fee_step_bound===true&&JSON.stringify(routeContract?.classification_values)===JSON.stringify(["direct_protocol_only","external_intent"])&&routeContract?.route_aggregator_used_scope==="assetfare_engine_only"&&routeContract?.server_signing===false&&routeContract?.server_submission===false;
+  const legacy=common&&JSON.stringify(keys)===JSON.stringify(legacyKeys)&&routeContract.step_count===172&&routeContract.external_intent==="Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible";
+  const current=common&&JSON.stringify(keys)===JSON.stringify(currentKeys)&&routeContract.primary_direct_route_count===67&&routeContract.external_coverage_only_route_count===9&&routeContract.step_count===170&&JSON.stringify(routeContract.product_classification_values)===JSON.stringify(["primary_direct","external_coverage_only"])&&routeContract.economic_eligibility_is_route_and_amount_conditioned===true&&routeContract.external_intent==="Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible";
+  if(!legacy&&!current)throw new Error("public direct route summary contract is unavailable");
+  return current?"current":"legacy";
+}
+
 async function main() {
   const args = parseRouteEvalArgs(process.argv.slice(2));
   if (args.help) {
@@ -479,8 +491,7 @@ async function main() {
   if (capabilities.public_api_enabled !== true || capabilities.server_signing !== false || capabilities.server_submission !== false) {
     throw new Error("public capability safety boundary is unavailable");
   }
-  const routeContract=capabilities.direct_route_summary;
-  if(routeContract?.version!=="assetfare-direct-route-summary-v1"||routeContract?.required_on_every_quote!==true||routeContract?.route_count!==76||![168,172].includes(routeContract?.step_count)||routeContract?.ordered_provider_path!==true||routeContract?.normalized_chain_asset_endpoints!==true||routeContract?.base_unit_amounts_are_decimal_strings!==true||routeContract?.assetfare_fee_step_bound!==true||JSON.stringify(routeContract?.classification_values)!==JSON.stringify(["direct_protocol_only","external_intent"])||routeContract?.route_aggregator_used_scope!=="assetfare_engine_only"||routeContract?.external_intent!=="Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"||routeContract?.server_signing!==false||routeContract?.server_submission!==false)throw new Error("public direct route summary contract is unavailable");
+  validateDirectRouteCapability(capabilities.direct_route_summary);
   const continuationContract=capabilities.continuation_v3;
   if(continuationContract?.version!=="assetfare-quote-bound-continuation-v3"||continuationContract?.required_on_every_quote!==true||continuationContract?.enforcement!=="server_enforced_quote_binding"||continuationContract?.selection_status!=="unranked_candidate"||continuationContract?.automatic_selection_forbidden!==true||continuationContract?.caller_approved_boolean_is_not_human_proof!==true||continuationContract?.whole_session_path_and_bounds_enforced!==true||continuationContract?.quote_payload_sha256_spec!==QUOTE_PAYLOAD_SHA256_SPEC||continuationContract?.server_signing!==false||continuationContract?.server_submission!==false)throw new Error("public continuation_v3 contract is unavailable");
   if (status.status !== "capped_public_agent_release" || status.server_signing !== false || status.server_submission !== false) {
