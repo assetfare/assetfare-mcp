@@ -17,11 +17,11 @@ const release = read(releasePath);
 const publish = read(publishPath);
 
 const packages = [
-  ["@assetfare/agenti-route-tools", "integrations/agenti"],
-  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit"],
-  ["assetfare-elizaos-route-plugin", "integrations/elizaos"],
-  ["@assetfare/goat-plugin", "integrations/goat-sdk"],
-  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit"],
+  ["@assetfare/agenti-route-tools", "integrations/agenti", "1.0.1"],
+  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit", "1.0.0"],
+  ["assetfare-elizaos-route-plugin", "integrations/elizaos", "1.0.0"],
+  ["@assetfare/goat-plugin", "integrations/goat-sdk", "1.0.1"],
+  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit", "1.0.0"],
 ];
 const exactChoiceBlock = `        type: choice
         options:
@@ -54,7 +54,8 @@ function securityErrors(releaseText, publishText) {
       "workflow_dispatch:",
       "if: startsWith(github.ref, 'refs/tags/')",
       "ref: ${{ github.ref }}",
-      "EXPECTED_VERSION: 1.0.0",
+      'echo "EXPECTED_VERSION=$version" >> "$GITHUB_ENV"',
+      'artifact_key="${expected_tag//\\//-}"',
       "DIRECT_ROUTE_BASELINE: b886620ee5d675aa51a272105a0148f88558a879",
       "node-version: 24.19.0",
       "npm install --global npm@12.1.0",
@@ -73,11 +74,12 @@ function securityErrors(releaseText, publishText) {
       "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
     ]);
     if (count(text, "type: choice") !== 1) errors.push(`${label}: choice input count`);
-    for (const [name, directory] of packages) {
+    for (const [name, directory, version] of packages) {
       const tagName = name.replace(/^@/, "").replaceAll("/", "-");
-      requireIn(text, label, [`${name})`, `${tagName}-v1.0.0`]);
+      requireIn(text, label, [`${name})`, `${tagName}-v${version}`]);
       if (!text.includes(`directory=\"${directory}\"`)) errors.push(`${label}: directory ${directory}`);
     }
+    if (text.includes("candidate-${{ inputs.package }}")) errors.push(`${label}: unsanitized artifact name`);
     for (const forbidden of [
       "NODE_AUTH_TOKEN", "NPM_TOKEN", "secrets.", "_authToken", "npm login",
       "pull_request_target:", "pull_request:\n", "schedule:", "push:\n", "\n  release:",
@@ -144,14 +146,14 @@ for (const [name, hostileRelease, hostilePublish] of hostileCases) {
     throw new Error(`hostile workflow accepted: ${name}`);
 }
 
-for (const [name, directory] of packages) {
+for (const [name, directory, version] of packages) {
   const manifest = readJson(`${directory}/package.json`);
   const lock = readJson(`${directory}/package-lock.json`);
-  if (manifest.name !== name || manifest.version !== "1.0.0" || manifest.publishConfig?.access !== "public")
+  if (manifest.name !== name || manifest.version !== version || manifest.publishConfig?.access !== "public")
     throw new Error(`${directory}: manifest identity mismatch`);
   if (manifest.repository?.url !== "https://github.com/assetfare/assetfare-mcp.git" || manifest.repository?.directory !== directory)
     throw new Error(`${directory}: repository identity mismatch`);
-  if (lock.name !== name || lock.version !== "1.0.0" || lock.packages?.[""]?.name !== name || lock.packages?.[""]?.version !== "1.0.0")
+  if (lock.name !== name || lock.version !== version || lock.packages?.[""]?.name !== name || lock.packages?.[""]?.version !== version)
     throw new Error(`${directory}: lockfile identity mismatch`);
 }
 
@@ -165,7 +167,7 @@ if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com
 execFileSync("git", ["-c", "gpg.format=ssh", "-c", `gpg.ssh.allowedSignersFile=${fileURLToPath(new URL("verification/assetfare-release-signers", root))}`, "verify-commit", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 
 const readme = read("README.md");
-for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.0.0", "assetfare-agentkit-action-provider-v1.0.0", "assetfare-elizaos-route-plugin-v1.0.0", "assetfare-goat-plugin-v1.0.0", "assetfare-solana-agent-kit-plugin-v1.0.0", "Do not dispatch either integration release workflow", "--ref"]) {
+for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.0.1", "assetfare-agentkit-action-provider-v1.0.0", "assetfare-elizaos-route-plugin-v1.0.0", "assetfare-goat-plugin-v1.0.1", "assetfare-solana-agent-kit-plugin-v1.0.0", "Do not dispatch either integration release workflow", "--ref"]) {
   if (!readme.includes(value)) throw new Error(`README missing integration prerequisite: ${value}`);
 }
 
@@ -177,7 +179,7 @@ console.log(JSON.stringify({
   privilegeSeparated: true,
   hostileRegressionsRejected: hostileCases.length,
   integrationPackages: packages.length,
-  exactVersion: "1.0.0",
+  exactVersions: Object.fromEntries(packages.map(([name, , version]) => [name, version])),
   signedHead: true,
   rootV1WorkflowsUnchanged: true,
 }));

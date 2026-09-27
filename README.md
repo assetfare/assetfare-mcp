@@ -604,10 +604,10 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 The five stable integration packages use a separate, package-allowlisted
 release path. Their immutable tags are pinned exactly as follows:
 
-- `assetfare-agenti-route-tools-v1.0.0` (`@assetfare/agenti-route-tools`)
+- `assetfare-agenti-route-tools-v1.0.1` (`@assetfare/agenti-route-tools`)
 - `assetfare-agentkit-action-provider-v1.0.0`
 - `assetfare-elizaos-route-plugin-v1.0.0`
-- `assetfare-goat-plugin-v1.0.0` (`@assetfare/goat-plugin`)
+- `assetfare-goat-plugin-v1.0.1` (`@assetfare/goat-plugin`)
 - `assetfare-solana-agent-kit-plugin-v1.0.0`
 
 `release-integration-provenance.yml` accepts only those five package choices.
@@ -628,7 +628,8 @@ provenance phase for AgentKit is selected with
 The publish phase uses the same `--ref` and package choice with
 `publish-integration-npm.yml` only after provenance succeeds.
 
-`publish-integration-npm.yml` accepts the same allowlist and version 1.0.0. It
+`publish-integration-npm.yml` accepts the same allowlist and the exact version
+mapped to each immutable tag above. It
 repeats the signed-tag, release, manifest, lockfile, test, build, audit, and pack
 checks; downloads only the two exact release assets; verifies GitHub's asset
 digest, SHA-256 file, GitHub attestation, package identity, and byte-for-byte
