@@ -65,7 +65,7 @@ test("quote posts exactly five public fields without reading the wallet", async 
   assert.equal(guidance.transactionSubmitted, false);
   assert.equal(guidance.directRouteSummaryVerified, true);
   assert.equal(guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
-  assert.equal(guidance.economicGuidance.advisory_start_usd, 1000);
+  assert.equal((guidance.economicGuidance as any).advisory_start_usd, 1000);
   assert.equal(guidance.economicGuidanceUrl, "https://assetfare.dev/route-economics.json");
   assert.equal(guidance.useRouteSpecificAdvisory, true);
   assert.equal(guidance.globalNativeUsdcStartingAmount, null);
