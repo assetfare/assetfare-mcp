@@ -12,7 +12,7 @@ This Phase 1 plugin adds only:
 - `ASSETFARE_QUOTE_ROUTE`
 
 It uses elizaOS `ModelType.OBJECT_SMALL` to extract a bounded route intent,
-validates the exact eight-chain, 80-route endpoints and route-specific minimums with no adapter-enforced maximum, including all eight native-USDC source-only routes, requests a quote, and
+validates the exact eight-chain, 80-route endpoints and non-enforcing route guidance with no adapter-enforced maximum, including all eight native-USDC source-only routes, requests a quote, and
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 
@@ -33,12 +33,10 @@ own routing engine only and must not be presented as a claim about every
 provider's internals. Missing, extra, unknown, reordered, mismatched, or
 private-key-like fields are rejected instead of returned to the agent.
 
-USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
-bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a
-threshold for other corridors and does not guarantee AssetFare is cheapest.
-Use USD 1,000 as the primary representative amount,
-including for SOL-input routes that include a swap, and always compare fresh
-executable candidates at the actual intended amount.
+USD 1 is the shared technical quote minimum. Read the returned dated,
+non-enforcing route guidance as an evaluation start, never an execution floor
+or market ranking, and always compare fresh executable candidates at the actual
+intended amount.
 
 ```ts
 import { assetFareElizaPlugin } from "assetfare-elizaos-route-plugin";

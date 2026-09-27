@@ -39,8 +39,8 @@ const deployments = [
   ["base:cctp", "base", 8453, "cctp", "AssetFareDirectCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["base:destination", "base", 8453, "destination", "RouteAgentDestinationExecutorV3", ["fee_recipient", "router", "usdc", "weth"]],
   ["base:swap", "base", 8453, "swap", "AssetFareDirectSwapExecutorV2", ["fee_recipient", "router", "stable", "weth"]],
-  ["ethereum:expansion_cctp", "ethereum", 1, "expansion_cctp", "AssetFareExpansionCctpExecutorV1", ["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]],
-  ["hyperevm:expansion_cctp", "hyperevm", 999, "expansion_cctp", "AssetFareExpansionCctpExecutorV1", ["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]],
+  ["ethereum:expansion_cctp", "ethereum", 1, "expansion_cctp", "AssetFareExpansionCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["hyperevm:expansion_cctp", "hyperevm", 999, "expansion_cctp", "AssetFareExpansionCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["optimism:source_only_cctp", "optimism", 10, "source_only_cctp", "AssetFareSourceOnlyCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["polygon:source_only_cctp", "polygon", 137, "source_only_cctp", "AssetFareSourceOnlyCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["robinhood:swap", "robinhood", 4663, "swap", "AssetFareDirectSwapExecutorV2", ["fee_recipient", "router", "stable", "weth"]],
@@ -72,7 +72,7 @@ function fixtureBundle() {
       },
       deployments: deployments.map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
         const runtimeCode = `0x6000${index.toString(16).padStart(2, "0")}`;
-        const configuration = Object.fromEntries(configKeys.map((key, keyIndex) => [key, key === "source_domain" ? index : key === "minimum_amount_usd" ? { base: 250, solana: 500 } : key === "solana_peer" ? HASH(index + keyIndex + 1) : ADDRESS(index * 10 + keyIndex + 1)]));
+        const configuration = Object.fromEntries(configKeys.map((key, keyIndex) => [key, key === "source_domain" ? index : key === "solana_peer" ? HASH(index + keyIndex + 1) : ADDRESS(index * 10 + keyIndex + 1)]));
         return {
           address: ADDRESS(index + 1),
           block_hash: HASH(index + 100),
@@ -184,7 +184,7 @@ assert.equal(chains.size, 7);
 const legacyBundle=structuredClone(bundle);
 legacyBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["ethereum","hyperevm"].includes(name)),evm_deployments:10,unique_solidity_sources:5};
 legacyBundle.evidence.deployments=legacyBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":expansion_cctp"));
-legacyBundle.evidence.sources=legacyBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareExpansionCctpExecutorV1");
+legacyBundle.evidence.sources=legacyBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareExpansionCctpExecutorV2");
 const legacyManifest=fixtureManifest(legacyBundle);
 assert.equal(validateBundle(legacyBundle,legacyManifest).size,5);
 assert.equal(keccak256Hex(Buffer.alloc(0)), "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");

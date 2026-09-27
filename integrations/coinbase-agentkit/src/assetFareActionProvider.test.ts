@@ -16,9 +16,9 @@ test("quote schema accepts supported non-identity intent and rejects invalid inp
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "optimism", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "polygon", toToken: "USDC", amountUsd: 250 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 500 }).success, true);
-  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
-  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 250 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 0.99 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.NaN }).success, false);

@@ -14,9 +14,9 @@ The quote action covers the current eight-chain, 80-route REST v2 surface,
 including all eight native-USDC source-only routes. It requires the agent
 to compare AssetFare with deBridge, Wormhole, and other fresh executable
 routes; installation never implies preference.
-Quote amounts must be finite and at least USD 1; Ethereum routes require USD
-500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. This
-plugin imposes no maximum, while live upstream availability still applies.
+Quote amounts must be finite and at least USD 1. Route economic guidance is
+dated and non-enforcing; it never rejects an amount or guarantees best price.
+This plugin imposes no maximum, while live availability still applies.
 
 ## Verified direct path on every quote
 
@@ -35,12 +35,10 @@ own routing engine only and must not be presented as a claim about every
 provider's internals. Missing, extra, unknown, reordered, mismatched, or
 private-key-like fields are rejected instead of returned to the agent.
 
-USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
-bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a
-threshold for other corridors and does not guarantee AssetFare is cheapest.
-Use USD 1,000 as the primary representative amount.
-SOL-input routes include a swap and use USD 1,000 for representative evaluation
-too. Always compare fresh executable candidates at the actual intended amount.
+USD 1 is the shared technical quote minimum. Read the returned dated,
+non-enforcing route guidance as an evaluation start, never an execution floor
+or market ranking. Always compare fresh executable candidates at the actual
+intended amount.
 
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";

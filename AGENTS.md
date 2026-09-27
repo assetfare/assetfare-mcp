@@ -11,7 +11,8 @@ These instructions apply to the entire public MCP wrapper repository.
   source endpoints and 80 directed routes (live availability per capabilities/quote; AssetFare service fee 1bp; Circle/provider/network fees additional) across Solana, Base,
   Arbitrum, Robinhood Chain, and four directional native-USDC source-only
   origins. Polygon and Optimism go to Base or Arbitrum; Ethereum and HyperEVM
-  go to Base or Solana with route-specific USD 250/500 minimums.
+  go to Base or Solana. All amount guidance is non-enforcing, dated and never
+  a market-ranking guarantee; only the shared USD 1 technical quote minimum applies.
   Their no-forward paths use session mode: after the source receipt and Circle
   attestation, the caller receives and signs a separately verified destination
   `receiveMessage` handoff and pays destination native gas.

@@ -22,17 +22,14 @@ The skill directs the agent to the primary REST/OpenAPI v2 interface covering
 the live thirteen-endpoint, 80-route source matrix, including eight
 native-USDC source-only routes. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
-Quote amounts must be finite and at least USD 1; Ethereum routes require USD
-500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. The public
-adapter imposes no maximum, while live upstream availability still applies.
+Quote amounts must be finite and at least USD 1. Route economic guidance is
+dated and non-enforcing; it never rejects an amount or guarantees best price.
+The public adapter imposes no maximum, while live availability still applies.
 
-USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
-bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a
-threshold for other corridors and does not guarantee AssetFare is cheapest.
-USD 1,000 is the primary representative
-amount. SOL-input routes include a swap and use USD 1,000 as their
-representative evaluation too. Always compare fresh candidates at the actual
-intended amount.
+USD 1 is the shared technical quote minimum. Read the returned dated,
+non-enforcing route guidance as an evaluation start, never an execution floor
+or market ranking. Always compare fresh candidates at the actual intended
+amount.
 
 ## Safety boundary
 
