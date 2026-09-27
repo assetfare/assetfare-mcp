@@ -17,14 +17,18 @@ const release = read(releasePath);
 const publish = read(publishPath);
 
 const packages = [
+  ["@assetfare/agenti-route-tools", "integrations/agenti"],
   ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit"],
   ["assetfare-elizaos-route-plugin", "integrations/elizaos"],
+  ["@assetfare/goat-plugin", "integrations/goat-sdk"],
   ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit"],
 ];
 const exactChoiceBlock = `        type: choice
         options:
+          - '@assetfare/agenti-route-tools'
           - assetfare-agentkit-action-provider
           - assetfare-elizaos-route-plugin
+          - '@assetfare/goat-plugin'
           - assetfare-solana-agent-kit-plugin`;
 
 const section = (text, start, end) => {
@@ -50,7 +54,7 @@ function securityErrors(releaseText, publishText) {
       "workflow_dispatch:",
       "if: startsWith(github.ref, 'refs/tags/')",
       "ref: ${{ github.ref }}",
-      "EXPECTED_VERSION: 0.1.1",
+      "EXPECTED_VERSION: 1.0.0",
       "DIRECT_ROUTE_BASELINE: b886620ee5d675aa51a272105a0148f88558a879",
       "node-version: 24.19.0",
       "npm install --global npm@12.1.0",
@@ -70,7 +74,8 @@ function securityErrors(releaseText, publishText) {
     ]);
     if (count(text, "type: choice") !== 1) errors.push(`${label}: choice input count`);
     for (const [name, directory] of packages) {
-      requireIn(text, label, [`${name})`, `${name}-v0.1.1`]);
+      const tagName = name.replace(/^@/, "").replaceAll("/", "-");
+      requireIn(text, label, [`${name})`, `${tagName}-v1.0.0`]);
       if (!text.includes(`directory=\"${directory}\"`)) errors.push(`${label}: directory ${directory}`);
     }
     for (const forbidden of [
@@ -142,11 +147,11 @@ for (const [name, hostileRelease, hostilePublish] of hostileCases) {
 for (const [name, directory] of packages) {
   const manifest = readJson(`${directory}/package.json`);
   const lock = readJson(`${directory}/package-lock.json`);
-  if (manifest.name !== name || manifest.version !== "0.1.1" || manifest.publishConfig?.access !== "public")
+  if (manifest.name !== name || manifest.version !== "1.0.0" || manifest.publishConfig?.access !== "public")
     throw new Error(`${directory}: manifest identity mismatch`);
   if (manifest.repository?.url !== "https://github.com/assetfare/assetfare-mcp.git" || manifest.repository?.directory !== directory)
     throw new Error(`${directory}: repository identity mismatch`);
-  if (lock.name !== name || lock.version !== "0.1.1" || lock.packages?.[""]?.name !== name || lock.packages?.[""]?.version !== "0.1.1")
+  if (lock.name !== name || lock.version !== "1.0.0" || lock.packages?.[""]?.name !== name || lock.packages?.[""]?.version !== "1.0.0")
     throw new Error(`${directory}: lockfile identity mismatch`);
 }
 
@@ -160,7 +165,7 @@ if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com
 execFileSync("git", ["-c", "gpg.format=ssh", "-c", `gpg.ssh.allowedSignersFile=${fileURLToPath(new URL("verification/assetfare-release-signers", root))}`, "verify-commit", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 
 const readme = read("README.md");
-for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agentkit-action-provider-v0.1.1", "assetfare-elizaos-route-plugin-v0.1.1", "assetfare-solana-agent-kit-plugin-v0.1.1", "Do not dispatch either integration release workflow", "--ref"]) {
+for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.0.0", "assetfare-agentkit-action-provider-v1.0.0", "assetfare-elizaos-route-plugin-v1.0.0", "assetfare-goat-plugin-v1.0.0", "assetfare-solana-agent-kit-plugin-v1.0.0", "Do not dispatch either integration release workflow", "--ref"]) {
   if (!readme.includes(value)) throw new Error(`README missing integration prerequisite: ${value}`);
 }
 
@@ -172,7 +177,7 @@ console.log(JSON.stringify({
   privilegeSeparated: true,
   hostileRegressionsRejected: hostileCases.length,
   integrationPackages: packages.length,
-  exactVersion: "0.1.1",
+  exactVersion: "1.0.0",
   signedHead: true,
   rootV1WorkflowsUnchanged: true,
 }));

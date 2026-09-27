@@ -1,8 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
-export { validateQuoteDirectRoute } from "./directRouteSummary.js";
+export { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
 type Fetch = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -101,7 +101,9 @@ export function createAssetFareClient(config: AssetFareToolsConfig = {}) {
     async capabilities() {
       const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
       try {
-        return { capabilities: CapabilitiesSchema.parse(capabilitiesRaw), status: StatusSchema.parse(statusRaw) };
+        const capabilities = CapabilitiesSchema.parse(capabilitiesRaw);
+        validateCapabilitiesEconomicGuidance(capabilities);
+        return { capabilities, status: StatusSchema.parse(statusRaw) };
       } catch (error) {
         throw new Error("AssetFare public safety boundary is not ready", { cause: error });
       }
@@ -131,12 +133,12 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
   const client = createAssetFareClient(config);
   return {
     assetfareGetCapabilities: tool({
-      description: "Read AssetFare's public route scope and verify that the server still cannot sign or submit. Read-only and independent of the Agenti wallet.",
+      description: "Read AssetFare's public route scope, required route-specific economic guidance, and verify that the server still cannot sign or submit. Use https://assetfare.dev/route-economics.json; there is no global native-USDC starting amount. Read-only and independent of the Agenti wallet.",
       inputSchema: z.object({}).strict(),
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes and stop. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes and stop. Require economic_guidance.advisory_start_usd for this exact route; it is dated, non-enforcing, and not a market ranking. Fail closed unless the guidance and direct_route_summary are valid. Compare at the caller's actual intended amount; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       inputSchema: AssetFareQuoteSchema,
       execute: async (input) => {
         const quote = await client.quote(input);
@@ -147,6 +149,10 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
           guidance: {
           compareWithOtherRoutes: true,
           requoteBeforeSelection: true,
+          economicGuidance: quote.economic_guidance,
+          economicGuidanceUrl: "https://assetfare.dev/route-economics.json",
+          useRouteSpecificAdvisory: true,
+          globalNativeUsdcStartingAmount: null,
           directRouteSummaryVerified: true,
           orderedProviderPathVerified: true,
           normalizedChainAssetEndpointsVerified: true,

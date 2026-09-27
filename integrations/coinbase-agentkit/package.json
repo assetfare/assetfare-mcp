@@ -1,8 +1,19 @@
 {
   "name": "assetfare-agentkit-action-provider",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for Coinbase AgentKit",
-  "keywords": ["coinbase-agentkit", "agentkit", "bridge", "cross-chain", "direct-route", "usdc", "solana", "base", "ai-agents", "non-custodial"],
+  "keywords": [
+    "coinbase-agentkit",
+    "agentkit",
+    "bridge",
+    "cross-chain",
+    "direct-route",
+    "usdc",
+    "solana",
+    "base",
+    "ai-agents",
+    "non-custodial"
+  ],
   "homepage": "https://assetfare.dev/agents/",
   "type": "module",
   "main": "dist/index.js",

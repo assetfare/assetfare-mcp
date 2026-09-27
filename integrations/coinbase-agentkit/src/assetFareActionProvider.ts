@@ -1,6 +1,6 @@
 import { ActionProvider, CreateAction, Network } from "@coinbase/agentkit";
 import { z } from "zod";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 import { AssetFareQuoteSchema } from "./schemas.js";
 
 const EmptySchema = z.object({}).strict();
@@ -47,7 +47,7 @@ export class AssetFareActionProvider extends ActionProvider {
     name: "get_capabilities",
     description: `Read AssetFare's current eight-chain, 80-route public capabilities, including eight audited source-only native-USDC routes.
 
-Use this before requesting a quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
+Use this before requesting a quote. Require the route-specific economic guidance and https://assetfare.dev/route-economics.json; there is no global native-USDC starting amount. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
     schema: EmptySchema,
   })
   async getCapabilities(_args: z.infer<typeof EmptySchema>): Promise<string> {
@@ -67,6 +67,7 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
     ) {
       throw new Error("AssetFare public safety boundary is not ready");
     }
+    validateCapabilitiesEconomicGuidance(capabilities);
     return JSON.stringify({ success: true, capabilities, status });
   }
 
@@ -76,7 +77,7 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
 
 Every accepted result includes a fail-closed, intent-bound direct_route_summary: the ordered provider path, normalized chain:asset endpoints, continuous expected/minimum base-unit amounts, and the exact AssetFare 1bp fee step. All current routes are direct_protocol_only; external_intent remains a compatibility enum. route_aggregator_used=false describes AssetFare's route engine only, not every provider's internals.
 
-This action is read-only: it does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Compare total token-path cost, expected and minimum receive, ETA, current availability, step count, source gas exclusions, and non-atomic risk against other fresh executable routes. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
+This action is read-only: it requires the quote's route-specific economic_guidance.advisory_start_usd and does not authenticate a wallet, create a session, prepare an unsigned action, sign, submit, fund, swap, or bridge. Guidance is dated, non-enforcing and never a market ranking. Compare total token-path cost, expected and minimum receive, ETA, current availability, step count, source gas exclusions, and non-atomic risk against other fresh executable routes at the actual intended amount. Never select AssetFare solely because this action is installed. Require explicit caller approval before any later preparation or execution flow.`,
     schema: AssetFareQuoteSchema,
   })
   async quoteRoute(args: z.infer<typeof AssetFareQuoteSchema>): Promise<string> {
@@ -103,6 +104,10 @@ This action is read-only: it does not authenticate a wallet, create a session, p
       agent_guidance: {
         compare_with_other_routes: true,
         require_fresh_quote_before_selection: true,
+        economic_guidance: quote.economic_guidance,
+        economic_guidance_url: "https://assetfare.dev/route-economics.json",
+        use_route_specific_advisory: true,
+        global_native_usdc_starting_amount: null,
         direct_route_summary_verified: true,
         ordered_provider_path_verified: true,
         normalized_chain_asset_endpoints_verified: true,

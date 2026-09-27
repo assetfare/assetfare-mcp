@@ -1,6 +1,22 @@
 type JsonRecord = Record<string, any>;
 
 const evidence = () => ({ status: "pass", inputAmount: "1000000", aggregatorApiUsed: false, signed: false, submitted: false });
+const guidance = () => ({ advisory_start_usd: 1000, advisory_role: "structural_evaluation_start_not_observed_eligibility", status: "provisional_evaluation_start", confidence: "structural_estimate", basis: "offline_fixture_only", tested_amounts_usd: [], not_an_execution_minimum: true, not_a_best_price_guarantee: true, fresh_quote_required: true });
+const capabilityGuidance = () => ({ version: "assetfare-route-economic-guidance-v1", as_of: "2026-09-27", route_count: 80, currency: "USD", technical_quote_minimum_usd: 1, economic_guidance_is_non_enforcing: true, amount_is_never_rejected_by_economic_guidance: true, values_change_with_market: true, fresh_quote_and_caller_decision_control: true, update_policy: "append_daily_observations_then_replace_values_without_schema_change", confidence_counts: { measured_two_day: 4, measured_route_specific: 11, structural_estimate: 37, reworked_route_remeasure: 14, coverage_only_retest: 14 }, advisory_start_distribution: { "50": 1, "100": 6, "250": 13, "500": 12, "1000": 19, "2500": 4, "5000": 18, "10000": 7 } });
+
+export function currentCapabilities(): JsonRecord {
+  const economic = capabilityGuidance();
+  return {
+    public_api_enabled: true,
+    directed_conversion_routes: 80,
+    execution_implemented_routes: 80,
+    server_signing: false,
+    server_submission: false,
+    economic_guidance: economic,
+    route_product_policy: { amount_conditioned_routes: {}, economic_guidance: clone(economic), economic_guidance_url: "https://assetfare.dev/route-economics.json" },
+    evaluation_guidance: { schema_version: 2, route_specific_guidance: { version: "assetfare-route-economic-guidance-v1", url: "https://assetfare.dev/route-economics.json", required_on_every_quote: true, controls_evaluation_start: true, values_change_with_market: true } },
+  };
+}
 
 export const solToBaseIntent = { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 300 } as const;
 export const usdcToBaseIntent = { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 } as const;
@@ -34,6 +50,7 @@ export function solanaSolToBaseUsdcQuote(amountUsd = 300): JsonRecord {
   ];
   return {
     status: "capped_public_agent_release",
+    economic_guidance: guidance(),
     execution: { supported: true },
     intent: { from: "solana:SOL", to: "base:USDC", amount_usd: amountUsd, estimated_input_base: 1000000 },
     risk: { external_intent_protocol_used: false, provider_internal_dex_aggregation_possible: false, server_signing: false, server_submission: false },
@@ -59,6 +76,7 @@ export function solanaUsdcToBaseUsdcQuote(amountUsd = 1000): JsonRecord {
 export function acrossQuote(): JsonRecord {
   return {
     status: "capped_public_agent_release",
+    economic_guidance: guidance(),
     execution: { supported: true },
     intent: { from: "base:USDC", to: "robinhood:USDG", amount_usd: 300, estimated_input_base: 1000000 },
     risk: { external_intent_protocol_used: true, provider_internal_dex_aggregation_possible: true, server_signing: false, server_submission: false },
@@ -74,6 +92,7 @@ export function expansionQuote(): JsonRecord {
   const rawStep = { kind: "direct_bridge", provider: "circle_cctp", from: "ethereum", to: "base", asset: "USDC", route_fee_bps: 1, index: 0, expected_input_base: 500000000, floor_input_base: 500000000, expected_output_base: 499950000, minimum_output_base: 499900000, expected_evidence: evidence(), floor_evidence: null };
   return {
     status: "capped_public_agent_release",
+    economic_guidance: guidance(),
     execution: { supported: true },
     intent: { from: "ethereum:USDC", to: "base:USDC", amount_usd: 500, estimated_input_base: 500000000 },
     risk: { external_intent_protocol_used: false, provider_internal_dex_aggregation_possible: false, server_signing: false, server_submission: false },

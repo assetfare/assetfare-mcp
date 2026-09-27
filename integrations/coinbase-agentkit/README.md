@@ -11,6 +11,10 @@ a session, prepares an action, signs, submits, funds, swaps, or bridges.
 Quote amounts must be finite and at least USD 1. Route economic guidance is
 dated and non-enforcing; it never rejects an amount or guarantees best price.
 This provider imposes no maximum, while live availability still applies.
+Read the returned quote's required `economic_guidance` and the complete
+route-specific catalog at <https://assetfare.dev/route-economics.json>.
+`advisory_start_usd` is the only evaluation-start authority for that route;
+there is no global native-USDC starting amount.
 
 ## Verified direct path on every quote
 

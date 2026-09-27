@@ -1,5 +1,5 @@
 import { Tool } from "@goat-sdk/core";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 import { AssetFareNoParams, AssetFareQuoteParameters } from "./parameters.js";
 
 type Fetch = typeof fetch;
@@ -28,7 +28,7 @@ export class AssetFareService {
 
   @Tool({
     name: "assetfare_get_capabilities",
-    description: "Read AssetFare's current public route scope and verify that server signing and submission remain disabled. This tool is read-only.",
+    description: "Read AssetFare's current public route scope and required route-specific economic guidance. Use https://assetfare.dev/route-economics.json; there is no global native-USDC starting amount. Verify that server signing and submission remain disabled. This tool is read-only.",
   })
   async getCapabilities(_parameters: AssetFareNoParams) {
     const [capabilities, status] = await Promise.all([
@@ -47,12 +47,13 @@ export class AssetFareService {
     ) {
       throw new Error("AssetFare public safety boundary is not ready");
     }
+    validateCapabilitiesEconomicGuidance(capabilities);
     return { success: true, capabilities, status };
   }
 
   @Tool({
     name: "assetfare_quote_route",
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes, including Ethereum/HyperEVM native-USDC source routes to Base or Solana. Fail closed unless direct_route_summary proves the ordered path, continuous base-unit amounts, and exact 1bp fee. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Require economic_guidance.advisory_start_usd for this exact route; it is dated, non-enforcing, and not a market ranking. Fail closed unless the guidance and direct_route_summary are valid. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
   })
   async quoteRoute(parameters: AssetFareQuoteParameters) {
     const quoteRaw = await this.request("/v2/quote", {
@@ -78,6 +79,10 @@ export class AssetFareService {
       agentGuidance: {
         compareWithOtherRoutes: true,
         requireFreshQuoteBeforeSelection: true,
+        economicGuidance: quote.economic_guidance,
+        economicGuidanceUrl: "https://assetfare.dev/route-economics.json",
+        useRouteSpecificAdvisory: true,
+        globalNativeUsdcStartingAmount: null,
         directRouteSummaryVerified: true,
         orderedProviderPathVerified: true,
         normalizedChainAssetEndpointsVerified: true,

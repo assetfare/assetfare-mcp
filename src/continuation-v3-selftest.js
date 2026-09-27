@@ -59,7 +59,8 @@ assert.throws(()=>quotePayloadSha256(unsafeOtherInteger),/unsafe_integer/);
 const invalidExact=structuredClone(fixture.quote);invalidExact.direct_route_summary.steps[0].expected_input_base="09007199254741999";
 assert.throws(()=>quotePayloadSha256(invalidExact),/continuation_v3_quote_invalid/);
 
-// Static fixture produced by the actual Python Core 2.4.1 implementation. The
+// Static unsafe-integer fixture originally produced by Python Core 2.4.1 and
+// upgraded with Core 2.5.0's required route-specific economic guidance. The
 // source JSON deliberately contains an integral float and an integer that loses
 // one unit in JSON.parse; exact direct_route_summary strings must restore it.
 const coreText=readFileSync(new URL("../test/core-241-unsafe-integer-quote.json",import.meta.url),"utf8");
@@ -70,7 +71,7 @@ assert.equal(coreQuote.intent.estimated_input_base,9007199254740992);
 assert.equal(exactUnsafe,"9007199254740993");
 assert.notEqual(String(coreQuote.intent.estimated_input_base),exactUnsafe);
 const issuedMs=Date.parse(coreQuote.continuation_v3.issued_at),coreParsed=parseV2Quote(coreQuote,{from_chain:"base",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:1000},{nowMs:issuedMs+1000});
-assert.equal(coreParsed.continuation_v3.quote_payload_sha256,"f071dead7a91a993e72ec086ac7948e801880bf24cda916ad0761e962249f17c");
+assert.equal(coreParsed.continuation_v3.quote_payload_sha256,"5cbaaf7f2687a3a8a3126ae1607fb09f8c2e08626dd18f3a2e23cde91633d0fa");
 assert.equal(quotePayloadSha256(coreParsed),coreParsed.continuation_v3.quote_payload_sha256);
 assert.equal(coreParsed.continuation_v3.input_base_bounds.maximum,exactUnsafe);
-console.log(JSON.stringify({status:"pass",python_core_compatible_fixture:true,actual_python_core_241_fixture:true,typed_canonical_v1:true,json_types_preserved:true,numeric_string_distinct:true,negative_zero_distinct:true,safe_integer_boundary_enforced:true,amount_usd_1000_dot_0:true,base_units_above_2pow53:true,parsed_raw_value:coreQuote.intent.estimated_input_base,exact_summary_value:exactUnsafe,lossy_parse_difference_asserted:true,rounded_raw_duplicates_replaced:true,portable_quote_payload_sha256:coreParsed.continuation_v3.quote_payload_sha256}));
+console.log(JSON.stringify({status:"pass",python_core_compatible_fixture:true,core_fixture_with_250_guidance:true,typed_canonical_v1:true,json_types_preserved:true,numeric_string_distinct:true,negative_zero_distinct:true,safe_integer_boundary_enforced:true,amount_usd_1000_dot_0:true,base_units_above_2pow53:true,parsed_raw_value:coreQuote.intent.estimated_input_base,exact_summary_value:exactUnsafe,lossy_parse_difference_asserted:true,rounded_raw_duplicates_replaced:true,portable_quote_payload_sha256:coreParsed.continuation_v3.quote_payload_sha256}));

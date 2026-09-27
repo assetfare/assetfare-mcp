@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AssetFareService } from "./assetfare.service.js";
-import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { acrossIntent, acrossQuote, clone, currentCapabilities, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 import { AssetFareNoParams, AssetFareQuoteParameters } from "./parameters.js";
 
 const response = (body: unknown, status = 200) =>
@@ -30,12 +30,24 @@ test("current product metadata and Ethereum expansion route verify fail-closed",
   assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
+test("route-specific economic guidance is required and fail-closed", () => {
+  const valid = solanaSolToBaseUsdcQuote();
+  assert.equal((validateQuoteDirectRoute(valid, solToBaseIntent).economic_guidance as any).advisory_start_usd, 1000);
+  const missing = clone(valid); delete missing.economic_guidance;
+  assert.throws(() => validateQuoteDirectRoute(missing, solToBaseIntent), /economic_guidance/);
+  const globalized = clone(valid); globalized.economic_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateQuoteDirectRoute(globalized, solToBaseIntent), /economic_guidance/);
+  const capabilities = currentCapabilities(); validateCapabilitiesEconomicGuidance(capabilities);
+  const stale = clone(capabilities); stale.evaluation_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateCapabilitiesEconomicGuidance(stale), /economic_guidance/);
+});
+
 test("capabilities tool checks public non-custodial status", async () => {
   const calls: string[] = [];
   const fetchMock: typeof fetch = async input => {
     const url = String(input);
     calls.push(url);
-    if (url.endsWith("/v2/capabilities")) return response({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 80, execution_implemented_routes: 80 });
+    if (url.endsWith("/v2/capabilities")) return response(currentCapabilities());
     if (url.endsWith("/v2/status")) return response({ status: "capped_public_agent_release", server_signing: false, server_submission: false });
     return response({ error: "not_found" }, 404);
   };

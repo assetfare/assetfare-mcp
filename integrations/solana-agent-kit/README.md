@@ -39,6 +39,9 @@ USD 1 is the shared technical quote minimum. Read the returned dated,
 non-enforcing route guidance as an evaluation start, never an execution floor
 or market ranking. Always compare fresh executable candidates at the actual
 intended amount.
+The required `economic_guidance.advisory_start_usd` on the returned quote and
+<https://assetfare.dev/route-economics.json> are the route-specific authority;
+there is no global native-USDC starting amount.
 
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";

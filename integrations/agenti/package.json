@@ -1,11 +1,14 @@
 {
   "name": "@assetfare/agenti-route-tools",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Read-only AssetFare route tools with a fail-closed, verified direct provider path for Agenti",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
@@ -24,6 +27,16 @@
   "overrides": {
     "jsondiffpatch": "0.7.6"
   },
-  "engines": {"node": ">=20"},
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/assetfare/assetfare-mcp.git",
+    "directory": "integrations/agenti"
+  },
   "license": "MIT"
 }

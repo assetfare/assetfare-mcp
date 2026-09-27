@@ -1,13 +1,27 @@
 {
   "name": "assetfare-elizaos-route-plugin",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for elizaOS",
-  "keywords": ["elizaos", "plugin", "bridge", "cross-chain", "direct-route", "usdc", "solana", "base", "ai-agents", "non-custodial"],
+  "keywords": [
+    "elizaos",
+    "plugin",
+    "bridge",
+    "cross-chain",
+    "direct-route",
+    "usdc",
+    "solana",
+    "base",
+    "ai-agents",
+    "non-custodial"
+  ],
   "homepage": "https://assetfare.dev/agents/",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
@@ -26,8 +40,16 @@
   "overrides": {
     "pdfjs-dist": "6.2.108"
   },
-  "engines": {"node": ">=20"},
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT",
-  "repository": {"type":"git","url":"https://github.com/assetfare/assetfare-mcp.git","directory":"integrations/elizaos"},
-  "publishConfig": {"access":"public"}
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/assetfare/assetfare-mcp.git",
+    "directory": "integrations/elizaos"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

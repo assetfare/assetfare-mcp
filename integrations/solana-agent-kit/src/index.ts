@@ -1,8 +1,8 @@
 import type { Action, Plugin, SolanaAgentKit } from "solana-agent-kit";
 import { z } from "zod";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
-export { validateQuoteDirectRoute } from "./directRouteSummary.js";
+export { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
 type Fetch = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -114,7 +114,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
     examples: [[{
       input: {},
       output: { status: "success", serverSigning: false, serverSubmission: false },
-      explanation: "Confirm the public route matrix and non-custodial boundary before quoting.",
+      explanation: "Confirm the public route matrix, route-specific economic guidance, and non-custodial boundary before quoting.",
     }]],
     schema: z.object({}).strict(),
     handler: async (_agent: SolanaAgentKit) => {
@@ -127,6 +127,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
       try {
         capabilities = CapabilitiesResponseSchema.parse(capabilitiesRaw);
         status = StatusResponseSchema.parse(statusRaw);
+        validateCapabilitiesEconomicGuidance(capabilities);
       } catch (error) {
         throw new Error("AssetFare public safety boundary is not ready", { cause: error });
       }
@@ -137,7 +138,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary proves the ordered path and exact 1bp fee. Economic guidance is dated, non-enforcing, and never a best-price guarantee. Always compare the fresh total cost. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Require economic_guidance.advisory_start_usd for this exact route and fail closed unless the guidance and direct_route_summary are valid. Guidance is dated, non-enforcing, and never a best-price guarantee; there is no global native-USDC starting amount. Always compare the fresh total cost at the actual intended amount. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },
@@ -180,10 +181,12 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
           providerInternalDexAggregationPossible: summary.provider_internal_dex_aggregation_possible,
           compareAtIntendedAmount: true,
           oneDollarPurpose: "reachability_and_schema_smoke_only",
-          nativeUsdcComparisonStartUsd: 50,
-          evidenceAsOf: "2026-09-23",
+          economicGuidance: quote.economic_guidance,
+          economicGuidanceUrl: "https://assetfare.dev/route-economics.json",
+          useRouteSpecificAdvisory: true,
+          globalNativeUsdcStartingAmount: null,
           cheapestGuaranteed: false,
-          representativeComparisonAmountUsd: 1000,
+          documentationExampleAmountUsd: 1000,
           solInputIncludesSwap: input.fromToken === "SOL",
           walletAuthenticationPerformed: false,
           sessionCreated: false,

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SolanaAgentKit } from "solana-agent-kit";
-import { AssetFareQuoteSchema, createAssetFarePlugin, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { AssetFareQuoteSchema, createAssetFarePlugin, validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./index.js";
+import { acrossIntent, acrossQuote, clone, currentCapabilities, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const inaccessibleAgent = new Proxy({}, {
   get() { throw new Error("read-only actions must not access the agent wallet"); },
@@ -30,6 +30,18 @@ test("current product metadata and Ethereum expansion route verify fail-closed",
   assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
+test("route-specific economic guidance is required and fail-closed", () => {
+  const valid = solanaSolToBaseUsdcQuote();
+  assert.equal((validateQuoteDirectRoute(valid, solToBaseIntent).economic_guidance as any).advisory_start_usd, 1000);
+  const missing = clone(valid); delete missing.economic_guidance;
+  assert.throws(() => validateQuoteDirectRoute(missing, solToBaseIntent), /economic_guidance/);
+  const globalized = clone(valid); globalized.economic_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateQuoteDirectRoute(globalized, solToBaseIntent), /economic_guidance/);
+  const capabilities = currentCapabilities(); validateCapabilitiesEconomicGuidance(capabilities);
+  const stale = clone(capabilities); stale.evaluation_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateCapabilitiesEconomicGuidance(stale), /economic_guidance/);
+});
+
 test("plugin exposes only capability and quote actions", () => {
   const plugin = createAssetFarePlugin({ fetch: async () => new Response("{}") });
   assert.deepEqual(plugin.actions.map((action) => action.name), ["ASSETFARE_GET_CAPABILITIES", "ASSETFARE_QUOTE_ROUTE"]);
@@ -53,8 +65,11 @@ test("quote posts exactly five public fields without reading the wallet", async 
   assert.equal(guidance.transactionSubmitted, false);
   assert.equal(guidance.directRouteSummaryVerified, true);
   assert.equal(guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
-  assert.equal(guidance.nativeUsdcComparisonStartUsd, 50);
-  assert.equal(guidance.representativeComparisonAmountUsd, 1000);
+  assert.equal(guidance.economicGuidance.advisory_start_usd, 1000);
+  assert.equal(guidance.economicGuidanceUrl, "https://assetfare.dev/route-economics.json");
+  assert.equal(guidance.useRouteSpecificAdvisory, true);
+  assert.equal(guidance.globalNativeUsdcStartingAmount, null);
+  assert.equal(guidance.documentationExampleAmountUsd, 1000);
   assert.equal(guidance.cheapestGuaranteed, false);
   assert.equal(guidance.compareAtIntendedAmount, true);
   assert.equal(guidance.solInputIncludesSwap, false);
@@ -89,7 +104,7 @@ test("Across ingress is external_intent and cannot be relabeled false-direct", (
 test("capabilities fail closed if the server can submit", async () => {
   const plugin = createAssetFarePlugin({
     fetch: async (input) => String(input).endsWith("/v2/capabilities")
-      ? Response.json({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 80, execution_implemented_routes: 80 })
+      ? Response.json(currentCapabilities())
       : Response.json({ status: "capped_public_agent_release", server_signing: false, server_submission: true }),
   });
   await assert.rejects(plugin.actions[0].handler(inaccessibleAgent, {}), /safety boundary/);

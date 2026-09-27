@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
-import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin, validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./index.js";
+import { acrossIntent, acrossQuote, clone, currentCapabilities, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const message = { content: { text: "Compare a USD 1,000 route from Solana native USDC to Base native USDC", source: "test" } } as Memory;
 const state = { recentMessages: message.content.text } as unknown as State;
@@ -26,6 +26,18 @@ test("current product metadata and Ethereum expansion route verify fail-closed",
   assert.equal((validateQuoteDirectRoute(expansionQuote(), expansionIntent).direct_route_summary as any).product_classification, "primary_direct");
   const hostile = expansionQuote(); hostile.direct_route_summary.steps[0].provider = "unknown_provider";
   assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
+});
+
+test("route-specific economic guidance is required and fail-closed", () => {
+  const valid = solanaSolToBaseUsdcQuote();
+  assert.equal((validateQuoteDirectRoute(valid, solToBaseIntent).economic_guidance as any).advisory_start_usd, 1000);
+  const missing = clone(valid); delete missing.economic_guidance;
+  assert.throws(() => validateQuoteDirectRoute(missing, solToBaseIntent), /economic_guidance/);
+  const globalized = clone(valid); globalized.economic_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateQuoteDirectRoute(globalized, solToBaseIntent), /economic_guidance/);
+  const capabilities = currentCapabilities(); validateCapabilitiesEconomicGuidance(capabilities);
+  const stale = clone(capabilities); stale.evaluation_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateCapabilitiesEconomicGuidance(stale), /economic_guidance/);
 });
 
 test("plugin exposes only read-only capability and quote actions", () => {
@@ -59,8 +71,11 @@ test("quote action sends five fields and never reads wallet settings", async () 
   const guidance = (result?.data as { guidance?: Record<string, unknown> } | undefined)?.guidance;
   assert.equal(guidance?.oneDollarPurpose, "reachability_and_schema_smoke_only");
   assert.equal(guidance?.directRouteSummaryVerified, true);
-  assert.equal(guidance?.nativeUsdcComparisonStartUsd, 50);
-  assert.equal(guidance?.representativeComparisonAmountUsd, 1000);
+  assert.equal((guidance?.economicGuidance as any).advisory_start_usd, 1000);
+  assert.equal(guidance?.economicGuidanceUrl, "https://assetfare.dev/route-economics.json");
+  assert.equal(guidance?.useRouteSpecificAdvisory, true);
+  assert.equal(guidance?.globalNativeUsdcStartingAmount, null);
+  assert.equal(guidance?.documentationExampleAmountUsd, 1000);
   assert.equal(guidance?.cheapestGuaranteed, false);
   assert.equal(guidance?.compareAtIntendedAmount, true);
   assert.equal(guidance?.solInputIncludesSwap, false);

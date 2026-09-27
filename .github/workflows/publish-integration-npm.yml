@@ -8,8 +8,10 @@ on:
         required: true
         type: choice
         options:
+          - '@assetfare/agenti-route-tools'
           - assetfare-agentkit-action-provider
           - assetfare-elizaos-route-plugin
+          - '@assetfare/goat-plugin'
           - assetfare-solana-agent-kit-plugin
 
 permissions:
@@ -24,7 +26,7 @@ jobs:
       contents: read
     env:
       DIRECT_ROUTE_BASELINE: b886620ee5d675aa51a272105a0148f88558a879
-      EXPECTED_VERSION: 0.1.1
+      EXPECTED_VERSION: 1.0.0
       REQUESTED_PACKAGE: ${{ inputs.package }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,24 +40,34 @@ jobs:
         run: |
           set -euo pipefail
           case "$REQUESTED_PACKAGE" in
+            @assetfare/agenti-route-tools)
+              directory="integrations/agenti"
+              tag="assetfare-agenti-route-tools-v1.0.0"
+              ;;
             assetfare-agentkit-action-provider)
               directory="integrations/coinbase-agentkit"
-              tag="assetfare-agentkit-action-provider-v0.1.1"
+              tag="assetfare-agentkit-action-provider-v1.0.0"
               ;;
             assetfare-elizaos-route-plugin)
               directory="integrations/elizaos"
-              tag="assetfare-elizaos-route-plugin-v0.1.1"
+              tag="assetfare-elizaos-route-plugin-v1.0.0"
+              ;;
+            @assetfare/goat-plugin)
+              directory="integrations/goat-sdk"
+              tag="assetfare-goat-plugin-v1.0.0"
               ;;
             assetfare-solana-agent-kit-plugin)
               directory="integrations/solana-agent-kit"
-              tag="assetfare-solana-agent-kit-plugin-v0.1.1"
+              tag="assetfare-solana-agent-kit-plugin-v1.0.0"
               ;;
             *)
               echo "Package is outside the integration publish allowlist" >&2
               exit 1
               ;;
           esac
-          test "$tag" = "$REQUESTED_PACKAGE-v$EXPECTED_VERSION"
+          expected_tag="${REQUESTED_PACKAGE#@}"
+          expected_tag="${expected_tag//\//-}-v$EXPECTED_VERSION"
+          test "$tag" = "$expected_tag"
           echo "directory=$directory" >> "$GITHUB_OUTPUT"
           echo "name=$REQUESTED_PACKAGE" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -122,7 +134,9 @@ jobs:
           set -euo pipefail
           npm pack --json > "$RUNNER_TEMP/integration-npm-pack.json"
           artifact="$(node -e 'const value=require(process.env.RUNNER_TEMP+"/integration-npm-pack.json");const rows=Array.isArray(value)?value:Object.values(value);if(rows.length!==1||typeof rows[0]?.filename!=="string")process.exit(1);process.stdout.write(rows[0].filename)')"
-          test "$artifact" = "$PACKAGE_NAME-$EXPECTED_VERSION.tgz"
+          expected_artifact="${PACKAGE_NAME#@}"
+          expected_artifact="${expected_artifact//\//-}-$EXPECTED_VERSION.tgz"
+          test "$artifact" = "$expected_artifact"
           stage="$RUNNER_TEMP/integration-publish-candidate"
           mkdir -p "$stage"
           install -m 0644 "$artifact" "$stage/"
@@ -148,7 +162,7 @@ jobs:
       id-token: write
       attestations: read
     env:
-      EXPECTED_VERSION: 0.1.1
+      EXPECTED_VERSION: 1.0.0
       GH_TOKEN: ${{ github.token }}
       REQUESTED_PACKAGE: ${{ inputs.package }}
     steps:
@@ -163,12 +177,16 @@ jobs:
         run: |
           set -euo pipefail
           case "$REQUESTED_PACKAGE" in
-            assetfare-agentkit-action-provider) tag="assetfare-agentkit-action-provider-v0.1.1" ;;
-            assetfare-elizaos-route-plugin) tag="assetfare-elizaos-route-plugin-v0.1.1" ;;
-            assetfare-solana-agent-kit-plugin) tag="assetfare-solana-agent-kit-plugin-v0.1.1" ;;
+            @assetfare/agenti-route-tools) tag="assetfare-agenti-route-tools-v1.0.0" ;;
+            assetfare-agentkit-action-provider) tag="assetfare-agentkit-action-provider-v1.0.0" ;;
+            assetfare-elizaos-route-plugin) tag="assetfare-elizaos-route-plugin-v1.0.0" ;;
+            @assetfare/goat-plugin) tag="assetfare-goat-plugin-v1.0.0" ;;
+            assetfare-solana-agent-kit-plugin) tag="assetfare-solana-agent-kit-plugin-v1.0.0" ;;
             *) echo "Package is outside the integration publish allowlist" >&2; exit 1 ;;
           esac
-          test "$tag" = "$REQUESTED_PACKAGE-v$EXPECTED_VERSION"
+          expected_tag="${REQUESTED_PACKAGE#@}"
+          expected_tag="${expected_tag//\//-}-v$EXPECTED_VERSION"
+          test "$tag" = "$expected_tag"
           echo "name=$REQUESTED_PACKAGE" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -191,7 +209,8 @@ jobs:
           set -euo pipefail
           candidate="$RUNNER_TEMP/integration-publish-candidate"
           test "$(find "$candidate" -maxdepth 1 -type f | wc -l)" = "2"
-          artifact="$PACKAGE_NAME-$EXPECTED_VERSION.tgz"
+          artifact="${PACKAGE_NAME#@}"
+          artifact="${artifact//\//-}-$EXPECTED_VERSION.tgz"
           test -f "$candidate/$artifact"
           test -f "$candidate/release-metadata.json"
           node - "$candidate/release-metadata.json" "$candidate/$artifact" "$PACKAGE_NAME" "$EXPECTED_VERSION" "$RELEASE_TAG" <<'NODE'
@@ -199,7 +218,7 @@ jobs:
           const [metadataPath,artifactPath,name,version,tag]=process.argv.slice(2);
           const metadata=JSON.parse(fs.readFileSync(metadataPath,"utf8"));
           const bytes=fs.readFileSync(artifactPath);
-          const expected={packageName:name,version,tag,artifact:`${name}-${version}.tgz`,sha256:crypto.createHash("sha256").update(bytes).digest("hex"),sha1:crypto.createHash("sha1").update(bytes).digest("hex")};
+          const expected={packageName:name,version,tag,artifact:`${name.replace(/^@/,"").replaceAll("/","-")}-${version}.tgz`,sha256:crypto.createHash("sha256").update(bytes).digest("hex"),sha1:crypto.createHash("sha1").update(bytes).digest("hex")};
           for(const [key,value] of Object.entries(expected))if(metadata[key]!==value)process.exit(1);
           if(!/^[0-9a-f]{40}$/.test(metadata.tagCommit)||!/^[0-9a-f]{40}$/.test(metadata.mainCommit))process.exit(1);
           NODE

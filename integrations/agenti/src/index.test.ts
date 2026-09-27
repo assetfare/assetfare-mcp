@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AssetFareQuoteSchema, assetFareTools, createAssetFareClient, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { AssetFareQuoteSchema, assetFareTools, createAssetFareClient, validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./index.js";
+import { acrossIntent, acrossQuote, clone, currentCapabilities, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 test("schema accepts the one-dollar roadmap route and rejects unsafe intent", () => {
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
@@ -25,6 +25,19 @@ test("current product metadata and Ethereum expansion route verify fail-closed",
   assert.equal((quote.direct_route_summary as any).product_classification, "primary_direct");
   const hostile = expansionQuote(); hostile.direct_route_summary.steps[0].to = "solana:USDC";
   assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
+});
+
+test("route-specific economic guidance is required and fail-closed", () => {
+  const valid = solanaSolToBaseUsdcQuote();
+  assert.equal((validateQuoteDirectRoute(valid, solToBaseIntent).economic_guidance as any).advisory_start_usd, 1000);
+  const missing = clone(valid); delete missing.economic_guidance;
+  assert.throws(() => validateQuoteDirectRoute(missing, solToBaseIntent), /economic_guidance/);
+  const globalized = clone(valid); globalized.economic_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateQuoteDirectRoute(globalized, solToBaseIntent), /economic_guidance/);
+  const capabilities = currentCapabilities();
+  validateCapabilitiesEconomicGuidance(capabilities);
+  const stale = clone(capabilities); stale.evaluation_guidance.native_usdc_economic_evaluation_start_usd = 50;
+  assert.throws(() => validateCapabilitiesEconomicGuidance(stale), /economic_guidance/);
 });
 
 test("client sends only the five public quote fields", async () => {

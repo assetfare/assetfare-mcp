@@ -45,7 +45,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "1.3.1");
+assert.equal(card.version, "1.4.0");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -89,8 +89,11 @@ assert.equal(result.result.message.parts[0].data.quote.direct_route_summary.rout
 assert.equal(result.result.message.parts[0].data.quote.economic_guidance.not_an_execution_minimum,true);
 assert.equal(result.result.message.parts[0].data.guidance.transactionSubmitted, false);
 assert.equal(result.result.message.parts[0].data.guidance.oneDollarPurpose, "reachability_and_schema_smoke_only");
-assert.equal(result.result.message.parts[0].data.guidance.nativeUsdcComparisonStartUsd, 50);
-assert.equal(result.result.message.parts[0].data.guidance.representativeComparisonAmountUsd, 1000);
+assert.equal(result.result.message.parts[0].data.guidance.economicGuidance.advisory_start_usd, ROUTE_ECONOMIC_GUIDANCE.advisory_start_usd);
+assert.equal(result.result.message.parts[0].data.guidance.economicGuidanceUrl, "https://assetfare.dev/route-economics.json");
+assert.equal(result.result.message.parts[0].data.guidance.useRouteSpecificAdvisory, true);
+assert.equal(result.result.message.parts[0].data.guidance.globalNativeUsdcStartingAmount, null);
+assert.equal(result.result.message.parts[0].data.guidance.documentationExampleAmountUsd, 1000);
 assert.equal(result.result.message.parts[0].data.guidance.solInputIncludesSwap, true);
 assert.equal(result.result.message.parts[0].data.guidance.cheapestGuaranteed, false);
 assert.equal(result.result.message.parts[0].data.guidance.compareAtIntendedAmount, true);

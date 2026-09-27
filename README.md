@@ -7,7 +7,7 @@ step. Caller approves and signs; the server never signs or submits.
 AssetFare service fee 1bp; Circle/provider/network fees additional; quote
 exposes total token-path cost and live availability.
 
-Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.12.1 verifies the
+Core 2.4.1 quotes also include strict `continuation_v3`. MCP 1.13.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -170,7 +170,7 @@ namespace; the canonical source owner is the `assetfare` GitHub organization).
 The Registry listing is externally blocked at `0.4.11` while
 [namespace migration #1666](https://github.com/modelcontextprotocol/registry/issues/1666)
 is unresolved; npm, the public source, and the hosted server are the current
-`1.12.1` authorities. Do not create a duplicate `io.github.assetfare/*` listing
+`1.13.0` authorities. Do not create a duplicate `io.github.assetfare/*` listing
 to bypass the migration.
 
 Primary MCP quote scope: 80 directed routes across thirteen v2 source endpoints.
@@ -220,7 +220,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -236,7 +236,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -282,10 +282,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -303,7 +303,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -337,7 +337,7 @@ Before funding it, validate the local adapter contract without invoking any
 wallet, signer, RPC submit, or network request:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-adapter-conformance \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-adapter-conformance \
   --wallet-adapter ./my-local-wallet-adapter.mjs
 ```
 
@@ -345,7 +345,7 @@ The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
 transaction, remote signer, or hosted-wallet option:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.12.1 assetfare-agent-runner \
+npx --yes --package=assetfare-mcp@1.13.0 assetfare-agent-runner \
   --capability-file ./session-capability.json \
   --policy-file ./caller-execution-policy.json \
   --state-file ./caller-runner-state.json \
@@ -422,7 +422,7 @@ revision. The complete source and tests are in
 
 ## A2A v1 quote adapter
 
-AssetFare also exposes A2A Agent Card version 1.3.1 for agents that discover
+AssetFare also exposes A2A Agent Card version 1.4.0 for agents that discover
 quote and caller-approved unsigned workflows without MCP:
 
 - canonical Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
@@ -601,14 +601,16 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 
 ### Integration npm releases
 
-The three unscoped integration packages use a separate, package-allowlisted
+The five stable integration packages use a separate, package-allowlisted
 release path. Their immutable tags are pinned exactly as follows:
 
-- `assetfare-agentkit-action-provider-v0.1.1`
-- `assetfare-elizaos-route-plugin-v0.1.1`
-- `assetfare-solana-agent-kit-plugin-v0.1.1`
+- `assetfare-agenti-route-tools-v1.0.0` (`@assetfare/agenti-route-tools`)
+- `assetfare-agentkit-action-provider-v1.0.0`
+- `assetfare-elizaos-route-plugin-v1.0.0`
+- `assetfare-goat-plugin-v1.0.0` (`@assetfare/goat-plugin`)
+- `assetfare-solana-agent-kit-plugin-v1.0.0`
 
-`release-integration-provenance.yml` accepts only those three package choices.
+`release-integration-provenance.yml` accepts only those five package choices.
 It requires the corresponding lightweight tag to resolve to a commit signed by
 the pinned AssetFare release key and contained in `main`, requires an already
 published non-draft GitHub release, runs the package's locked checks, tests,
@@ -622,11 +624,11 @@ never `main` or another branch/tag. They require `GITHUB_REF` to equal
 the tag itself must contain the same two workflow files and pinned signer data.
 For example, after the trusted-publisher prerequisite below is complete, the
 provenance phase for AgentKit is selected with
-`gh workflow run release-integration-provenance.yml --ref assetfare-agentkit-action-provider-v0.1.1 -f package=assetfare-agentkit-action-provider`.
+`gh workflow run release-integration-provenance.yml --ref assetfare-agentkit-action-provider-v1.0.0 -f package=assetfare-agentkit-action-provider`.
 The publish phase uses the same `--ref` and package choice with
 `publish-integration-npm.yml` only after provenance succeeds.
 
-`publish-integration-npm.yml` accepts the same allowlist and version 0.1.1. It
+`publish-integration-npm.yml` accepts the same allowlist and version 1.0.0. It
 repeats the signed-tag, release, manifest, lockfile, test, build, audit, and pack
 checks; downloads only the two exact release assets; verifies GitHub's asset
 digest, SHA-256 file, GitHub attestation, package identity, and byte-for-byte
@@ -639,7 +641,7 @@ matches exactly; a conflict fails closed. The final gate requires the expected
 package's Settings → Trusted Publisher entry is configured and independently
 checked with organization `assetfare`, repository `assetfare-mcp`, exact
 workflow filename `publish-integration-npm.yml`, no environment, and direct
-`npm publish` permission.** Configure that exact entry separately for all three
+`npm publish` permission.** Configure that exact entry separately for all five
 packages. Do not substitute `publish-npm.yml`, a fork, a differently named
 workflow, or an npm write token. The existing root v1.x provenance and publish
 workflows remain separate and unchanged.
@@ -651,8 +653,8 @@ workflows remain separate and unchanged.
 - Signed manifest: `https://api.assetfare.dev/.well-known/assetfare-manifest.json`
 - Public signing key: `https://assetfare.dev/.well-known/assetfare-manifest.pub`
 - Continuously revalidated operator ownership: `https://api.assetfare.dev/.well-known/owners.json`
-- Six-chain source status: `https://api.assetfare.dev/v2/status`
-- Six-chain source capabilities: `https://api.assetfare.dev/v2/capabilities`
+- Eight-chain source status: `https://api.assetfare.dev/v2/status`
+- Eight-chain source capabilities: `https://api.assetfare.dev/v2/capabilities`
 - Primary OpenAPI v2: `https://api.assetfare.dev/v2/openapi.json`
 - Legacy MCP-backed v1 OpenAPI: `https://api.assetfare.dev/openapi.json`
 - APIs.json: `https://assetfare.dev/apis.json`

@@ -10,9 +10,9 @@ import {
   type State,
 } from "@elizaos/core";
 import { z } from "zod";
-import { validateQuoteDirectRoute } from "./directRouteSummary.js";
+import { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
-export { validateQuoteDirectRoute } from "./directRouteSummary.js";
+export { validateCapabilitiesEconomicGuidance, validateQuoteDirectRoute } from "./directRouteSummary.js";
 
 type Fetch = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -134,13 +134,14 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     similes: ["CHECK_ASSETFARE", "ASSETFARE_STATUS", "LIST_ASSETFARE_ROUTES"],
-    description: "Read AssetFare's live route scope and verify that the server cannot sign or submit. This action never accesses an elizaOS wallet.",
+    description: "Read AssetFare's live route scope and required route-specific economic guidance. Use https://assetfare.dev/route-economics.json; there is no global native-USDC starting amount. Verify that the server cannot sign or submit. This action never accesses an elizaOS wallet.",
     validate: async () => true,
     handler: async (_runtime, _message, _state, _options, callback): Promise<ActionResult> => {
       try {
         const [capabilitiesRaw, statusRaw] = await Promise.all([request("/v2/capabilities"), request("/v2/status")]);
         const capabilities = CapabilitiesSchema.parse(capabilitiesRaw);
         const status = StatusSchema.parse(statusRaw);
+        validateCapabilitiesEconomicGuidance(capabilities);
         if (callback) await callback({ text: "AssetFare public route capabilities verified.", actions: ["ASSETFARE_GET_CAPABILITIES"], data: { capabilities, status } });
         return { success: true, text: "AssetFare public route capabilities verified.", data: { capabilities, status } };
       } catch (error) {
@@ -156,7 +157,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary proves the ordered path and exact 1bp fee. Economic guidance is dated, non-enforcing, and never a best-price guarantee. Compare fresh total cost and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Require economic_guidance.advisory_start_usd for this exact route and fail closed unless the guidance and direct_route_summary are valid. Guidance is dated, non-enforcing, and never a best-price guarantee; there is no global native-USDC starting amount. Compare fresh total cost at the actual intended amount and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {
@@ -196,10 +197,12 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
             providerInternalDexAggregationPossible: summary.provider_internal_dex_aggregation_possible,
             compareAtIntendedAmount: true,
             oneDollarPurpose: "reachability_and_schema_smoke_only",
-            nativeUsdcComparisonStartUsd: 50,
-            evidenceAsOf: "2026-09-23",
+            economicGuidance: quote.economic_guidance,
+            economicGuidanceUrl: "https://assetfare.dev/route-economics.json",
+            useRouteSpecificAdvisory: true,
+            globalNativeUsdcStartingAmount: null,
             cheapestGuaranteed: false,
-            representativeComparisonAmountUsd: 1000,
+            documentationExampleAmountUsd: 1000,
             solInputIncludesSwap: input.fromToken === "SOL",
             walletAccessed: false,
             sessionCreated: false,
