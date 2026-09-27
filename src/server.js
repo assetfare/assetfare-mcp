@@ -12,9 +12,10 @@ import { z } from "zod";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema, reapprovalV3Schema, validateContinuationV3 } from "./continuation-v3.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
+import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.12.0";
+const VERSION = "1.12.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the eight-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -175,6 +176,7 @@ const callerOwnedAgentExecutionSchema=z.union([
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.10.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.11.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.12.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
+  z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.12.1"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
 ]);
 const directRouteCapabilityLegacy=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(172),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const directRouteCapabilityPrevious=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),primary_direct_route_count:z.literal(67),external_coverage_only_route_count:z.literal(9),step_count:z.literal(170),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
@@ -539,11 +541,10 @@ function parseV2Capabilities(payload) {
   const expanded=value.direct_route_summary.route_count===80,expectedEndpoints=expanded?V2_ENDPOINTS:V2_PRE_EXPANSION_ENDPOINTS,expectedSourceRoutes=new Set(expanded?V2_SOURCE_ONLY_ROUTES:V2_SOURCE_ONLY_ROUTES.filter((route)=>!route.startsWith("ethereum:")&&!route.startsWith("hyperevm:")));
   if (endpoints.size !== expectedEndpoints.size || [...expectedEndpoints].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
   if(new Set(value.source_only_routes).size!==expectedSourceRoutes.size||[...expectedSourceRoutes].some((route)=>!value.source_only_routes.includes(route))||value.directed_conversion_routes!==(expanded?80:76)||value.unsigned_route_plans_ready!==(expanded?80:76)||value.execution_ready_routes!==(expanded?80:76))throw new Error("assetfare_v2_safety_boundary_failed");
-  const amountPolicy=value.route_product_policy?.amount_conditioned_routes;
-  const priorHardFloors=JSON.stringify(amountPolicy)===JSON.stringify({"ethereum:USDC->base:USDC":500,"ethereum:USDC->solana:USDC":500,"hyperevm:USDC->base:USDC":250,"hyperevm:USDC->solana:USDC":500});
-  const advisoryGuidance=expanded&&JSON.stringify(amountPolicy)===JSON.stringify({})&&value.economic_guidance!==undefined&&value.route_product_policy?.economic_guidance_url==="https://assetfare.dev/route-economics.json"&&JSON.stringify(value.route_product_policy?.economic_guidance)===JSON.stringify(value.economic_guidance);
-  if(expanded&&!priorHardFloors&&!advisoryGuidance)throw new Error("assetfare_v2_amount_policy_invalid");
-  if(!expanded&&amountPolicy!==undefined&&JSON.stringify(amountPolicy)!==JSON.stringify({}))throw new Error("assetfare_v2_amount_policy_invalid");
+  try {
+    if(expanded){const policy=validateExpandedEconomicPolicy(payload,(guidance)=>economicGuidanceCapability.parse(guidance));if(policy.guidance)value.route_product_policy.economic_guidance=policy.guidance;}
+    else validatePreExpansionEconomicPolicy(payload);
+  } catch { throw new Error("assetfare_v2_amount_policy_invalid"); }
   if(value.blocked_source_only_routes.length!==0)throw new Error("assetfare_v2_safety_boundary_failed");
   const availabilityKeys=["execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"];
   const availabilityPresent=availabilityKeys.filter((key)=>Object.prototype.hasOwnProperty.call(value,key));
