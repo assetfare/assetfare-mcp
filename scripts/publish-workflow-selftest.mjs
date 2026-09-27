@@ -48,6 +48,7 @@ for (const value of forbidden) {
 }
 
 const provenanceRequired = [
+  "startsWith(github.event.release.tag_name || inputs.tag, 'v')",
   "node-version: 24.19.0",
   "npm install --global npm@12.1.0",
   "fetch-depth: 0",

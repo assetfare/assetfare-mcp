@@ -159,8 +159,8 @@ for (const [name, directory, version] of packages) {
 
 if (sha256(read(".github/workflows/publish-npm.yml")) !== "65bff146afcda9ae32b1cabb2bd82aa5dc92f0990ee141a9bf86afc7e6f6ce22")
   throw new Error("root v1.x publish workflow changed");
-if (sha256(read(".github/workflows/release-provenance.yml")) !== "657f94aaac7f1a204f73d5b737803adb2e7a1447fdc94a21d411226c014efeac")
-  throw new Error("root v1.x provenance workflow changed");
+if (sha256(read(".github/workflows/release-provenance.yml")) !== "e7d0a38783db28ac26182a7d9a453da8b651b2439ace8122e4af5bca167c69b1")
+  throw new Error("root provenance workflow identity mismatch");
 if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG0JPPzCA4Dp35CMBU7TH75t3+/iqgJ5PErHS2uy4GQP")
   throw new Error("release signer allowlist mismatch");
 
@@ -181,5 +181,5 @@ console.log(JSON.stringify({
   integrationPackages: packages.length,
   exactVersions: Object.fromEntries(packages.map(([name, , version]) => [name, version])),
   signedHead: true,
-  rootV1WorkflowsUnchanged: true,
+  rootReleaseWorkflowSeparationEnforced: true,
 }));
