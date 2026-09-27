@@ -19,11 +19,12 @@ prepare an action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live eleven-endpoint, 76-route source matrix, including Polygon and Optimism
+the live thirteen-endpoint, 80-route source matrix, including eight
 native-USDC source-only routes. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
-Quote amounts must be finite and at least USD 1; the public adapter imposes no
-maximum, while live upstream availability and liquidity still apply.
+Quote amounts must be finite and at least USD 1; Ethereum routes require USD
+500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. The public
+adapter imposes no maximum, while live upstream availability still applies.
 
 USD 1 is reachability/schema smoke only. USD 50 was an observed competitive
 bucket only for dated 2026-09-23 Solana USDC → Base USDC evidence; it is not a

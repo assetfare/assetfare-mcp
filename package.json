@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.10.0",
-  "description": "USDC bridge API for AI agents and agent-wallet funding: Solana USDC to Base USDC plus 76 cross-chain routes with validated provider paths, quote-bound approval, and fee steps; exact 1bp service fee plus Circle/provider/network fees; server never signs or submits.",
+  "version": "1.11.0",
+  "description": "USDC bridge API for AI agents: Solana USDC to Base USDC plus 80 direct routes across eight chains, including amount-conditioned Ethereum/HyperEVM sources; exact 1bp service fee plus Circle/provider/network fees; never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -56,6 +56,8 @@
     "robinhood-chain",
     "polygon",
     "optimism",
+    "ethereum",
+    "hyperevm",
     "mcp",
     "a2a",
     "openapi",
@@ -76,7 +78,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/is-main.js && node --check src/trust-root.js && node --check src/continuation-v3.js && node --check src/continuation-v3-selftest.js && node --check src/caller-runner.js && node --check src/caller-runner-selftest.js && node --check src/caller-runner-exact-route-selftest.js && node --check src/standard-wallet-adapter.js && node --check src/standard-wallet-adapter-selftest.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/test-runner.mjs && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/select.mjs && node --check scripts/select-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/session.mjs && node --check scripts/session-selftest.mjs && node --check scripts/caller-runner.mjs && node --check scripts/wallet-adapter-conformance.mjs && node --check scripts/remote-session-selftest.mjs && node --check scripts/a2a-session-selftest.mjs && node --check scripts/one-shot-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/package-contents-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/pilot-request-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
+    "check": "node --check src/is-main.js && node --check src/trust-root.js && node --check src/continuation-v3.js && node --check src/continuation-v3-selftest.js && node --check src/caller-runner.js && node --check src/caller-runner-selftest.js && node --check src/caller-runner-exact-route-selftest.js && node --check src/standard-wallet-adapter.js && node --check src/standard-wallet-adapter-selftest.js && node --check src/server.js && node --check src/tdqs-selftest.js && node --check src/v2-selftest.js && node --check src/expansion-selftest.js && node --check src/v2-session-selftest.js && node --check scripts/test-runner.mjs && node --check scripts/bin-entrypoint-selftest.mjs && node --check scripts/select.mjs && node --check scripts/select-selftest.mjs && node --check scripts/plan.mjs && node --check scripts/plan-selftest.mjs && node --check scripts/session.mjs && node --check scripts/session-selftest.mjs && node --check scripts/caller-runner.mjs && node --check scripts/wallet-adapter-conformance.mjs && node --check scripts/remote-session-selftest.mjs && node --check scripts/a2a-session-selftest.mjs && node --check scripts/one-shot-selftest.mjs && node --check scripts/route-eval.mjs && node --check scripts/route-eval-selftest.mjs && node --check scripts/package-contents-selftest.mjs && node --check scripts/first-call-eval.mjs && node --check scripts/agent-plugin-selftest.mjs && node --check scripts/pilot-request-selftest.mjs && node --check scripts/assetfare-verify.mjs && node --check scripts/assetfare-verify-selftest.mjs && node --check scripts/publish-workflow-selftest.mjs && node --check scripts/integration-publish-workflow-selftest.mjs",
     "test": "node scripts/test-runner.mjs",
     "verify-selftest": "node scripts/assetfare-verify-selftest.mjs",
     "a2a-test": "node src/a2a-selftest.js",

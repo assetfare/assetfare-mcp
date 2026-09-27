@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AssetFareActionProvider } from "./assetFareActionProvider.js";
-import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 import { validateQuoteDirectRoute } from "./directRouteSummary.js";
 import { AssetFareQuoteSchema } from "./schemas.js";
 
@@ -15,10 +15,20 @@ test("quote schema accepts supported non-identity intent and rejects invalid inp
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 2500.25 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "optimism", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "polygon", toToken: "USDC", amountUsd: 250 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 500 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 250 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 300 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 0.99 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.NaN }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.POSITIVE_INFINITY }).success, false);
+});
+
+test("current product metadata and Ethereum expansion route verify fail-closed", () => {
+  assert.equal((validateQuoteDirectRoute(expansionQuote(), expansionIntent).direct_route_summary as any).product_classification, "primary_direct");
+  const hostile = expansionQuote(); hostile.route.steps[0].to = "solana";
+  assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
 test("capabilities action enforces the non-custodial public boundary", async () => {
@@ -26,7 +36,7 @@ test("capabilities action enforces the non-custodial public boundary", async () 
   const fetchMock: typeof fetch = async input => {
     const url = String(input);
     calls.push(url);
-    if (url.endsWith("/v2/capabilities")) return response({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 76, execution_implemented_routes: 76 });
+    if (url.endsWith("/v2/capabilities")) return response({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 80, execution_implemented_routes: 80 });
     if (url.endsWith("/v2/status")) return response({ status: "capped_public_agent_release", server_signing: false, server_submission: false });
     return response({ error: "not_found" }, 404);
   };

@@ -28,6 +28,16 @@ const RPC_PROVIDERS = Object.freeze({
     urls: Object.freeze(["https://mainnet.base.org", "https://base.drpc.org"]),
     contractNames: Object.freeze(["cctp", "destination", "swap"]),
   }),
+  ethereum: Object.freeze({
+    chainId: 1,
+    urls: Object.freeze(["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"]),
+    contractNames: Object.freeze(["expansion_cctp"]),
+  }),
+  hyperevm: Object.freeze({
+    chainId: 999,
+    urls: Object.freeze(["https://rpc.hyperliquid.xyz/evm", "https://hyperliquid.drpc.org"]),
+    contractNames: Object.freeze(["expansion_cctp"]),
+  }),
   optimism: Object.freeze({
     chainId: 10,
     urls: Object.freeze(["https://mainnet.optimism.io", "https://optimism.drpc.org"]),
@@ -72,11 +82,16 @@ const DEPLOYMENTS = Object.freeze({
   "base:cctp": Object.freeze({ chain: "base", kind: "cctp", source: "AssetFareDirectCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "base:destination": Object.freeze({ chain: "base", kind: "destination", source: "RouteAgentDestinationExecutorV3", configuration: Object.freeze(["fee_recipient", "router", "usdc", "weth"]) }),
   "base:swap": Object.freeze({ chain: "base", kind: "swap", source: "AssetFareDirectSwapExecutorV2", configuration: Object.freeze(["fee_recipient", "router", "stable", "weth"]) }),
+  "ethereum:expansion_cctp": Object.freeze({ chain: "ethereum", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV1", configuration: Object.freeze(["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]) }),
+  "hyperevm:expansion_cctp": Object.freeze({ chain: "hyperevm", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV1", configuration: Object.freeze(["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]) }),
   "optimism:source_only_cctp": Object.freeze({ chain: "optimism", kind: "source_only_cctp", source: "AssetFareSourceOnlyCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "polygon:source_only_cctp": Object.freeze({ chain: "polygon", kind: "source_only_cctp", source: "AssetFareSourceOnlyCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "robinhood:swap": Object.freeze({ chain: "robinhood", kind: "swap", source: "AssetFareDirectSwapExecutorV2", configuration: Object.freeze(["fee_recipient", "router", "stable", "weth"]) }),
   "robinhood:usdg_oft": Object.freeze({ chain: "robinhood", kind: "usdg_oft", source: "AssetFareDirectUsdgOftExecutorV2", configuration: Object.freeze(["fee_recipient", "oft", "solana_peer", "usdg"]) }),
 });
+const EXPANSION_DEPLOYMENT_IDS = new Set(["ethereum:expansion_cctp", "hyperevm:expansion_cctp"]);
+const LEGACY_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id) => !EXPANSION_DEPLOYMENT_IDS.has(id)));
+const LEGACY_RPC_NAMES = Object.freeze(Object.keys(RPC_PROVIDERS).filter((name) => !["ethereum", "hyperevm"].includes(name)));
 
 function fail(message) {
   throw new Error(message);
@@ -244,7 +259,10 @@ function validateBundle(bundle, manifest) {
 
   exactKeys(bundle.claims, CLAIM_KEYS, "bundle.claims");
   exactKeys(bundle.claims.scope, SCOPE_KEYS, "bundle.claims.scope");
-  if (bundle.claims.scope.unique_solidity_sources !== 5 || bundle.claims.scope.evm_deployments !== Object.keys(DEPLOYMENTS).length || !Array.isArray(bundle.claims.scope.chains) || canonical(bundle.claims.scope.chains) !== canonical(Object.keys(RPC_PROVIDERS))) fail("bundle deployment scope is invalid");
+  const expandedScope=bundle.claims.scope.unique_solidity_sources===6&&bundle.claims.scope.evm_deployments===Object.keys(DEPLOYMENTS).length;
+  const legacyScope=bundle.claims.scope.unique_solidity_sources===5&&bundle.claims.scope.evm_deployments===LEGACY_DEPLOYMENT_IDS.length;
+  if ((!expandedScope&&!legacyScope)||!Array.isArray(bundle.claims.scope.chains)||canonical(bundle.claims.scope.chains)!==canonical(expandedScope?Object.keys(RPC_PROVIDERS):LEGACY_RPC_NAMES)) fail("bundle deployment scope is invalid");
+  const expectedDeploymentIds=expandedScope?Object.keys(DEPLOYMENTS):LEGACY_DEPLOYMENT_IDS;
   exactKeys(bundle.claims.fee_policy, FEE_KEYS, "bundle.claims.fee_policy");
   const fee = bundle.claims.fee_policy;
   if (fee.assetfare_service_fee_bps !== 1 || fee.formula !== "floor(fee_basis_stable_base * 1 / 10000)" || fee.maximum_stable_base !== null || fee.zero_fee_routes_allowed !== false || fee.provider_and_network_fees_additional !== true) fail("bundle exact 1bp/no-maximum fee policy is invalid");
@@ -259,7 +277,7 @@ function validateBundle(bundle, manifest) {
   if (administration.upgradeability !== false || administration.rescue_function !== false || administration.arbitrary_call !== false) fail("bundle administration policy is invalid");
 
   exactKeys(bundle.evidence, EVIDENCE_KEYS, "bundle.evidence");
-  if (!Array.isArray(bundle.evidence.sources) || bundle.evidence.sources.length !== 5) fail("bundle must include all five Solidity sources");
+  if (!Array.isArray(bundle.evidence.sources) || bundle.evidence.sources.length !== (expandedScope?6:5)) fail("bundle must include every in-scope Solidity source");
   const sourceContracts = new Set();
   for (const [index, source] of bundle.evidence.sources.entries()) {
     exactKeys(source, SOURCE_KEYS, `bundle.evidence.sources[${index}]`);
@@ -285,9 +303,9 @@ function validateBundle(bundle, manifest) {
   if (!Array.isArray(build.build_script_paths) || build.build_script_paths.length === 0 || build.build_script_paths.some((path) => typeof path !== "string" || !/^(?!\/)(?!.*\.\.)(?!.*\\).+$/.test(path))) fail("bundle build script paths are invalid");
   if (!build.build_script_paths.includes("agent_safety_invariants_preflight.mjs")) fail("bundle omits the reproducible invariant script");
 
-  if (!Array.isArray(bundle.evidence.deployments) || bundle.evidence.deployments.length !== Object.keys(DEPLOYMENTS).length) fail("bundle must include every deployment exactly once");
-  if (canonical(bundle.evidence.deployments.map(({ id }) => id)) !== canonical(Object.keys(DEPLOYMENTS))) fail("bundle deployments must use the complete sorted id set");
-  const chains = new Map(Object.entries(RPC_PROVIDERS).map(([name, pin]) => [name, { name, chain_id: pin.chainId, contracts: new Map() }]));
+  if (!Array.isArray(bundle.evidence.deployments) || bundle.evidence.deployments.length !== expectedDeploymentIds.length) fail("bundle must include every deployment exactly once");
+  if (canonical(bundle.evidence.deployments.map(({ id }) => id)) !== canonical(expectedDeploymentIds)) fail("bundle deployments must use the complete sorted id set");
+  const chains = new Map((expandedScope?Object.entries(RPC_PROVIDERS):Object.entries(RPC_PROVIDERS).filter(([name])=>LEGACY_RPC_NAMES.includes(name))).map(([name, pin]) => [name, { name, chain_id: pin.chainId, contracts: new Map() }]));
   for (const [index, deployment] of bundle.evidence.deployments.entries()) {
     exactKeys(deployment, DEPLOYMENT_KEYS, `bundle.evidence.deployments[${index}]`);
     const expected = DEPLOYMENTS[deployment.id];
@@ -309,6 +327,9 @@ function validateBundle(bundle, manifest) {
     for (const [key, value] of Object.entries(deployment.configuration)) {
       if (key === "source_domain") {
         if (!Number.isSafeInteger(value) || value < 0) fail(`bundle deployment ${deployment.id} source domain is invalid`);
+      } else if (key === "minimum_amount_usd") {
+        exactKeys(value, ["base", "solana"], `bundle deployment ${deployment.id} minimum_amount_usd`);
+        if (!Number.isSafeInteger(value.base) || !Number.isSafeInteger(value.solana) || value.base <= 0 || value.solana <= 0) fail(`bundle deployment ${deployment.id} minimum amounts are invalid`);
       } else if (key === "solana_peer") expectString(value, `bundle deployment ${deployment.id} solana_peer`, /^0x[0-9a-f]{64}$/);
       else expectString(value, `bundle deployment ${deployment.id} ${key}`, /^0x[0-9A-Fa-f]{40}$/);
     }

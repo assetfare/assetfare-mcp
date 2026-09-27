@@ -14,9 +14,9 @@ import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema,
 import { DIRECT_ROUTE_CONTRACT_COUNTS, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.10.0";
+const VERSION = "1.11.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
-// The legacy v1 API and the six-chain source v2 API run on separate local services
+// The legacy v1 API and the eight-chain source v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
 // while allowing an explicit v2 override for other deployments.
 const V2_API_BASE = (
@@ -40,9 +40,11 @@ const V2_TIMEOUT_MS = 45_000;
 const V2_MAX_RESPONSE_BYTES = 1_048_576;
 // Six-chain quote and caller-approved execution surface. Polygon and Optimism are
 // directional native-USDC SOURCE-ONLY origins, but their four corridors are execution-ready.
-const V2_SOURCE_CHAINS = ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"];
+const V2_SOURCE_CHAINS = ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"];
 const V2_DESTINATION_CHAINS = ["solana", "base", "arbitrum", "robinhood"];
-const V2_SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism"]);
+const V2_SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism", "ethereum", "hyperevm"]);
+const V2_NO_FORWARD_SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism"]);
+const V2_EXPANSION_SOURCE_CHAINS = new Set(["ethereum", "hyperevm"]);
 const V2_TOKENS = ["SOL", "ETH", "USDC", "USDG"];
 const V2_ENDPOINTS = new Set([
   "solana:SOL", "solana:USDC", "solana:USDG",
@@ -51,12 +53,16 @@ const V2_ENDPOINTS = new Set([
   "robinhood:ETH", "robinhood:USDG",
   "polygon:USDC",
   "optimism:USDC",
+  "ethereum:USDC",
+  "hyperevm:USDC",
 ]);
+const V2_PRE_EXPANSION_ENDPOINTS = new Set([...V2_ENDPOINTS].filter((value)=>!value.startsWith("ethereum:")&&!value.startsWith("hyperevm:")));
 const V2_ROUTE_NAMES = new Set();
 for (const source of V2_ENDPOINTS) for (const destination of V2_ENDPOINTS) {
   const [fromChain,fromToken]=source.split(":"),[toChain,toToken]=destination.split(":");
   if(source===destination||V2_SOURCE_ONLY_CHAINS.has(toChain))continue;
-  if(V2_SOURCE_ONLY_CHAINS.has(fromChain)&&!(fromToken==="USDC"&&["base","arbitrum"].includes(toChain)&&toToken==="USDC"))continue;
+  if(V2_NO_FORWARD_SOURCE_ONLY_CHAINS.has(fromChain)&&!(fromToken==="USDC"&&["base","arbitrum"].includes(toChain)&&toToken==="USDC"))continue;
+  if(V2_EXPANSION_SOURCE_CHAINS.has(fromChain)&&!(fromToken==="USDC"&&["base","solana"].includes(toChain)&&toToken==="USDC"))continue;
   V2_ROUTE_NAMES.add(`${source}->${destination}`);
 }
 // Canonical caller_action_plan_handoff shape (upstream is the authority; the adapter
@@ -68,10 +74,10 @@ const V2_FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step";
 const V2_SESSION_TOKEN_HEADER = "x-assetfare-session-token";
 const V2_BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
 const V2_BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
-const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every six-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
-const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or six-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
+const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and original-corridor safety gates. Use only before the unversioned Solana-SOL-to-Base/Arbitrum-ETH workflow; for every eight-chain v2 route use assetfare_v2_capabilities instead. Read-only; makes a network request and never authenticates, signs, submits, or advances a session.";
+const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new or eight-chain evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
-const V2_CAPABILITIES_DESCRIPTION = "Read the 76-route matrix, live availability, direct_route_summary, and continuation_v3 contracts before quoting. continuation_v3 is restart-fail-closed and binds the full quote payload, exact path, wallet chains, signer requirement, bounds, and explicit one_shot/session choice. Example: inspect this before requesting solana:USDC to base:USDC. Read-only; creates no wallet login, session, or action.";
+const V2_CAPABILITIES_DESCRIPTION = "Read the 80-route matrix, live availability, route-specific economic minimums, direct_route_summary, and continuation_v3 contracts before quoting. continuation_v3 is restart-fail-closed and binds the full quote payload, exact path, wallet chains, signer requirement, bounds, and explicit one_shot/session choice. Example: inspect this before requesting ethereum:USDC to base:USDC at USD 500 or more. Read-only; creates no wallet login, session, or action.";
 const V2_QUOTE_DESCRIPTION = "Get one unranked fresh candidate with direct_route_summary and continuation_v3. The adapter verifies the canonical full-quote hash, route-summary hash, fingerprint claim, wallet/signer requirements, path, bounds, modes, and TTL. It never auto-selects or treats caller_approved:true as human proof. Example: quote solana USDC to Base USDC at USD 1000. Read-only; never authenticates, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
 const V2_PREPARE_DESCRIPTION = "Return one deeply verified first unsigned bundle plus a self-verifying caller-wallet handoff. Callers must explicitly pass caller_approved=true, approval_v3 selected as one_shot, and the hash-bound verification_context copied from the exact quote/public wallets; multi-step quotes reject one_shot. Example: pass the exact context saved during quote selection. Context is validated before the upstream request and never forwarded. caller_approved:true is not human proof; AssetFare never signs or submits.";
@@ -111,9 +117,9 @@ const legacyObserveCctpIntent=z.object({access_token:accessToken,session_id:lega
 const legacyPrepareDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,idempotency_key:idempotencyKey}).strict();
 const legacyObserveDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,transaction_hash:legacyTransactionHash,idempotency_key:idempotencyKey}).strict();
 const v2QuoteFields = {
-  from_chain: z.enum(V2_SOURCE_CHAINS).describe("Source chain for the v2 route. Polygon and Optimism are source-only and cannot be used as to_chain."),
+  from_chain: z.enum(V2_SOURCE_CHAINS).describe("Source chain for the v2 route. Polygon, Optimism, Ethereum and HyperEVM are source-only and cannot be used as to_chain."),
   from_token: z.enum(V2_TOKENS).describe("Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities."),
-  to_chain: z.enum(V2_DESTINATION_CHAINS).describe("Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Polygon and Optimism are not destinations."),
+  to_chain: z.enum(V2_DESTINATION_CHAINS).describe("Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Source-only chains are not destinations."),
   to_token: z.enum(V2_TOKENS).describe("Output token symbol on to_chain. The chain-token pair must appear in current v2 capabilities."),
   amount_usd: z.number().finite().min(1).describe("Requested input value in USD, minimum 1. USD 1 is reachability/schema smoke only. A USD 50 competitive bucket was observed only for dated 2026-09-23 Solana USDC to Base USDC evidence and must not be generalized to another corridor. USD 1,000 is the primary representative amount. SOL input includes a swap. Always quote the actual intended amount."),
 };
@@ -125,7 +131,7 @@ const v2SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/).describe("Sen
 // Public wallet address: EVM 0x-40-hex or Solana base58 (32-44). Never a private key/seed.
 const v2PublicAddress = z.string().refine((value) => /^0x[0-9a-fA-F]{40}$/.test(value) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), "assetfare_v2_wallet_not_public_address").describe("Caller-owned public wallet address: 0x plus 40 hex characters for EVM, or 32-44 base58 characters for Solana. Never provide secret key material.");
 const v2EventSignerPublic = v2PublicAddress.describe("Solana CCTP only: caller-generated ephemeral public key. Keep the matching private key client-side and use it to co-sign the returned unsigned event-account transaction; never send the private key.");
-const v2WalletMap = z.record(z.enum(V2_SOURCE_CHAINS), v2PublicAddress).refine((value) => Object.keys(value).length >= 1 && Object.keys(value).length <= 6, "assetfare_v2_wallets_out_of_range").describe("Map each chain needed by this route to the caller's public wallet address. Include public addresses only; one to six entries, never private keys or seed phrases.");
+const v2WalletMap = z.record(z.enum(V2_SOURCE_CHAINS), v2PublicAddress).refine((value) => Object.keys(value).length >= 1 && Object.keys(value).length <= 8, "assetfare_v2_wallets_out_of_range").describe("Map each chain needed by this route to the caller's public wallet address. Include public addresses only; one to eight entries, never private keys or seed phrases.");
 const v2OneShotApproval=approvalV3Schema.extend({selected_mode:z.literal("one_shot")}).strict();
 const v2SessionApproval=approvalV3Schema.extend({selected_mode:z.literal("session")}).strict();
 const v2PrepareFields = {
@@ -150,8 +156,8 @@ const v2SessionCapabilityOutput = z.object({
   server_signing: z.literal(false).describe("Always false: AssetFare never signs caller transactions."),
   server_submission: z.literal(false).describe("Always false: AssetFare never submits caller transactions."),
 }).strict();
-const V2_SOURCE_ONLY_ENDPOINTS = ["optimism:USDC", "polygon:USDC"];
-const V2_SOURCE_ONLY_ROUTES = ["optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
+const V2_SOURCE_ONLY_ENDPOINTS = ["ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "polygon:USDC"];
+const V2_SOURCE_ONLY_ROUTES = ["ethereum:USDC->base:USDC", "ethereum:USDC->solana:USDC", "hyperevm:USDC->base:USDC", "hyperevm:USDC->solana:USDC", "optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
 const callerOwnedExecutionBase={supported:z.literal(true),scope:z.literal("caller_process_only"),package:z.literal("assetfare-mcp"),command:z.literal("assetfare-agent-runner"),key_location:z.literal("caller_wallet_adapter_only"),remote_mcp_tool:z.literal(false),a2a_remote_skill:z.literal(false),assetfare_server_key_access:z.literal(false),assetfare_server_signing:z.literal(false),assetfare_server_submission:z.literal(false)};
 const callerOwnedAgentExecutionSchema=z.union([
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v1"),minimum_package_version:z.literal("1.5.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v1.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v1")}).strict(),
@@ -167,25 +173,27 @@ const callerOwnedAgentExecutionSchema=z.union([
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.8.4"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.9.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.10.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
+  z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.11.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
 ]);
 const directRouteCapabilityLegacy=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(172),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const directRouteCapabilityPrevious=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),primary_direct_route_count:z.literal(67),external_coverage_only_route_count:z.literal(9),step_count:z.literal(170),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const directRouteCapabilityCurrent=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),primary_direct_route_count:z.literal(76),external_coverage_only_route_count:z.literal(0),step_count:z.literal(184),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
+const directRouteCapabilityExpanded=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(80),primary_direct_route_count:z.literal(80),external_coverage_only_route_count:z.literal(0),step_count:z.literal(188),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const v2CapabilitiesResponse = z.object({
   status: z.literal("capped_public_agent_release"),
   public_api_enabled: z.literal(true),
-  asset_endpoints: z.array(z.object({ chain: z.enum(V2_SOURCE_CHAINS), token: z.enum(V2_TOKENS) }).strict()).length(11),
-  source_only_asset_endpoints:z.array(z.object({chain:z.enum(["polygon","optimism"]),token:z.literal("USDC")}).strict()).length(2),
-  source_only_routes:z.array(z.enum(["polygon:USDC->base:USDC","polygon:USDC->arbitrum:USDC","optimism:USDC->base:USDC","optimism:USDC->arbitrum:USDC"])).length(4),
-  directed_conversion_routes: z.literal(76),
-  unsigned_route_plans_ready: z.literal(76),
-  execution_ready_routes: z.literal(76),
-  execution_implemented_routes: z.literal(76).optional(),
-  currently_prepare_ready_routes: z.number().int().min(0).max(76).optional(),
-  temporarily_unavailable_routes: z.array(z.string().min(1)).max(76).optional(),
-  temporarily_unavailable_route_count: z.number().int().min(0).max(76).optional(),
-  execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(76), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
-  direct_route_summary:z.union([directRouteCapabilityLegacy,directRouteCapabilityPrevious,directRouteCapabilityCurrent]),
+  asset_endpoints: z.array(z.object({ chain: z.enum(V2_SOURCE_CHAINS), token: z.enum(V2_TOKENS) }).strict()).min(11).max(13),
+  source_only_asset_endpoints:z.array(z.object({chain:z.enum(["polygon","optimism","ethereum","hyperevm"]),token:z.literal("USDC")}).strict()).min(2).max(4),
+  source_only_routes:z.array(z.enum(V2_SOURCE_ONLY_ROUTES)).min(4).max(8),
+  directed_conversion_routes: z.union([z.literal(76),z.literal(80)]),
+  unsigned_route_plans_ready: z.union([z.literal(76),z.literal(80)]),
+  execution_ready_routes: z.union([z.literal(76),z.literal(80)]),
+  execution_implemented_routes: z.union([z.literal(76),z.literal(80)]).optional(),
+  currently_prepare_ready_routes: z.number().int().min(0).max(80).optional(),
+  temporarily_unavailable_routes: z.array(z.string().min(1)).max(80).optional(),
+  temporarily_unavailable_route_count: z.number().int().min(0).max(80).optional(),
+  execution_availability: z.object({ status:z.enum(["available","degraded","unknown"]), provider:z.literal("circle_iris"), provider_dependent_routes:z.number().int().min(0).max(80), recent_fee_snapshot_usable:z.boolean(), guarantees_future_availability:z.literal(false) }).passthrough().optional(),
+  direct_route_summary:z.union([directRouteCapabilityLegacy,directRouteCapabilityPrevious,directRouteCapabilityCurrent,directRouteCapabilityExpanded]),
   continuation_v3: continuationV3CapabilitySchema,
   action_lifetime:z.object({quote_ttl_seconds:z.literal(60),action_bundle_ttl_seconds:z.literal(180),onchain_deadline_seconds:z.literal(240),wallet_ready_minimum_remaining_seconds:z.literal(120),refresh_policy:z.literal("expired_unsubmitted_only"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
   caller_owned_agent_execution:callerOwnedAgentExecutionSchema,
@@ -204,7 +212,7 @@ const v2EtaShape={estimated_time_seconds:z.number().int().positive().nullable(),
 const v2Eta = z.object(v2EtaShape).strict().superRefine((value,context)=>{if(value.complete_route_estimate){if(value.estimated_time_seconds===null||value.estimated_time_range_seconds===null||value.estimated_time_range_seconds[0]>value.estimated_time_range_seconds[1]||value.estimated_time_range_seconds[1]!==value.estimated_time_seconds)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_complete_inconsistent"});}else if(value.estimated_time_seconds!==null||value.estimated_time_range_seconds!==null)context.addIssue({code:z.ZodIssueCode.custom,message:"eta_incomplete_inconsistent"});});
 const v2DirectRouteProviders=["raydium_clmm","orca_whirlpool","uniswap_v3","circle_cctp","circle_cctp_receive","paxos_usdg_layerzero_oft","across_intent_bridge"];
 const v2DirectRouteModes=["cctp_direct_composition","optimism_source_cctp","polygon_source_cctp","robinhood_across_ingress_composition","robinhood_paxos_egress_composition","robinhood_paxos_ingress_composition","same_chain_direct","same_chain_direct_composition"];
-const v2EndpointNames=[...V2_ENDPOINTS],v2DestinationEndpointNames=v2EndpointNames.filter((value)=>!value.startsWith("polygon:")&&!value.startsWith("optimism:"));
+const v2EndpointNames=[...V2_ENDPOINTS],v2DestinationEndpointNames=v2EndpointNames.filter((value)=>!V2_SOURCE_ONLY_CHAINS.has(value.split(":",1)[0]));
 const v2DirectRouteStep=z.object({index:z.number().int().min(0).max(7),action:z.enum(["swap","bridge","receive"]),provider:z.enum(v2DirectRouteProviders),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),expected_input_base:z.string().regex(/^[1-9][0-9]*$/),minimum_input_base:z.string().regex(/^[1-9][0-9]*$/),expected_output_base:z.string().regex(/^[1-9][0-9]*$/),minimum_output_base:z.string().regex(/^[1-9][0-9]*$/),assetfare_fee_bps:z.union([z.literal(0),z.literal(1)]),minimum_guard_bps:z.number().int().min(1).max(500).optional(),direct_protocol:z.boolean(),external_intent_protocol:z.boolean(),aggregator_api_used:z.literal(false)}).strict();
 const v2DirectRouteSummary=z.object({version:z.literal("assetfare-direct-route-summary-v1"),route:z.enum([...V2_ROUTE_NAMES]),from:z.enum(v2EndpointNames),to:z.enum(v2DestinationEndpointNames),classification:z.enum(["direct_protocol_only","external_intent"]),mode:z.enum(v2DirectRouteModes),product_classification:z.enum(["primary_direct","external_coverage_only"]).optional(),economic_eligibility:z.enum(["not_asserted_by_capability","coverage_only_not_primary"]).optional(),public_execution_eligible:z.boolean().optional(),primary_selection_eligible:z.boolean().optional(),route_minimum_guard_bps:z.number().int().min(1).max(500).nullable().optional(),route_aggregator_used:z.literal(false),external_intent_protocol_used:z.boolean(),provider_internal_dex_aggregation_possible:z.boolean(),assetfare_fee_bps:z.literal(1),fee_collection_step_index:z.number().int().min(0).max(7),server_signing:z.literal(false),server_submission:z.literal(false),step_count:z.number().int().min(1).max(8),steps:z.array(v2DirectRouteStep).min(1).max(8)}).strict();
 const v2RemoteVerificationContext=z.object({version:z.literal("assetfare-session-verification-context-v1"),intent:z.object(v2QuoteFields).strict(),wallets:v2WalletMap,event_signer_public:v2EventSignerPublic.nullable(),approval_v3:v2SessionApproval,direct_route_summary:v2DirectRouteSummary,verification_context_sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict().describe("Strict caller-held context copied from the selected quote and approval. It contains public intent/wallet data only, never the raw session token or a private key, and is required whenever a remote MCP session call can return current_action.");
@@ -368,6 +376,13 @@ function readonly() { return { readOnlyHint: true, destructiveHint: false, idemp
 function quoteOnly() { return { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true }; }
 function stateful(idempotent = false) { return { readOnlyHint: false, destructiveHint: false, idempotentHint: idempotent, openWorldHint: true }; }
 
+function v2RouteMinimum(fromChain,toChain){
+  if(fromChain==="ethereum"&&["base","solana"].includes(toChain))return 500;
+  if(fromChain==="hyperevm"&&toChain==="base")return 250;
+  if(fromChain==="hyperevm"&&toChain==="solana")return 500;
+  return 1;
+}
+
 function parseV2Intent(args) {
   let intent;
   try { intent = v2QuoteIntent.parse(args); }
@@ -377,20 +392,24 @@ function parseV2Intent(args) {
   if (!V2_ENDPOINTS.has(source)) throw new Error("assetfare_v2_source_endpoint_unsupported");
   if (!V2_ENDPOINTS.has(destination)) throw new Error("assetfare_v2_destination_endpoint_unsupported");
   if (source === destination) throw new Error("assetfare_v2_identity_route_not_required");
-  if (V2_SOURCE_ONLY_CHAINS.has(intent.from_chain) && !(intent.from_token === "USDC" && ["base", "arbitrum"].includes(intent.to_chain) && intent.to_token === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if (V2_NO_FORWARD_SOURCE_ONLY_CHAINS.has(intent.from_chain) && !(intent.from_token === "USDC" && ["base", "arbitrum"].includes(intent.to_chain) && intent.to_token === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if (V2_EXPANSION_SOURCE_CHAINS.has(intent.from_chain) && !(intent.from_token === "USDC" && ["base", "solana"].includes(intent.to_chain) && intent.to_token === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if(intent.amount_usd<v2RouteMinimum(intent.from_chain,intent.to_chain))throw new Error("assetfare_v2_amount_below_route_minimum");
   return intent;
 }
 
 // Gate a prepare/session route BEFORE any network call: endpoints must be real, the route
 // must not be an identity, and directional source-only chains may use only their audited
 // native-USDC corridors to Base or Arbitrum USDC.
-function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
+function assertExecutableRoute(fromChain, fromToken, toChain, toToken, amountUsd) {
   const source = `${fromChain}:${fromToken}`;
   const destination = `${toChain}:${toToken}`;
   if (!V2_ENDPOINTS.has(source)) throw new Error("assetfare_v2_source_endpoint_unsupported");
   if (!V2_ENDPOINTS.has(destination)) throw new Error("assetfare_v2_destination_endpoint_unsupported");
   if (source === destination) throw new Error("assetfare_v2_identity_route_not_required");
-  if (V2_SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if (V2_NO_FORWARD_SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if (V2_EXPANSION_SOURCE_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "solana"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
+  if(Number(amountUsd)<v2RouteMinimum(fromChain,toChain))throw new Error("assetfare_v2_amount_below_route_minimum");
 }
 
 // Reject any private key, seed phrase, signed transaction, or secret material a caller
@@ -520,8 +539,12 @@ function parseV2Capabilities(payload) {
   try { value = v2CapabilitiesResponse.parse(payload); }
   catch { throw new Error("assetfare_v2_safety_boundary_failed"); }
   const endpoints = new Set(value.asset_endpoints.map((item) => `${item.chain}:${item.token}`));
-  if (endpoints.size !== V2_ENDPOINTS.size || [...V2_ENDPOINTS].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
-  if(new Set(value.source_only_routes).size!==4)throw new Error("assetfare_v2_safety_boundary_failed");
+  const expanded=value.direct_route_summary.route_count===80,expectedEndpoints=expanded?V2_ENDPOINTS:V2_PRE_EXPANSION_ENDPOINTS,expectedSourceRoutes=new Set(expanded?V2_SOURCE_ONLY_ROUTES:V2_SOURCE_ONLY_ROUTES.filter((route)=>!route.startsWith("ethereum:")&&!route.startsWith("hyperevm:")));
+  if (endpoints.size !== expectedEndpoints.size || [...expectedEndpoints].some((item) => !endpoints.has(item))) throw new Error("assetfare_v2_safety_boundary_failed");
+  if(new Set(value.source_only_routes).size!==expectedSourceRoutes.size||[...expectedSourceRoutes].some((route)=>!value.source_only_routes.includes(route))||value.directed_conversion_routes!==(expanded?80:76)||value.unsigned_route_plans_ready!==(expanded?80:76)||value.execution_ready_routes!==(expanded?80:76))throw new Error("assetfare_v2_safety_boundary_failed");
+  const amountPolicy=value.route_product_policy?.amount_conditioned_routes;
+  if(expanded&&JSON.stringify(amountPolicy)!==JSON.stringify({"ethereum:USDC->base:USDC":500,"ethereum:USDC->solana:USDC":500,"hyperevm:USDC->base:USDC":250,"hyperevm:USDC->solana:USDC":500}))throw new Error("assetfare_v2_amount_policy_invalid");
+  if(!expanded&&amountPolicy!==undefined&&JSON.stringify(amountPolicy)!==JSON.stringify({}))throw new Error("assetfare_v2_amount_policy_invalid");
   if(value.blocked_source_only_routes.length!==0)throw new Error("assetfare_v2_safety_boundary_failed");
   const availabilityKeys=["execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"];
   const availabilityPresent=availabilityKeys.filter((key)=>Object.prototype.hasOwnProperty.call(value,key));
@@ -692,7 +715,7 @@ async function serverCard(profile = "v2") {
   const callerApproved = { type: "boolean", const: true };
   const amountUsd = { type: "number", minimum: 1 };
   const v2Route = {
-    from_chain: { type: "string", enum: V2_SOURCE_CHAINS, description: "Source chain for the v2 route. Polygon and Optimism are source-only and cannot be used as to_chain." },
+    from_chain: { type: "string", enum: V2_SOURCE_CHAINS, description: "Source chain for the v2 route. Polygon, Optimism, Ethereum and HyperEVM are source-only and cannot be used as to_chain." },
     from_token: { type: "string", enum: V2_TOKENS, description: "Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities." },
     to_chain: { type: "string", enum: V2_DESTINATION_CHAINS, description: "Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Polygon and Optimism are not destinations." },
     to_token: { type: "string", enum: V2_TOKENS, description: "Output token symbol on to_chain. The chain-token pair must appear in current v2 capabilities." },
@@ -756,7 +779,7 @@ function createServer(provenance = {}, profile = "v2") {
     { name: "AssetFare", version: VERSION },
     { instructions: profile === "legacy"
       ? "Legacy compatibility endpoint for the original Solana SOL to Base/Arbitrum ETH workflow. Use only its unversioned tools. It returns unsigned actions and never receives private keys, signs, or submits. New integrations must use https://api.assetfare.dev/mcp."
-      : "Current AssetFare v2 endpoint: 76 non-custodial routes across six chains. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
+      : "Current AssetFare v2 endpoint: 80 non-custodial routes across eight chains. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
   );
 
   if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, emptyStrictInput, readonly(), () => api("/v1/status"));
@@ -774,7 +797,7 @@ function createServer(provenance = {}, profile = "v2") {
   if (includeV2) addTool(server, "assetfare_v2_prepare", V2_PREPARE_DESCRIPTION, v2PrepareIntent, stateful(false), async (args) => {
     const intent = v2PrepareIntent.parse(args);
     rejectSecretMaterial(intent);
-    assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
+    assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token, intent.amount_usd);
     parseRemoteOneShotVerificationContext(intent.verification_context,intent.approval_v3);
     const body = { caller_approved: intent.caller_approved, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}), ...(intent.approval_v3 ? { approval_v3: intent.approval_v3 } : {}) };
     return verifyRemoteBundle(await v2Api("/v2/prepare", { method: "POST", body, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }),intent.verification_context,intent.approval_v3);
@@ -783,7 +806,7 @@ function createServer(provenance = {}, profile = "v2") {
     const intent = v2SessionCreateIntent.parse(args);
     if(intent.approval_v3&&intent.approval_v3.idempotency_key!==intent.idempotency_key)throw new Error("assetfare_v2_approval_v3_idempotency_mismatch");
     rejectSecretMaterial({ ...intent, session_token: undefined });
-    assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token);
+    assertExecutableRoute(intent.from_chain, intent.from_token, intent.to_chain, intent.to_token, intent.amount_usd);
     parseRemoteVerificationContext(intent.verification_context,intent.approval_v3);
     const body = { caller_approved: intent.caller_approved, from_chain: intent.from_chain, from_token: intent.from_token, to_chain: intent.to_chain, to_token: intent.to_token, amount_usd: intent.amount_usd, wallets: intent.wallets, idempotency_key: intent.idempotency_key, ...(intent.event_signer_public ? { event_signer_public: intent.event_signer_public } : {}), ...(intent.approval_v3 ? { approval_v3: intent.approval_v3 } : {}) };
     return verifyRemoteSession(await v2Api("/v2/session", { method: "POST", body, extraHeaders: { [V2_SESSION_TOKEN_HEADER]: intent.session_token }, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent.verification_context, intent.session_token, intent.approval_v3 || null);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AssetFareQuoteSchema, assetFareTools, createAssetFareClient, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 test("schema accepts the one-dollar roadmap route and rejects unsafe intent", () => {
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
@@ -13,6 +13,18 @@ test("schema accepts the one-dollar roadmap route and rejects unsafe intent", ()
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "optimism", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "polygon", toToken: "USDC", amountUsd: 250 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 500 }).success, false);
+});
+
+test("current product metadata and Ethereum expansion route verify fail-closed", () => {
+  const quote = validateQuoteDirectRoute(expansionQuote(), expansionIntent);
+  assert.equal((quote.direct_route_summary as any).product_classification, "primary_direct");
+  const hostile = expansionQuote(); hostile.direct_route_summary.steps[0].to = "solana:USDC";
+  assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
 test("client sends only the five public quote fields", async () => {

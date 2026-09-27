@@ -5,6 +5,7 @@ const evidence = () => ({ status: "pass", inputAmount: "1000000", aggregatorApiU
 export const solToBaseIntent = { fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 300 } as const;
 export const usdcToBaseIntent = { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 } as const;
 export const acrossIntent = { fromChain: "base", fromToken: "USDC", toChain: "robinhood", toToken: "USDG", amountUsd: 300 } as const;
+export const expansionIntent = { fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 } as const;
 
 export function solanaSolToBaseUsdcQuote(amountUsd = 300): JsonRecord {
   const steps = [
@@ -64,6 +65,21 @@ export function acrossQuote(): JsonRecord {
     offer: { assetfare_fee_bps: 1, fee_modeled_bps: 1, fee_collectible_now: true, fee_collection_steps: [0] },
     route: { status: "pass", version: "assetfare-direct-multichain-quote-v2", route: "base:USDC->robinhood:USDG", mode: "robinhood_across_ingress_composition", input_base: 1000000, expected_output_base: 999000, minimum_output_base: 998000, steps: [{ kind: "direct_bridge", provider: "across_intent_bridge", from: "base", to: "robinhood", from_asset: "USDC", to_asset: "USDG", external_intent_protocol: true, route_fee_bps: 1, index: 0, expected_input_base: 1000000, floor_input_base: 1000000, expected_output_base: 999000, minimum_output_base: 998000, expected_evidence: evidence(), floor_evidence: null }], quote_latency_ms: 1, aggregator_api_used: false, external_intent_protocol_used: true, server_signing: false, server_submission: false },
     direct_route_summary: { version: "assetfare-direct-route-summary-v1", route: "base:USDC->robinhood:USDG", from: "base:USDC", to: "robinhood:USDG", classification: "external_intent", mode: "robinhood_across_ingress_composition", route_aggregator_used: false, external_intent_protocol_used: true, provider_internal_dex_aggregation_possible: true, assetfare_fee_bps: 1, fee_collection_step_index: 0, server_signing: false, server_submission: false, step_count: 1, steps: [{ index: 0, action: "bridge", provider: "across_intent_bridge", from: "base:USDC", to: "robinhood:USDG", expected_input_base: "1000000", minimum_input_base: "1000000", expected_output_base: "999000", minimum_output_base: "998000", assetfare_fee_bps: 1, direct_protocol: false, external_intent_protocol: true, aggregator_api_used: false }] },
+  };
+}
+
+export function expansionQuote(): JsonRecord {
+  const product = { product_classification: "primary_direct", economic_eligibility: "not_asserted_by_capability", public_execution_eligible: true, primary_selection_eligible: true, route_minimum_guard_bps: null };
+  const step = { index: 0, action: "bridge", provider: "circle_cctp", from: "ethereum:USDC", to: "base:USDC", expected_input_base: "500000000", minimum_input_base: "500000000", expected_output_base: "499950000", minimum_output_base: "499900000", assetfare_fee_bps: 1, direct_protocol: true, external_intent_protocol: false, aggregator_api_used: false };
+  const rawStep = { kind: "direct_bridge", provider: "circle_cctp", from: "ethereum", to: "base", asset: "USDC", route_fee_bps: 1, index: 0, expected_input_base: 500000000, floor_input_base: 500000000, expected_output_base: 499950000, minimum_output_base: 499900000, expected_evidence: evidence(), floor_evidence: null };
+  return {
+    status: "capped_public_agent_release",
+    execution: { supported: true },
+    intent: { from: "ethereum:USDC", to: "base:USDC", amount_usd: 500, estimated_input_base: 500000000 },
+    risk: { external_intent_protocol_used: false, provider_internal_dex_aggregation_possible: false, server_signing: false, server_submission: false },
+    offer: { assetfare_fee_bps: 1, fee_modeled_bps: 1, fee_collectible_now: true, fee_collection_steps: [0] },
+    route: { status: "pass", version: "assetfare-direct-multichain-quote-v2", route: "ethereum:USDC->base:USDC", mode: "cctp_direct_composition", ...product, input_base: 500000000, expected_output_base: 499950000, minimum_output_base: 499900000, steps: [rawStep], quote_latency_ms: 1, aggregator_api_used: false, external_intent_protocol_used: false, server_signing: false, server_submission: false },
+    direct_route_summary: { version: "assetfare-direct-route-summary-v1", route: "ethereum:USDC->base:USDC", from: "ethereum:USDC", to: "base:USDC", classification: "direct_protocol_only", mode: "cctp_direct_composition", ...product, route_aggregator_used: false, external_intent_protocol_used: false, provider_internal_dex_aggregation_possible: false, assetfare_fee_bps: 1, fee_collection_step_index: 0, server_signing: false, server_submission: false, step_count: 1, steps: [step] },
   };
 }
 

@@ -39,8 +39,8 @@ export class AssetFareService {
       capabilities.public_api_enabled !== true ||
       capabilities.server_signing !== false ||
       capabilities.server_submission !== false ||
-      capabilities.directed_conversion_routes !== 76 ||
-      capabilities.execution_implemented_routes !== 76 ||
+      capabilities.directed_conversion_routes !== 80 ||
+      capabilities.execution_implemented_routes !== 80 ||
       status.status !== "capped_public_agent_release" ||
       status.server_signing !== false ||
       status.server_submission !== false
@@ -52,7 +52,7 @@ export class AssetFareService {
 
   @Tool({
     name: "assetfare_quote_route",
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, including Solana to Base USDC and Polygon/Optimism native-USDC source-only routes. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal sourcing. route_aggregator_used=false applies only to AssetFare's engine. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes, including Ethereum/HyperEVM native-USDC source routes to Base or Solana. Fail closed unless direct_route_summary proves the ordered path, continuous base-unit amounts, and exact 1bp fee. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
   })
   async quoteRoute(parameters: AssetFareQuoteParameters) {
     const quoteRaw = await this.request("/v2/quote", {

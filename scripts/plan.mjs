@@ -17,7 +17,7 @@ const TIMEOUT_MS = 45_000;
 const MINIMUM_PLAN_REMAINING_MS = 15_000;
 const MAX_ACTION_TTL_MS = 180_000;
 const ACTION_CLOCK_SKEW_MS = 5_000;
-const CHAINS = new Set(["solana","base","arbitrum","robinhood","polygon","optimism"]);
+const CHAINS = new Set(["solana","base","arbitrum","robinhood","polygon","optimism","ethereum","hyperevm"]);
 const SELECTORS={approve:"0x095ea7b3",swapNative:"0xc6fa57fb",swapStable:"0xfee8180b",bridgeUsdc:"0xa17f6982",bridgeUsdg:"0xedf202ce",across:"0xad5425c6",receiveMessage:"0x57ecfd28"};
 const CCTP_TOKEN_MESSENGER="0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d";
 const CCTP_MESSAGE_TRANSMITTER="0x81D40F21F12A8F0E3252Bccb954D722d4c464B64";
@@ -31,6 +31,8 @@ const PINS={
   robinhood:{chain_id:4663,USDG:"0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",swap:"0x3d5E2AdE64f7f317b113fea18317BA7f05fe3912",swapFree:"0x74526241b298255d82ab27740162e32aff804a45",usdgOft:"0x0879976eC6F84cF8551Ff66f61A54CEBfd7c2b53"},
   polygon:{chain_id:137,USDC:"0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",cctp:"0xDFBDAC5fdb3587c9Fb0b8d939cF990873E1d5e85",domain:7},
   optimism:{chain_id:10,USDC:"0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",cctp:"0xbff0Ac1Bd5A41144afEAeA2592415dD66E662eaD",domain:2},
+  ethereum:{chain_id:1,USDC:"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",cctp:"0x50A42D5E03aD7911E786f285a2d70c5f143BF933",domain:0},
+  hyperevm:{chain_id:999,USDC:"0xb88339CB7199b77E23DB6E890353E22632Ba630f",cctp:"0x50A42D5E03aD7911E786f285a2d70c5f143BF933",domain:19},
   solana:{chain_id:"mainnet-beta",USDC:"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",USDG:"2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",feeRecipient:"J98ACstZN41f5k79ccceXHn1mDD2SPg5UwnWW2pgSVfu",domain:5},
 };
 const EVM_FEE_RECIPIENT="0x8b01BCD3f4D832c1ab27dD4abb04B4F216E27409";

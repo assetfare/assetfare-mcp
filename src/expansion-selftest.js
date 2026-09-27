@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { continuationCapability } from "../test/continuation-fixture.mjs";
+import { expansionEvmBundle, rehashEvm, NOW, FROM, TO } from "../test/action-bundle-fixture.mjs";
+import { parseV2Capabilities, parseV2Intent } from "./server.js";
+import { verifyPlanBundle } from "../scripts/plan.mjs";
+
+const contract=JSON.parse(readFileSync(new URL("./direct-route-contract.json",import.meta.url),"utf8"));
+const expansionRoutes={
+  "ethereum:USDC->base:USDC":500,
+  "ethereum:USDC->solana:USDC":500,
+  "hyperevm:USDC->base:USDC":250,
+  "hyperevm:USDC->solana:USDC":500,
+};
+assert.equal(contract.route_count,80);assert.equal(contract.step_count,188);assert.equal(Object.keys(contract.routes).length,80);
+for(const route of Object.keys(expansionRoutes)){const value=contract.routes[route];assert.equal(value.classification,"direct_protocol_only");assert.equal(value.mode,"cctp_direct_composition");assert.equal(value.steps.length,1);assert.deepEqual(value.steps[0],{action:"bridge",assetfare_fee_bps:1,direct_protocol:true,external_intent_protocol:false,from:route.split("->")[0],index:0,provider:"circle_cctp",to:route.split("->")[1]});}
+
+const endpoints=[["solana","SOL"],["solana","USDC"],["solana","USDG"],["base","ETH"],["base","USDC"],["arbitrum","ETH"],["arbitrum","USDC"],["robinhood","ETH"],["robinhood","USDG"],["polygon","USDC"],["optimism","USDC"],["ethereum","USDC"],["hyperevm","USDC"]];
+const paxos=Object.keys(contract.legacy_routes).sort();
+const capabilities={status:"capped_public_agent_release",public_api_enabled:true,chains:["arbitrum","base","ethereum","hyperevm","optimism","polygon","robinhood","solana"],asset_endpoints:endpoints.map(([chain,token])=>({chain,token})),source_only_asset_endpoints:[{chain:"ethereum",token:"USDC"},{chain:"hyperevm",token:"USDC"},{chain:"optimism",token:"USDC"},{chain:"polygon",token:"USDC"}],source_only_routes:Object.keys(expansionRoutes).concat(["optimism:USDC->arbitrum:USDC","optimism:USDC->base:USDC","polygon:USDC->arbitrum:USDC","polygon:USDC->base:USDC"]),directed_conversion_routes:80,unsigned_route_plans_ready:80,execution_ready_routes:80,execution_implemented_routes:80,currently_prepare_ready_routes:80,temporarily_unavailable_routes:[],temporarily_unavailable_route_count:0,execution_availability:{status:"available",provider:"circle_iris",provider_dependent_routes:54,recent_fee_snapshot_usable:true,guarantees_future_availability:false},direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:80,primary_direct_route_count:80,external_coverage_only_route_count:0,step_count:188,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},route_product_policy:{primary_direct_route_count:80,external_coverage_only_route_count:0,paxos_direct_ingress_routes:paxos,amount_conditioned_routes:expansionRoutes,automatic_external_fallback_forbidden:true},continuation_v3:continuationCapability(),action_lifetime:{quote_ttl_seconds:60,action_bundle_ttl_seconds:180,onchain_deadline_seconds:240,wallet_ready_minimum_remaining_seconds:120,refresh_policy:"expired_unsubmitted_only",server_signing:false,server_submission:false},caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.11.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},phase_b_blocked_routes:0,blocked_source_only_routes:[],server_signing:false,server_submission:false};
+assert.equal(parseV2Capabilities(structuredClone(capabilities)).directed_conversion_routes,80);
+for(const mutate of [value=>{delete value.route_product_policy.amount_conditioned_routes;},value=>{value.route_product_policy.amount_conditioned_routes["ethereum:USDC->base:USDC"]=1;},value=>{value.directed_conversion_routes=76;},value=>{value.source_only_routes.pop();}]){const hostile=structuredClone(capabilities);mutate(hostile);assert.throws(()=>parseV2Capabilities(hostile));}
+
+for(const [route,minimum] of Object.entries(expansionRoutes)){const [from,to]=route.split("->"),[from_chain,from_token]=from.split(":"),[to_chain,to_token]=to.split(":");assert.equal(parseV2Intent({from_chain,from_token,to_chain,to_token,amount_usd:minimum}).amount_usd,minimum);assert.throws(()=>parseV2Intent({from_chain,from_token,to_chain,to_token,amount_usd:minimum-1}),/assetfare_v2_amount_below_route_minimum/);}
+assert.throws(()=>parseV2Intent({from_chain:"ethereum",from_token:"USDC",to_chain:"arbitrum",to_token:"USDC",amount_usd:500}),/assetfare_v2_source_only_route_unsupported/);
+
+const intent={from_chain:"ethereum",from_token:"USDC",to_chain:"base",to_token:"USDC",amount_usd:500,wallets:{ethereum:FROM,base:TO},event_signer_public:null};
+const bundle=expansionEvmBundle(),verified=verifyPlanBundle(structuredClone(bundle),intent,NOW+1000);assert.equal(verified.verified,true);assert.ok(verified.checks.includes("evm_cctp_target"));
+for(const mutate of [value=>{value.unsigned_action.transactions[1].to="0xDeaD00000000000000000000000000000000BeeF";},value=>{value.unsigned_action.transactions[0].chainId=999;},value=>{value.unsigned_action.routeFeeStable="1";}]){const hostile=structuredClone(bundle);mutate(hostile);rehashEvm(hostile);assert.throws(()=>verifyPlanBundle(hostile,intent,NOW+1000));}
+
+console.log(JSON.stringify({status:"pass",routes:4,capabilities_80_188:true,amount_floors_enforced:true,ethereum_bundle_semantically_verified:true,hostiles_rejected:12,server_signing:false,server_submission:false,live_requests:false,signed:false,submitted:false}));

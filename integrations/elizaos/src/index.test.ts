@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { HandlerCallback, IAgentRuntime, Memory, State } from "@elizaos/core";
 import { AssetFareQuoteIntentSchema, createAssetFareElizaPlugin, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const message = { content: { text: "Compare a USD 1,000 route from Solana native USDC to Base native USDC", source: "test" } } as Memory;
 const state = { recentMessages: message.content.text } as unknown as State;
@@ -16,6 +16,16 @@ test("intent schema accepts the gap route and rejects unsupported inputs", () =>
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "base", fromToken: "SOL", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, false);
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "optimism", toToken: "USDC", amountUsd: 250 }).success, false);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 }).success, true);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+});
+
+test("current product metadata and Ethereum expansion route verify fail-closed", () => {
+  assert.equal((validateQuoteDirectRoute(expansionQuote(), expansionIntent).direct_route_summary as any).product_classification, "primary_direct");
+  const hostile = expansionQuote(); hostile.direct_route_summary.steps[0].provider = "unknown_provider";
+  assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
 test("plugin exposes only read-only capability and quote actions", () => {

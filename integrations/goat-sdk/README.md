@@ -5,11 +5,12 @@ This plugin exposes two read-only GOAT tools:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It calls AssetFare REST/OpenAPI v2 across six chains and 76 routes, including
-Polygon and Optimism native-USDC source-only routes to Base or Arbitrum. It never accepts a private key and cannot authenticate, create a
+It calls AssetFare REST/OpenAPI v2 across eight chains and 80 routes, including
+all eight native-USDC source-only routes. It never accepts a private key and cannot authenticate, create a
 session, prepare an action, sign, submit, fund, swap, or bridge.
-Quote amounts must be finite and at least USD 1; this plugin imposes no
-maximum, while live upstream availability and liquidity still apply.
+Quote amounts must be finite and at least USD 1; Ethereum routes require USD
+500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. This
+plugin imposes no maximum, while live upstream availability still applies.
 
 ## Verified direct path on every quote
 
