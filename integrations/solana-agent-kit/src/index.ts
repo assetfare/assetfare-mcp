@@ -15,14 +15,16 @@ const TOKENS_BY_CHAIN = {
   robinhood: ["ETH", "USDG"],
   polygon: ["USDC"],
   optimism: ["USDC"],
+  ethereum: ["USDC"],
+  hyperevm: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const CapabilitiesResponseSchema = z.object({
   public_api_enabled: z.literal(true),
-  directed_conversion_routes: z.literal(76),
-  execution_implemented_routes: z.literal(76),
+  directed_conversion_routes: z.literal(80),
+  execution_implemented_routes: z.literal(80),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -50,8 +52,11 @@ export const AssetFareQuoteSchema = z
     if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
     }
-    if (value.toChain === "polygon" || value.toChain === "optimism") context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "Polygon and Optimism are source-only" });
+    if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
     if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
+    if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
+    const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
+    if (value.amountUsd < expansionMinimum) context.addIssue({ code: z.ZodIssueCode.custom, path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
   });
 
 export interface AssetFarePluginConfig {
@@ -106,7 +111,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live six-chain, 76-route capabilities, including Polygon and Optimism native-USDC source-only routes. It never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's live eight-chain, 80-route capabilities, including eight audited source-only native-USDC routes. It never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},
@@ -134,7 +139,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal sourcing. route_aggregator_used=false applies only to AssetFare's engine. USD 1 is reachability/schema smoke only. USD 50 was an observed competitive bucket only for dated 2026-09-23 Solana USDC to Base USDC evidence; it is not a threshold for other corridors or a cheapest guarantee. USD 1,000 is the primary representative amount; SOL input includes a swap. Always compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability with other executable routes at the actual intended amount. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary exactly proves the ordered provider path, continuous base-unit amounts, and exact AssetFare 1bp fee step. Ethereum/HyperEVM native-USDC source routes have explicit USD 250/500 floors. Always compare total token-path cost and live availability. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },

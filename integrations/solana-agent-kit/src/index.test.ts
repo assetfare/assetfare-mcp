@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SolanaAgentKit } from "solana-agent-kit";
 import { AssetFareQuoteSchema, createAssetFarePlugin, validateQuoteDirectRoute } from "./index.js";
-import { acrossIntent, acrossQuote, clone, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
+import { acrossIntent, acrossQuote, clone, expansionIntent, expansionQuote, solanaSolToBaseUsdcQuote, solanaUsdcToBaseUsdcQuote, solToBaseIntent } from "./directRoute.test-fixture.js";
 
 const inaccessibleAgent = new Proxy({}, {
   get() { throw new Error("read-only actions must not access the agent wallet"); },
@@ -18,6 +18,16 @@ test("schema accepts finite amounts at or above one and rejects unsafe values", 
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, false);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "optimism", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "polygon", toToken: "USDC", amountUsd: 250 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
+  assert.equal(AssetFareQuoteSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+});
+
+test("current product metadata and Ethereum expansion route verify fail-closed", () => {
+  assert.equal((validateQuoteDirectRoute(expansionQuote(), expansionIntent).direct_route_summary as any).product_classification, "primary_direct");
+  const hostile = expansionQuote(); hostile.route.product_classification = "external_coverage_only";
+  assert.throws(() => validateQuoteDirectRoute(hostile, expansionIntent));
 });
 
 test("plugin exposes only capability and quote actions", () => {
@@ -79,7 +89,7 @@ test("Across ingress is external_intent and cannot be relabeled false-direct", (
 test("capabilities fail closed if the server can submit", async () => {
   const plugin = createAssetFarePlugin({
     fetch: async (input) => String(input).endsWith("/v2/capabilities")
-      ? Response.json({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 76, execution_implemented_routes: 76 })
+      ? Response.json({ public_api_enabled: true, server_signing: false, server_submission: false, directed_conversion_routes: 80, execution_implemented_routes: 80 })
       : Response.json({ status: "capped_public_agent_release", server_signing: false, server_submission: true }),
   });
   await assert.rejects(plugin.actions[0].handler(inaccessibleAgent, {}), /safety boundary/);

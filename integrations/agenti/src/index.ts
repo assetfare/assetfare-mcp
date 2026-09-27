@@ -15,9 +15,11 @@ const TOKENS_BY_CHAIN = {
   robinhood: ["ETH", "USDG"],
   polygon: ["USDC"],
   optimism: ["USDC"],
+  ethereum: ["USDC"],
+  hyperevm: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 
 export const AssetFareQuoteSchema = z.object({
@@ -36,14 +38,17 @@ export const AssetFareQuoteSchema = z.object({
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
   }
-  if (value.toChain === "polygon" || value.toChain === "optimism") context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "Polygon and Optimism are source-only" });
+  if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
   if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
+  if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
+  const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
+  if (value.amountUsd < expansionMinimum) context.addIssue({ code: z.ZodIssueCode.custom, path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
 });
 
 const CapabilitiesSchema = z.object({
   public_api_enabled: z.literal(true),
-  directed_conversion_routes: z.literal(76),
-  execution_implemented_routes: z.literal(76),
+  directed_conversion_routes: z.literal(80),
+  execution_implemented_routes: z.literal(80),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -133,7 +138,7 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes and stop. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal sourcing. route_aggregator_used=false applies only to AssetFare's engine. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes and stop. Fail closed unless direct_route_summary exactly proves the requested ordered provider path, normalized chain:asset endpoints, continuous base-unit amounts, and exact AssetFare 1bp fee step. Compare total token-path cost, expected/minimum receive, source gas exclusions, ETA and live availability; never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       inputSchema: AssetFareQuoteSchema,
       execute: async (input) => {
         const quote = await client.quote(input);

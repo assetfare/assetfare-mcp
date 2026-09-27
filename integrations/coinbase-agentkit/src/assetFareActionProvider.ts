@@ -45,7 +45,7 @@ export class AssetFareActionProvider extends ActionProvider {
 
   @CreateAction({
     name: "get_capabilities",
-    description: `Read AssetFare's current six-chain, 76-route public capabilities, including Polygon and Optimism native-USDC source-only routes.
+    description: `Read AssetFare's current eight-chain, 80-route public capabilities, including eight audited source-only native-USDC routes.
 
 Use this before requesting a quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction. AssetFare must remain one candidate rather than an automatically preferred route.`,
     schema: EmptySchema,
@@ -59,8 +59,8 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
       capabilities.public_api_enabled !== true ||
       capabilities.server_signing !== false ||
       capabilities.server_submission !== false ||
-      capabilities.directed_conversion_routes !== 76 ||
-      capabilities.execution_implemented_routes !== 76 ||
+      capabilities.directed_conversion_routes !== 80 ||
+      capabilities.execution_implemented_routes !== 80 ||
       status.status !== "capped_public_agent_release" ||
       status.server_signing !== false ||
       status.server_submission !== false
@@ -72,7 +72,7 @@ Use this before requesting a quote. It is read-only and never authenticates a wa
 
   @CreateAction({
     name: "quote_route",
-    description: `Request one fresh AssetFare bridge or cross-chain swap quote across six chains and 76 routes, including Solana to Base USDC and Polygon/Optimism native-USDC source-only routes.
+    description: `Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes, including Ethereum/HyperEVM native-USDC source routes to Base or Solana.
 
 Every accepted result includes a fail-closed, intent-bound direct_route_summary: the ordered provider path, normalized chain:asset endpoints, continuous expected/minimum base-unit amounts, and the exact AssetFare 1bp fee step. direct_protocol_only excludes Across; external_intent identifies Across Robinhood ingress and possible provider-internal liquidity sourcing. route_aggregator_used=false describes AssetFare's route engine only, not every provider's internals.
 

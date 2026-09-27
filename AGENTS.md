@@ -7,11 +7,11 @@ These instructions apply to the entire public MCP wrapper repository.
 - MCP is optional. If AssetFare has not been explicitly connected, use the
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
-- AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools cover eleven
-  source endpoints and 76 directed routes (live availability per capabilities/quote; AssetFare service fee 1bp; Circle/provider/network fees additional) across Solana, Base,
-  Arbitrum, Robinhood Chain, and Polygon/Optimism native-USDC source-only
-  corridors. Polygon and Optimism are directional source-only origins to Base
-  or Arbitrum USDC and use the same caller-approved prepare/session boundary.
+- AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools cover thirteen
+  source endpoints and 80 directed routes (live availability per capabilities/quote; AssetFare service fee 1bp; Circle/provider/network fees additional) across Solana, Base,
+  Arbitrum, Robinhood Chain, and four directional native-USDC source-only
+  origins. Polygon and Optimism go to Base or Arbitrum; Ethereum and HyperEVM
+  go to Base or Solana with route-specific USD 250/500 minimums.
   Their no-forward paths use session mode: after the source receipt and Circle
   attestation, the caller receives and signs a separately verified destination
   `receiveMessage` handoff and pays destination native gas.
@@ -35,7 +35,7 @@ These instructions apply to the entire public MCP wrapper repository.
   event-signer requirement, caller bounds, allowed modes and TTL. It must remain
   `unranked_candidate`; never auto-select it. `caller_approved:true` alone is
   not human proof.
-- For a six-chain source route, read `/v2/capabilities`, `/v2/status`, and
+- For an eight-chain source route, read `/v2/capabilities`, `/v2/status`, and
   `/v2/openapi.json`, then use `/v2/quote`. For an original MCP corridor, read
   `assetfare_status` and `assetfare_manifest`, then obtain a fresh
   `assetfare_quote` and compare fee-inclusive expected receive, conservative

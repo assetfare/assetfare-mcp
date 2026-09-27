@@ -39,6 +39,8 @@ const deployments = [
   ["base:cctp", "base", 8453, "cctp", "AssetFareDirectCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["base:destination", "base", 8453, "destination", "RouteAgentDestinationExecutorV3", ["fee_recipient", "router", "usdc", "weth"]],
   ["base:swap", "base", 8453, "swap", "AssetFareDirectSwapExecutorV2", ["fee_recipient", "router", "stable", "weth"]],
+  ["ethereum:expansion_cctp", "ethereum", 1, "expansion_cctp", "AssetFareExpansionCctpExecutorV1", ["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]],
+  ["hyperevm:expansion_cctp", "hyperevm", 999, "expansion_cctp", "AssetFareExpansionCctpExecutorV1", ["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]],
   ["optimism:source_only_cctp", "optimism", 10, "source_only_cctp", "AssetFareSourceOnlyCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["polygon:source_only_cctp", "polygon", 137, "source_only_cctp", "AssetFareSourceOnlyCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["robinhood:swap", "robinhood", 4663, "swap", "AssetFareDirectSwapExecutorV2", ["fee_recipient", "router", "stable", "weth"]],
@@ -54,7 +56,7 @@ function fixtureBundle() {
       amount_policy: { maximum_usd: null, minimum_usd: 1 },
       fee_policy: { assetfare_service_fee_bps: 1, formula: "floor(fee_basis_stable_base * 1 / 10000)", maximum_stable_base: null, provider_and_network_fees_additional: true, zero_fee_routes_allowed: false },
       noncustody_policy: { accepts_private_keys: false, caller_verifies_signs_submits: true, server_signing: false, server_submission: false },
-      scope: { chains: Object.keys(RPC_PROVIDERS), evm_deployments: 10, unique_solidity_sources: 5 },
+      scope: { chains: Object.keys(RPC_PROVIDERS), evm_deployments: 12, unique_solidity_sources: 6 },
     },
     evidence: {
       build: {
@@ -70,7 +72,7 @@ function fixtureBundle() {
       },
       deployments: deployments.map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
         const runtimeCode = `0x6000${index.toString(16).padStart(2, "0")}`;
-        const configuration = Object.fromEntries(configKeys.map((key, keyIndex) => [key, key === "source_domain" ? index : key === "solana_peer" ? HASH(index + keyIndex + 1) : ADDRESS(index * 10 + keyIndex + 1)]));
+        const configuration = Object.fromEntries(configKeys.map((key, keyIndex) => [key, key === "source_domain" ? index : key === "minimum_amount_usd" ? { base: 250, solana: 500 } : key === "solana_peer" ? HASH(index + keyIndex + 1) : ADDRESS(index * 10 + keyIndex + 1)]));
         return {
           address: ADDRESS(index + 1),
           block_hash: HASH(index + 100),
@@ -178,7 +180,13 @@ const bundle = fixtureBundle();
 const manifest = fixtureManifest(bundle);
 validateManifest(manifest, PUBLIC_KEY, "assetfare-selftest", NOW);
 const chains = validateBundle(bundle, manifest);
-assert.equal(chains.size, 5);
+assert.equal(chains.size, 7);
+const legacyBundle=structuredClone(bundle);
+legacyBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["ethereum","hyperevm"].includes(name)),evm_deployments:10,unique_solidity_sources:5};
+legacyBundle.evidence.deployments=legacyBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":expansion_cctp"));
+legacyBundle.evidence.sources=legacyBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareExpansionCctpExecutorV1");
+const legacyManifest=fixtureManifest(legacyBundle);
+assert.equal(validateBundle(legacyBundle,legacyManifest).size,5);
 assert.equal(keccak256Hex(Buffer.alloc(0)), "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 assert.equal(keccak256Hex(Buffer.from("abc")), "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45");
 
@@ -192,7 +200,7 @@ async function publicEvidenceFixture(url) {
   throw new Error(`unexpected public evidence URL ${url}`);
 }
 const publicEvidence = await verifyPublicEvidence(bundle, publicEvidenceFixture);
-assert.equal(publicEvidence.hashed_files.length, 11);
+assert.equal(publicEvidence.hashed_files.length, 13);
 assert.equal(publicEvidence.build_scripts.length, 1);
 await expectReject(() => verifyPublicEvidence(bundle, async (url) => url.includes("/contracts/") ? new Response("mutated", { status: 200, headers: { "content-type": "text/plain" } }) : publicEvidenceFixture(url)), /SHA-256 mismatch/);
 
@@ -209,7 +217,7 @@ try {
   const result = await run({ mode: "offline", manifest: manifestPath, bundle: bundlePath, pubkey: publicKeyPath }, { now: NOW });
   assert.equal(result.status, "offline_evidence_verified");
   assert.equal(result.rpc_quorum.performed, false);
-  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 10);
+  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 12);
 } finally {
   await rm(fixtureDirectory, { recursive: true, force: true });
 }
@@ -267,7 +275,7 @@ function rpcFixture(fault = {}) {
 }
 
 const goodQuorum = await verifyRpcQuorum(chains, rpcFixture());
-assert.equal(goodQuorum.length, 5);
+assert.equal(goodQuorum.length, 7);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "chain", host: "mainnet.base.org" })), /chain id mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "code", host: "arbitrum.drpc.org", contract: "swap" })), /raw code mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt", host: "base.drpc.org", contract: "cctp" })), /deployment receipt mismatch/);

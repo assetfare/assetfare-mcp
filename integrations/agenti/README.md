@@ -4,11 +4,12 @@ Project-reviewed concierge reference for Agenti's public roadmap item:
 
 > `@agenti/plugin-bridge` — cross-chain: hold SOL, pay USDC on Base transparently
 
-This Phase 1 package adds only two Vercel AI SDK 5 tools: live six-chain/76-route
-capabilities and a fresh route quote, including Polygon and Optimism native-USDC source-only routes. It never receives or reads an Agenti wallet, private key, or
+This Phase 1 package adds only two Vercel AI SDK 5 tools: live eight-chain/80-route
+capabilities and a fresh route quote, including eight native-USDC source-only routes. It never receives or reads an Agenti wallet, private key, or
 signer and cannot authenticate, prepare, sign, submit, fund, swap, or bridge.
-Quote amounts must be finite and at least USD 1; this adapter imposes no
-maximum, while live upstream availability and liquidity still apply.
+Quote amounts must be finite and at least USD 1; Ethereum routes require USD
+500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. This
+adapter imposes no maximum, while live upstream availability still applies.
 
 ## Verified direct path on every quote
 

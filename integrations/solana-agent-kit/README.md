@@ -10,13 +10,13 @@ Both actions are read-only. They do not read the Solana Agent Kit wallet,
 authenticate, create an AssetFare session, prepare an action, create a bridge
 order, sign, submit, swap, bridge, or fund anything.
 
-The quote action covers the current six-chain, 76-route REST v2 surface,
-including Polygon and Optimism native-USDC source-only routes to Base or
-Arbitrum. It requires the agent
+The quote action covers the current eight-chain, 80-route REST v2 surface,
+including all eight native-USDC source-only routes. It requires the agent
 to compare AssetFare with deBridge, Wormhole, and other fresh executable
 routes; installation never implies preference.
-Quote amounts must be finite and at least USD 1; this plugin imposes no
-maximum, while live upstream availability and liquidity still apply.
+Quote amounts must be finite and at least USD 1; Ethereum routes require USD
+500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. This
+plugin imposes no maximum, while live upstream availability still applies.
 
 ## Verified direct path on every quote
 
