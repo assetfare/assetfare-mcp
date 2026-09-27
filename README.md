@@ -677,8 +677,8 @@ workflows remain separate and unchanged.
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/assetfare/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
-- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `401ecf835a3e0c95807c245a208eeda81b0d9b81`)
-- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `995b5c5be4d88a6c94241ef22ac3a6581dfa8cdb`)
+- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `8d0464911cf7db3528458c53082a08dfa01f276c`)
+- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `9abd25f1c40a0b77d51f901108b490949fb80bbf`)
 - A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
 - ARD: `https://assetfare.dev/.well-known/ard.json`
 
