@@ -33,14 +33,15 @@ own routing engine only and must not be presented as a claim about every
 provider's internals. Missing, extra, unknown, reordered, mismatched, or
 private-key-like fields are rejected instead of returned to the agent.
 
-## Install from this repository
+## Install
 
 ```bash
-npm install @coinbase/agentkit zod
+npm install assetfare-agentkit-action-provider @coinbase/agentkit zod
 ```
 
-Copy this directory into an AgentKit project or consume it as a local package,
-then register the provider:
+Published package: <https://www.npmjs.com/package/assetfare-agentkit-action-provider>
+
+Register the provider:
 
 ```ts
 import { AgentKit } from "@coinbase/agentkit";

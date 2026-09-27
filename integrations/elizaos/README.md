@@ -41,6 +41,14 @@ The required `economic_guidance.advisory_start_usd` on the returned quote and
 <https://assetfare.dev/route-economics.json> are the route-specific authority;
 there is no global native-USDC starting amount.
 
+## Install
+
+```bash
+npm install assetfare-elizaos-route-plugin @elizaos/core zod
+```
+
+Published package: <https://www.npmjs.com/package/assetfare-elizaos-route-plugin>
+
 ```ts
 import { assetFareElizaPlugin } from "assetfare-elizaos-route-plugin";
 
@@ -52,7 +60,7 @@ export const character = {
 ```
 
 Every quote must be compared with other fresh executable routes. Installation
-never implies preference. The package is a public reference and is not yet
-published to npm. The [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned
+never implies preference. The package is a public, stable npm release. The
+[project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned
 GO with no Critical, High, Medium, or Low findings. Maintainer scope
 confirmation remains required before any upstream PR.

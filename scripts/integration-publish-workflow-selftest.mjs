@@ -17,11 +17,11 @@ const release = read(releasePath);
 const publish = read(publishPath);
 
 const packages = [
-  ["@assetfare/agenti-route-tools", "integrations/agenti", "1.0.1"],
-  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit", "1.0.0"],
-  ["assetfare-elizaos-route-plugin", "integrations/elizaos", "1.0.0"],
-  ["@assetfare/goat-plugin", "integrations/goat-sdk", "1.0.1"],
-  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit", "1.0.0"],
+  ["@assetfare/agenti-route-tools", "integrations/agenti", "1.0.2"],
+  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit", "1.0.1"],
+  ["assetfare-elizaos-route-plugin", "integrations/elizaos", "1.0.1"],
+  ["@assetfare/goat-plugin", "integrations/goat-sdk", "1.0.2"],
+  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit", "1.0.1"],
 ];
 const exactChoiceBlock = `        type: choice
         options:
@@ -70,8 +70,8 @@ function securityErrors(releaseText, publishText) {
       "npm run build",
       "npm audit --omit=dev --audit-level=high",
       "npm pack --dry-run",
-      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
-      "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
     ]);
     if (count(text, "type: choice") !== 1) errors.push(`${label}: choice input count`);
     for (const [name, directory, version] of packages) {
@@ -149,12 +149,17 @@ for (const [name, hostileRelease, hostilePublish] of hostileCases) {
 for (const [name, directory, version] of packages) {
   const manifest = readJson(`${directory}/package.json`);
   const lock = readJson(`${directory}/package-lock.json`);
+  const packageReadme = read(`${directory}/README.md`);
   if (manifest.name !== name || manifest.version !== version || manifest.publishConfig?.access !== "public")
     throw new Error(`${directory}: manifest identity mismatch`);
   if (manifest.repository?.url !== "https://github.com/assetfare/assetfare-mcp.git" || manifest.repository?.directory !== directory)
     throw new Error(`${directory}: repository identity mismatch`);
   if (lock.name !== name || lock.version !== version || lock.packages?.[""]?.name !== name || lock.packages?.[""]?.version !== version)
     throw new Error(`${directory}: lockfile identity mismatch`);
+  if (!packageReadme.includes(`npm install ${name}`) || !packageReadme.includes(`https://www.npmjs.com/package/${name}`))
+    throw new Error(`${directory}: published install guidance missing`);
+  if (/not yet published to npm/i.test(packageReadme))
+    throw new Error(`${directory}: stale unpublished claim`);
 }
 
 if (sha256(read(".github/workflows/publish-npm.yml")) !== "65bff146afcda9ae32b1cabb2bd82aa5dc92f0990ee141a9bf86afc7e6f6ce22")
@@ -167,7 +172,7 @@ if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com
 execFileSync("git", ["-c", "gpg.format=ssh", "-c", `gpg.ssh.allowedSignersFile=${fileURLToPath(new URL("verification/assetfare-release-signers", root))}`, "verify-commit", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 
 const readme = read("README.md");
-for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.0.1", "assetfare-agentkit-action-provider-v1.0.0", "assetfare-elizaos-route-plugin-v1.0.0", "assetfare-goat-plugin-v1.0.1", "assetfare-solana-agent-kit-plugin-v1.0.0", "Do not dispatch either integration release workflow", "--ref"]) {
+for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.0.2", "assetfare-agentkit-action-provider-v1.0.1", "assetfare-elizaos-route-plugin-v1.0.1", "assetfare-goat-plugin-v1.0.2", "assetfare-solana-agent-kit-plugin-v1.0.1", "Do not dispatch either integration release workflow", "--ref"]) {
   if (!readme.includes(value)) throw new Error(`README missing integration prerequisite: ${value}`);
 }
 

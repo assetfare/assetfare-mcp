@@ -16,6 +16,14 @@ route-specific catalog at <https://assetfare.dev/route-economics.json>.
 `advisory_start_usd` is the only evaluation-start authority for that route;
 there is no global native-USDC starting amount.
 
+## Install
+
+```bash
+npm install @assetfare/goat-plugin @goat-sdk/core zod
+```
+
+Published package: <https://www.npmjs.com/package/@assetfare/goat-plugin>
+
 ## Verified direct path on every quote
 
 The quote tool fails closed unless `quote.direct_route_summary` exactly

@@ -1,6 +1,6 @@
 {
   "name": "assetfare-agentkit-action-provider",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for Coinbase AgentKit",
   "keywords": [
     "coinbase-agentkit",

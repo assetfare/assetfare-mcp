@@ -41,28 +41,28 @@ jobs:
           case "$REQUESTED_PACKAGE" in
             @assetfare/agenti-route-tools)
               directory="integrations/agenti"
-              version="1.0.1"
-              tag="assetfare-agenti-route-tools-v1.0.1"
+              version="1.0.2"
+              tag="assetfare-agenti-route-tools-v1.0.2"
               ;;
             assetfare-agentkit-action-provider)
               directory="integrations/coinbase-agentkit"
-              version="1.0.0"
-              tag="assetfare-agentkit-action-provider-v1.0.0"
+              version="1.0.1"
+              tag="assetfare-agentkit-action-provider-v1.0.1"
               ;;
             assetfare-elizaos-route-plugin)
               directory="integrations/elizaos"
-              version="1.0.0"
-              tag="assetfare-elizaos-route-plugin-v1.0.0"
+              version="1.0.1"
+              tag="assetfare-elizaos-route-plugin-v1.0.1"
               ;;
             @assetfare/goat-plugin)
               directory="integrations/goat-sdk"
-              version="1.0.1"
-              tag="assetfare-goat-plugin-v1.0.1"
+              version="1.0.2"
+              tag="assetfare-goat-plugin-v1.0.2"
               ;;
             assetfare-solana-agent-kit-plugin)
               directory="integrations/solana-agent-kit"
-              version="1.0.0"
-              tag="assetfare-solana-agent-kit-plugin-v1.0.0"
+              version="1.0.1"
+              tag="assetfare-solana-agent-kit-plugin-v1.0.1"
               ;;
             *)
               echo "Package is outside the integration publish allowlist" >&2
@@ -153,7 +153,7 @@ jobs:
           const bytes=fs.readFileSync(`${process.env.RUNNER_TEMP}/integration-publish-candidate/${artifact}`);
           fs.writeFileSync(path,`${JSON.stringify({packageName,version,tag,tagCommit,mainCommit,artifact,sha256:crypto.createHash("sha256").update(bytes).digest("hex"),sha1:crypto.createHash("sha1").update(bytes).digest("hex")})}\n`);
           NODE
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integration-publish-candidate-${{ steps.package.outputs.artifact_key }}
           path: ${{ runner.temp }}/integration-publish-candidate/*
@@ -183,11 +183,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$REQUESTED_PACKAGE" in
-            @assetfare/agenti-route-tools) version="1.0.1"; tag="assetfare-agenti-route-tools-v1.0.1" ;;
-            assetfare-agentkit-action-provider) version="1.0.0"; tag="assetfare-agentkit-action-provider-v1.0.0" ;;
-            assetfare-elizaos-route-plugin) version="1.0.0"; tag="assetfare-elizaos-route-plugin-v1.0.0" ;;
-            @assetfare/goat-plugin) version="1.0.1"; tag="assetfare-goat-plugin-v1.0.1" ;;
-            assetfare-solana-agent-kit-plugin) version="1.0.0"; tag="assetfare-solana-agent-kit-plugin-v1.0.0" ;;
+            @assetfare/agenti-route-tools) version="1.0.2"; tag="assetfare-agenti-route-tools-v1.0.2" ;;
+            assetfare-agentkit-action-provider) version="1.0.1"; tag="assetfare-agentkit-action-provider-v1.0.1" ;;
+            assetfare-elizaos-route-plugin) version="1.0.1"; tag="assetfare-elizaos-route-plugin-v1.0.1" ;;
+            @assetfare/goat-plugin) version="1.0.2"; tag="assetfare-goat-plugin-v1.0.2" ;;
+            assetfare-solana-agent-kit-plugin) version="1.0.1"; tag="assetfare-solana-agent-kit-plugin-v1.0.1" ;;
             *) echo "Package is outside the integration publish allowlist" >&2; exit 1 ;;
           esac
           expected_tag="${REQUESTED_PACKAGE#@}"
@@ -204,7 +204,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - run: npm install --global npm@12.1.0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: integration-publish-candidate-${{ steps.package.outputs.artifact_key }}
           path: ${{ runner.temp }}/integration-publish-candidate

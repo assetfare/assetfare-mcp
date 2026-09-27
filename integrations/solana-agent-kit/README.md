@@ -43,6 +43,14 @@ The required `economic_guidance.advisory_start_usd` on the returned quote and
 <https://assetfare.dev/route-economics.json> are the route-specific authority;
 there is no global native-USDC starting amount.
 
+## Install
+
+```bash
+npm install assetfare-solana-agent-kit-plugin solana-agent-kit zod
+```
+
+Published package: <https://www.npmjs.com/package/assetfare-solana-agent-kit-plugin>
+
 ```ts
 import { SolanaAgentKit } from "solana-agent-kit";
 import { createAssetFarePlugin } from "assetfare-solana-agent-kit-plugin";
@@ -56,8 +64,8 @@ const agent = new SolanaAgentKit(wallet, rpcUrl, {}).use(
 //   toToken: "USDC", amountUsd: 1000 }
 ```
 
-The package is a public reference and is not yet published to npm. From this
-directory, `npm ci`, `npm run check`, `npm test`, and `npm run build` reproduce
+The package is a public, stable npm release. From this directory, `npm ci`,
+`npm run check`, `npm test`, and `npm run build` reproduce
 the compatibility checks. The [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance)
 returned final GO with no Critical, High, Medium, or Low findings after the
 response-size, response-schema, and error-wrapping hardening was verified.

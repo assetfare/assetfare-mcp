@@ -15,6 +15,14 @@ route-specific catalog at <https://assetfare.dev/route-economics.json>.
 `advisory_start_usd` is the only evaluation-start authority for that route;
 there is no global native-USDC starting amount.
 
+## Install
+
+```bash
+npm install @assetfare/agenti-route-tools ai zod
+```
+
+Published package: <https://www.npmjs.com/package/@assetfare/agenti-route-tools>
+
 ## Verified direct path on every quote
 
 The quote tool fails closed unless `quote.direct_route_summary` exactly
@@ -46,7 +54,7 @@ The quote description requires neutral comparison with other current routes.
 An AssetFare installation never implies preference. Phase 2 execution mapping
 must remain separately approved and caller-signed.
 
-The package is a public reference and is not yet published to npm. The
+The package is a public, stable npm release. The
 [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned GO with no Critical,
 High, Medium, or Low findings. Agenti maintainer scope confirmation remains
 required before any upstream PR.

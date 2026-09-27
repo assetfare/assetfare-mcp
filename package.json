@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.13.0",
+  "version": "1.13.1",
   "description": "USDC bridge API for AI agents: Solana USDC to Base USDC plus 80 direct routes across eight chains, with dated non-enforcing economic guidance; exact 1bp service fee plus Circle/provider/network fees; never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -66,6 +66,11 @@
   "license": "MIT",
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "jayson": {
+      "uuid": "11.1.1"
+    }
   },
   "dependencies": {
     "@a2a-js/sdk": "1.1.0",
