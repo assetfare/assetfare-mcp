@@ -50,8 +50,6 @@ export const AssetFareQuoteIntentSchema = z.object({
   if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: "custom", path: ["toChain"], message: "selected chain is source-only" });
   if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
   if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-  const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
-  if (value.amountUsd < expansionMinimum) context.addIssue({ code: "custom", path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
 });
 
 const CapabilitiesSchema = z.object({
@@ -80,8 +78,8 @@ const intentJsonSchema = {
 };
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
-Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG; polygon/optimism USDC source-only to Base/Arbitrum; ethereum/hyperevm USDC source-only to Base/Solana. Ethereum routes require USD 500; HyperEVM to Base requires USD 250 and to Solana USD 500.
-The USD amount must be finite and at least 1; there is no adapter-enforced maximum. USD 1 is reachability/schema smoke only. USD 50 was an observed competitive bucket only for dated 2026-09-23 Solana USDC to Base USDC evidence; it is not a threshold for other corridors or a cheapest guarantee. USD 1,000 is the primary representative amount, including for SOL input, which includes a swap. Preserve the user's actual intended amount. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
+Supported endpoints: solana SOL/USDC/USDG; base ETH/USDC; arbitrum ETH/USDC; robinhood ETH/USDG; polygon/optimism USDC source-only to Base/Arbitrum; ethereum/hyperevm USDC source-only to Base/Solana.
+The USD amount must be finite and at least 1; there is no adapter-enforced maximum. Route-specific economic guidance is dated and non-enforcing: it never blocks an amount or supplies a market ranking. Preserve the user's actual intended amount. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
 {{recentMessages}}`;
@@ -158,7 +156,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary exactly proves the ordered provider path, continuous base-unit amounts, and exact AssetFare 1bp fee step. Ethereum/HyperEVM source routes have explicit USD 250/500 floors. Compare fresh total cost and availability, and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary proves the ordered path and exact 1bp fee. Economic guidance is dated, non-enforcing, and never a best-price guarantee. Compare fresh total cost and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {

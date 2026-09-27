@@ -29,6 +29,8 @@ const SOURCE_ONLY_ROUTES = ["ethereum:USDC->base:USDC", "ethereum:USDC->solana:U
 const EXPECTED_KEYWORDS = ["ai-agents", "agent-wallet-funding", "payment-wallet-funding", "x402-wallet-funding", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "ethereum", "hyperevm", "mcp", "a2a", "openapi", "non-custodial"];
 const BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
 const BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
+const ECONOMIC_GUIDANCE = {version:"assetfare-route-economic-guidance-v1",as_of:"2026-09-27",route_count:80,currency:"USD",technical_quote_minimum_usd:1,economic_guidance_is_non_enforcing:true,amount_is_never_rejected_by_economic_guidance:true,values_change_with_market:true,fresh_quote_and_caller_decision_control:true,update_policy:"append_daily_observations_then_replace_values_without_schema_change",confidence_counts:{measured_two_day:4,measured_route_specific:11,structural_estimate:37,reworked_route_remeasure:14,coverage_only_retest:14},advisory_start_distribution:{"50":1,"100":6,"250":13,"500":12,"1000":19,"2500":4,"5000":18,"10000":7}};
+const ROUTE_ECONOMIC_GUIDANCE = {advisory_start_usd:1000,advisory_role:"structural_evaluation_start_not_observed_eligibility",status:"provisional_evaluation_start",confidence:"structural_estimate",basis:"offline_fixture_only",tested_amounts_usd:[],not_an_execution_minimum:true,not_a_best_price_guarantee:true,fresh_quote_required:true};
 function canonical(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -46,10 +48,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.11.0");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.11.0");assert.equal(lockMetadata.packages[""].version, "1.11.0");}
-assert.equal(registryMetadata.version, "1.11.0");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.11.0");
+assert.equal(packageMetadata.version, "1.12.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.12.0");assert.equal(lockMetadata.packages[""].version, "1.12.0");}
+assert.equal(registryMetadata.version, "1.12.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.12.0");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:80, steps:188 });
 assert.equal(directRouteContract.route_count,80);
 assert.equal(directRouteContract.step_count,188);
@@ -66,7 +68,7 @@ assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /80-route USDC bridge.*Ethereum\/HyperEVM amount floors.*unsigned.*never signs or submits/i);
+assert.match(registryMetadata.description, /80-route USDC bridge.*advisory economics.*unsigned.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
@@ -116,10 +118,11 @@ function capabilities(overrides = {}) {
     temporarily_unavailable_route_count: 0,
     execution_availability: {status:"available",provider:"circle_iris",provider_dependent_routes:50,recent_fee_snapshot_usable:true,guarantees_future_availability:false},
     direct_route_summary:{version:"assetfare-direct-route-summary-v1",required_on_every_quote:true,route_count:80,primary_direct_route_count:80,external_coverage_only_route_count:0,step_count:188,ordered_provider_path:true,normalized_chain_asset_endpoints:true,base_unit_amounts_are_decimal_strings:true,assetfare_fee_step_bound:true,classification_values:["direct_protocol_only","external_intent"],product_classification_values:["primary_direct","external_coverage_only"],economic_eligibility_is_route_and_amount_conditioned:true,route_aggregator_used_scope:"assetfare_engine_only",external_intent:"No public route uses an external intent protocol; provider-internal liquidity sourcing or aggregation remains possible",server_signing:false,server_submission:false},
-    route_product_policy:{primary_direct_route_count:80,external_coverage_only_route_count:0,paxos_direct_ingress_routes:[...publicPaxosRoutes],amount_conditioned_routes:{"ethereum:USDC->base:USDC":500,"ethereum:USDC->solana:USDC":500,"hyperevm:USDC->base:USDC":250,"hyperevm:USDC->solana:USDC":500},automatic_external_fallback_forbidden:true},
+    route_product_policy:{primary_direct_route_count:80,external_coverage_only_route_count:0,paxos_direct_ingress_routes:[...publicPaxosRoutes],amount_conditioned_routes:{},economic_guidance:structuredClone(ECONOMIC_GUIDANCE),economic_guidance_url:"https://assetfare.dev/route-economics.json",automatic_external_fallback_forbidden:true},
     continuation_v3:continuationCapability(),
     action_lifetime:{quote_ttl_seconds:60,action_bundle_ttl_seconds:180,onchain_deadline_seconds:240,wallet_ready_minimum_remaining_seconds:120,refresh_policy:"expired_unsubmitted_only",server_signing:false,server_submission:false},
-    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.11.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
+    caller_owned_agent_execution:{version:"assetfare-caller-owned-agent-execution-v2",supported:true,scope:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.12.0",command:"assetfare-agent-runner",policy_schema:"https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json",wallet_adapter_contract_version:"assetfare-caller-wallet-adapter-v2",key_location:"caller_wallet_adapter_only",remote_mcp_tool:false,a2a_remote_skill:false,assetfare_server_key_access:false,assetfare_server_signing:false,assetfare_server_submission:false},
+    economic_guidance:structuredClone(ECONOMIC_GUIDANCE),
     phase_b_blocked_routes: 0,
     blocked_source_only_routes: [],
     server_signing: false,
@@ -173,6 +176,7 @@ function quote(intent, overrides = {}, {legacy=false}={}) {
     direct_route_summary:{version:"assetfare-direct-route-summary-v1",route:routeName,from:`${intent.from_chain}:${intent.from_token}`,to:`${intent.to_chain}:${intent.to_token}`,classification:contract.classification,mode:contract.mode,...product,route_aggregator_used:false,external_intent_protocol_used:external,provider_internal_dex_aggregation_possible:external,assetfare_fee_bps:1,fee_collection_step_index:feeIndex,server_signing:false,server_submission:false,step_count:summarySteps.length,steps:summarySteps},
     risk: { non_atomic: true, external_intent_protocol_used:external, provider_internal_dex_aggregation_possible:external, server_signing: false, server_submission: false },
     execution: { supported: true, first_unsigned_action_supported: true, public_route_eligible:true, blocker: null },
+    economic_guidance: structuredClone(ROUTE_ECONOMIC_GUIDANCE),
     caller_action_plan_handoff: executableHandoff(),
     caller_action_plan_handoff_v2: executableHandoffV2(),
     handoff_schema_version: 2,
@@ -331,7 +335,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.11.0");
+  assert.equal(card.serverInfo.version, "1.12.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -372,6 +376,8 @@ try {
   assert.equal(capabilityValue.execution_ready_routes, 80);
   assert.equal(capabilityValue.phase_b_blocked_routes, 0);
   assert.deepEqual(capabilityValue.blocked_source_only_routes, []);
+  assert.deepEqual(capabilityValue.route_product_policy.amount_conditioned_routes, {});
+  assert.equal(capabilityValue.economic_guidance.economic_guidance_is_non_enforcing, true);
 
   let quoteValue;
   let sourceOnlyQuoteValue;
@@ -383,7 +389,7 @@ try {
       if (from_chain === to_chain && from_token === to_token) continue;
       if (NO_FORWARD_SOURCE_ONLY.has(from_chain) && !(from_token === "USDC" && ["base", "arbitrum"].includes(to_chain) && to_token === "USDC")) continue;
       if (EXPANSION_SOURCE_ONLY.has(from_chain) && !(from_token === "USDC" && ["base", "solana"].includes(to_chain) && to_token === "USDC")) continue;
-      const amount_usd=from_chain==="ethereum"?500:from_chain==="hyperevm"&&to_chain==="base"?250:from_chain==="hyperevm"?500:2.5;
+      const amount_usd=SOURCE_ONLY.has(from_chain)?1:2.5;
       const intent = { from_chain, from_token, to_chain, to_token, amount_usd };
       const quoteResult = await call(client, "assetfare_v2_quote", intent);
       assert.equal(quoteResult.isError, false, `valid route rejected: ${JSON.stringify(intent)}`);
@@ -401,6 +407,7 @@ try {
       }
       assert.equal(value.execution.supported, true);
       assert.equal(value.execution.first_unsigned_action_supported, true);
+      assert.equal(value.economic_guidance.not_an_execution_minimum, true);
       assert.equal(value.caller_action_plan_handoff.available, true);
       assert.equal(value.caller_action_plan_handoff.url, PREPARE_URL);
       assert.equal(value.caller_action_plan_handoff.options.length, 2);

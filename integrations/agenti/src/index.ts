@@ -41,8 +41,6 @@ export const AssetFareQuoteSchema = z.object({
   if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
   if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
   if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-  const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
-  if (value.amountUsd < expansionMinimum) context.addIssue({ code: z.ZodIssueCode.custom, path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
 });
 
 const CapabilitiesSchema = z.object({

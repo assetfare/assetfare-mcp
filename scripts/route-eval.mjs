@@ -77,7 +77,25 @@ export function writeQuoteOutput(path, quote) {
   return absolute;
 }
 
-export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken }) {
+export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken, guidance = null }) {
+  if (guidance && Number.isInteger(guidance.advisory_start_usd) && guidance.advisory_start_usd > 0 && guidance.not_an_execution_minimum === true && guidance.not_a_best_price_guarantee === true && guidance.fresh_quote_required === true) {
+    const belowAdvisory = amountUsd < guidance.advisory_start_usd;
+    return {
+      classification: amountUsd === 1 ? "technical_quote_minimum_only" : belowAdvisory ? "below_advisory_evaluation_start" : "fresh_comparison_required",
+      advisory_start_usd: guidance.advisory_start_usd,
+      confidence: guidance.confidence,
+      status: guidance.status,
+      tested_amounts_usd: guidance.tested_amounts_usd,
+      economic_comparison_recommended: amountUsd !== 1 && !belowAdvisory,
+      guidance_is_non_enforcing: true,
+      market_ranking_guaranteed: false,
+      aggregate_refill_or_transfer_preferred: true,
+      single_micropayment_top_up_recommended: false,
+      note: belowAdvisory
+        ? "Below the dated advisory evaluation start. The quote remains valid; aggregate or compare now at the caller's discretion."
+        : "Compare fresh executable candidates at the caller's actual intended amount; guidance is not a market ranking.",
+    };
+  }
   const evidenceRoute = fromChain === "solana" && fromToken === "USDC" && toChain === "base" && toToken === "USDC";
   const belowObservedBucket = evidenceRoute && amountUsd < 50;
   return {
@@ -95,7 +113,7 @@ export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken 
     note: belowObservedBucket
       ? "Below the dated USD 50 observed bucket for Solana USDC -> Base USDC; aggregate demand before comparing this corridor."
       : evidenceRoute
-        ? "Compare fresh executable candidates at the caller's actual intended amount; the dated USD 50 observation is not a cheapest guarantee."
+        ? "Compare fresh executable candidates at the caller's actual intended amount; the dated observation is not a market ranking."
         : "No corridor-specific competitive threshold is claimed; compare fresh executable candidates at the caller's actual intended amount.",
   };
 }
@@ -541,10 +559,12 @@ async function main() {
       evidence_applies_to_requested_route: fromChain === "solana" && fromToken === "USDC" && toChain === "base" && toToken === "USDC",
       evidence_as_of: "2026-09-23",
       cheapest_guaranteed: false,
+      route_guidance: quote.economic_guidance ?? null,
+      guidance_is_non_enforcing: quote.economic_guidance?.not_an_execution_minimum === true,
       sol_input_includes_swap: fromToken === "SOL",
       representative_comparison_amount_usd: 1000,
       always_compare_at_intended_amount: true,
-      use_case_fit: economicFit({ amountUsd, fromChain, fromToken, toChain, toToken }),
+      use_case_fit: economicFit({ amountUsd, fromChain, fromToken, toChain, toToken, guidance:quote.economic_guidance }),
     },
     manifest,
     assetfare: {

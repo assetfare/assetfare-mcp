@@ -15,9 +15,9 @@ test("quote parameter model enforces finite, minimum-one, non-identity intents",
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "optimism", toToken: "USDC", amountUsd: 250 }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 }).success, true);
-  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
-  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, true);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: 0.99 }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.NaN }).success, false);
   assert.equal(AssetFareQuoteParameters.schema.safeParse({ fromChain: "solana", fromToken: "SOL", toChain: "base", toToken: "USDC", amountUsd: Number.POSITIVE_INFINITY }).success, false);

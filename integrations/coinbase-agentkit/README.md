@@ -8,9 +8,9 @@ This integration exposes two read-only AgentKit actions:
 It uses AssetFare REST/OpenAPI v2 across eight chains and 80 routes, including
 eight native-USDC source-only routes. It never accepts a private key and never authenticates a wallet, creates
 a session, prepares an action, signs, submits, funds, swaps, or bridges.
-Quote amounts must be finite and at least USD 1; Ethereum routes require USD
-500, while HyperEVM requires USD 250 to Base and USD 500 to Solana. This
-provider imposes no maximum, while live upstream availability still applies.
+Quote amounts must be finite and at least USD 1. Route economic guidance is
+dated and non-enforcing; it never rejects an amount or guarantees best price.
+This provider imposes no maximum, while live availability still applies.
 
 ## Verified direct path on every quote
 

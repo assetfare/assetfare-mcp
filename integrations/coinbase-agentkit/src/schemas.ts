@@ -24,8 +24,6 @@ export const AssetFareQuoteSchema = z
     if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: "custom", path: ["toChain"], message: "selected chain is source-only" });
     if (["polygon", "optimism"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base", "arbitrum"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
     if (["ethereum", "hyperevm"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base", "solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-    const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
-    if (value.amountUsd < expansionMinimum) context.addIssue({ code: "custom", path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
   });
 
 export type AssetFareQuoteInput = z.infer<typeof AssetFareQuoteSchema>;

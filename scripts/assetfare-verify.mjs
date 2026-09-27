@@ -82,8 +82,8 @@ const DEPLOYMENTS = Object.freeze({
   "base:cctp": Object.freeze({ chain: "base", kind: "cctp", source: "AssetFareDirectCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "base:destination": Object.freeze({ chain: "base", kind: "destination", source: "RouteAgentDestinationExecutorV3", configuration: Object.freeze(["fee_recipient", "router", "usdc", "weth"]) }),
   "base:swap": Object.freeze({ chain: "base", kind: "swap", source: "AssetFareDirectSwapExecutorV2", configuration: Object.freeze(["fee_recipient", "router", "stable", "weth"]) }),
-  "ethereum:expansion_cctp": Object.freeze({ chain: "ethereum", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV1", configuration: Object.freeze(["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]) }),
-  "hyperevm:expansion_cctp": Object.freeze({ chain: "hyperevm", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV1", configuration: Object.freeze(["fee_recipient", "minimum_amount_usd", "source_domain", "token_messenger", "usdc"]) }),
+  "ethereum:expansion_cctp": Object.freeze({ chain: "ethereum", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
+  "hyperevm:expansion_cctp": Object.freeze({ chain: "hyperevm", kind: "expansion_cctp", source: "AssetFareExpansionCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "optimism:source_only_cctp": Object.freeze({ chain: "optimism", kind: "source_only_cctp", source: "AssetFareSourceOnlyCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "polygon:source_only_cctp": Object.freeze({ chain: "polygon", kind: "source_only_cctp", source: "AssetFareSourceOnlyCctpExecutorV2", configuration: Object.freeze(["fee_recipient", "source_domain", "token_messenger", "usdc"]) }),
   "robinhood:swap": Object.freeze({ chain: "robinhood", kind: "swap", source: "AssetFareDirectSwapExecutorV2", configuration: Object.freeze(["fee_recipient", "router", "stable", "weth"]) }),
@@ -327,9 +327,6 @@ function validateBundle(bundle, manifest) {
     for (const [key, value] of Object.entries(deployment.configuration)) {
       if (key === "source_domain") {
         if (!Number.isSafeInteger(value) || value < 0) fail(`bundle deployment ${deployment.id} source domain is invalid`);
-      } else if (key === "minimum_amount_usd") {
-        exactKeys(value, ["base", "solana"], `bundle deployment ${deployment.id} minimum_amount_usd`);
-        if (!Number.isSafeInteger(value.base) || !Number.isSafeInteger(value.solana) || value.base <= 0 || value.solana <= 0) fail(`bundle deployment ${deployment.id} minimum amounts are invalid`);
       } else if (key === "solana_peer") expectString(value, `bundle deployment ${deployment.id} solana_peer`, /^0x[0-9a-f]{64}$/);
       else expectString(value, `bundle deployment ${deployment.id} ${key}`, /^0x[0-9A-Fa-f]{40}$/);
     }

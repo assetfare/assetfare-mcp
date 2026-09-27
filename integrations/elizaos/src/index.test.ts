@@ -17,9 +17,9 @@ test("intent schema accepts the gap route and rejects unsupported inputs", () =>
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "polygon", fromToken: "USDC", toChain: "arbitrum", toToken: "USDC", amountUsd: 250 }).success, true);
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "base", fromToken: "USDC", toChain: "optimism", toToken: "USDC", amountUsd: 250 }).success, false);
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 500 }).success, true);
-  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "ethereum", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1 }).success, true);
   assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 250 }).success, true);
-  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 499.99 }).success, false);
+  assert.equal(AssetFareQuoteIntentSchema.safeParse({ fromChain: "hyperevm", fromToken: "USDC", toChain: "solana", toToken: "USDC", amountUsd: 1 }).success, true);
 });
 
 test("current product metadata and Ethereum expansion route verify fail-closed", () => {

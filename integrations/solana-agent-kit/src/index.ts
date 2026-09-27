@@ -55,8 +55,6 @@ export const AssetFareQuoteSchema = z
     if (["polygon", "optimism", "ethereum", "hyperevm"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
     if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
     if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-    const expansionMinimum = value.fromChain === "ethereum" ? 500 : value.fromChain === "hyperevm" && value.toChain === "base" ? 250 : value.fromChain === "hyperevm" ? 500 : 1;
-    if (value.amountUsd < expansionMinimum) context.addIssue({ code: z.ZodIssueCode.custom, path: ["amountUsd"], message: `route minimum is USD ${expansionMinimum}` });
   });
 
 export interface AssetFarePluginConfig {
@@ -139,7 +137,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary exactly proves the ordered provider path, continuous base-unit amounts, and exact AssetFare 1bp fee step. Ethereum/HyperEVM native-USDC source routes have explicit USD 250/500 floors. Always compare total token-path cost and live availability. This action never creates an order, authenticates a wallet, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh AssetFare bridge or cross-chain swap quote across eight chains and 80 routes. Fail closed unless direct_route_summary proves the ordered path and exact 1bp fee. Economic guidance is dated, non-enforcing, and never a best-price guarantee. Always compare the fresh total cost. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },
