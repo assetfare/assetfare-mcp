@@ -1,6 +1,6 @@
 {
   "name": "assetfare-solana-agent-kit-plugin",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for Solana Agent Kit",
   "keywords": [
     "solana-agent-kit",

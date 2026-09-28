@@ -606,11 +606,11 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 The five stable integration packages use a separate, package-allowlisted
 release path. Their immutable tags are pinned exactly as follows:
 
-- `assetfare-agenti-route-tools-v1.0.3` (`@assetfare/agenti-route-tools`)
-- `assetfare-agentkit-action-provider-v1.0.2`
-- `assetfare-elizaos-route-plugin-v1.0.2`
-- `assetfare-goat-plugin-v1.0.3` (`@assetfare/goat-plugin`)
-- `assetfare-solana-agent-kit-plugin-v1.0.2`
+- `assetfare-agenti-route-tools-v1.0.4` (`@assetfare/agenti-route-tools`)
+- `assetfare-agentkit-action-provider-v1.0.3`
+- `assetfare-elizaos-route-plugin-v1.0.3`
+- `assetfare-goat-plugin-v1.0.4` (`@assetfare/goat-plugin`)
+- `assetfare-solana-agent-kit-plugin-v1.0.3`
 
 Current stable packages and direct installation commands:
 
