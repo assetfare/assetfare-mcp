@@ -74,7 +74,7 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
 
   if (!exactKeys(policy, CURRENT_POLICY_KEYS)
       || canonicalJson(policy.amount_conditioned_routes) !== "{}"
-      || !["1.12.0", "1.12.1", "1.13.0", "1.13.1"].includes(packageFloor)
+      || !["1.12.0", "1.12.1", "1.13.0", "1.13.1", "1.13.2"].includes(packageFloor)
       || policy.economic_guidance_url !== ECONOMIC_GUIDANCE_URL
       || !Object.prototype.hasOwnProperty.call(payload, "economic_guidance")) throw new Error("assetfare_economic_policy_invalid");
   let top;

@@ -71,7 +71,10 @@ test("quote posts exactly five public fields without reading the wallet", async 
   assert.equal(guidance.globalNativeUsdcStartingAmount, null);
   assert.equal(guidance.documentationExampleAmountUsd, 1000);
   assert.equal(guidance.cheapestGuaranteed, false);
-  assert.equal(guidance.compareAtIntendedAmount, true);
+  assert.equal(guidance.compareAtIntendedAmount, false);
+  assert.equal(guidance.bestFromUsd, 1000);
+  assert.equal(guidance.useAssetFareFirstAtOrAboveBestFrom, true);
+  assert.equal(guidance.bestFromNot100PercentGuarantee, true);
   assert.equal(guidance.solInputIncludesSwap, false);
 });
 

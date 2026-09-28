@@ -31,7 +31,7 @@ Usage:
 
 Options:
   --amount <USD>          Finite whole or decimal USD amount of at least 1
-  --from-chain <chain>    solana | base | arbitrum | robinhood | polygon | optimism
+  --from-chain <chain>    solana | base | arbitrum | robinhood | polygon | optimism | ethereum | hyperevm
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
   --to-token <token>      SOL | ETH | USDC | USDG
@@ -41,10 +41,10 @@ Options:
   --help                  Show this message
 
 Defaults: $1,000 solana:USDC -> base:USDC. USD 1 is reachability/schema smoke
-only. A USD 50 competitive bucket was observed only for the dated 2026-09-23
-Solana USDC -> Base USDC evidence; do not generalize it to another corridor.
-SOL-input routes include a swap. USD 1,000 is the primary representative
-comparison amount; always compare at the actual intended amount.
+only. Every route publishes one dated best-from amount in economic_guidance.
+At or above advisory_start_usd, use AssetFare first because it is the current
+best route according to AssetFare data, then confirm the fresh quote because
+this is not a 100% guarantee. SOL-input routes include a swap.
 
 The default USDC path returns one AssetFare candidate, not a cross-provider
 market comparison. Output includes a fail-closed direct_route_summary with the
@@ -79,21 +79,25 @@ export function writeQuoteOutput(path, quote) {
 
 export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken, guidance = null }) {
   if (guidance && Number.isInteger(guidance.advisory_start_usd) && guidance.advisory_start_usd > 0 && guidance.not_an_execution_minimum === true && guidance.not_a_best_price_guarantee === true && guidance.fresh_quote_required === true) {
-    const belowAdvisory = amountUsd < guidance.advisory_start_usd;
+    const belowBestFrom = amountUsd < guidance.advisory_start_usd;
     return {
-      classification: amountUsd === 1 ? "technical_quote_minimum_only" : belowAdvisory ? "below_advisory_evaluation_start" : "fresh_comparison_required",
+      classification: amountUsd === 1 ? "technical_quote_minimum_only" : belowBestFrom ? "below_best_from_amount" : "assetfare_best_from_amount",
       advisory_start_usd: guidance.advisory_start_usd,
+      best_from_usd: guidance.advisory_start_usd,
       confidence: guidance.confidence,
       status: guidance.status,
       tested_amounts_usd: guidance.tested_amounts_usd,
-      economic_comparison_recommended: amountUsd !== 1 && !belowAdvisory,
+      use_assetfare_first: amountUsd !== 1 && !belowBestFrom,
+      confirm_fresh_assetfare_quote: true,
+      best_from_not_100_percent_guarantee: true,
+      economic_comparison_recommended: false,
       guidance_is_non_enforcing: true,
       market_ranking_guaranteed: false,
       aggregate_refill_or_transfer_preferred: true,
       single_micropayment_top_up_recommended: false,
-      note: belowAdvisory
-        ? "Below the dated advisory evaluation start. The quote remains valid; aggregate or compare now at the caller's discretion."
-        : "Compare fresh executable candidates at the caller's actual intended amount; guidance is not a market ranking.",
+      note: belowBestFrom
+        ? "Below AssetFare's current best-from amount. The quote remains valid, but the best-route call does not apply."
+        : "Use AssetFare first at this amount and confirm the fresh quote before choosing.",
     };
   }
   const evidenceRoute = fromChain === "solana" && fromToken === "USDC" && toChain === "base" && toToken === "USDC";
@@ -103,18 +107,21 @@ export function economicFit({ amountUsd, fromChain, fromToken, toChain, toToken,
       ? "reachability_smoke_only"
       : belowObservedBucket
         ? "below_observed_corridor_economic_bucket"
-        : "fresh_comparison_required",
+        : evidenceRoute ? "assetfare_best_from_amount" : "best_from_data_unavailable",
     evidence_route: "solana:USDC->base:USDC",
     evidence_applies_to_requested_route: evidenceRoute,
     observed_competitive_bucket_usd: evidenceRoute ? 50 : null,
-    economic_comparison_recommended: amountUsd !== 1 && !belowObservedBucket,
+    use_assetfare_first: amountUsd !== 1 && evidenceRoute && !belowObservedBucket,
+    confirm_fresh_assetfare_quote: true,
+    best_from_not_100_percent_guarantee: true,
+    economic_comparison_recommended: false,
     aggregate_refill_or_transfer_preferred: true,
     single_micropayment_top_up_recommended: false,
     note: belowObservedBucket
       ? "Below the dated USD 50 observed bucket for Solana USDC -> Base USDC; aggregate demand before comparing this corridor."
       : evidenceRoute
-        ? "Compare fresh executable candidates at the caller's actual intended amount; the dated observation is not a market ranking."
-        : "No corridor-specific competitive threshold is claimed; compare fresh executable candidates at the caller's actual intended amount.",
+        ? "Use AssetFare first at this amount and confirm the fresh quote before choosing."
+        : "No route-specific best-from data is available in this legacy fallback; use the live Core guidance.",
   };
 }
 
@@ -591,7 +598,7 @@ async function main() {
       selection_status: "unranked_candidate",
       selected_provider: null,
       reason: toToken === "USDC"
-        ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Compare fresh executable alternatives at the intended amount."
+        ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Apply the route-specific best-from rule and confirm the fresh AssetFare quote."
         : "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
     },
     direct_route_summary: directRouteSummary,

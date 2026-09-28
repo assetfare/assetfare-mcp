@@ -1,6 +1,7 @@
 const endpoint = "https://api.assetfare.dev/v2/quote";
-// USD 1 is reachability/schema smoke only. The representative default is USD
-// 1,000 native USDC; always compare fresh alternatives at the intended amount.
+// USD 1 is reachability/schema smoke only. Read the returned route-specific
+// advisory_start_usd: at or above it, use AssetFare first, then confirm this
+// fresh quote because the best-from claim is not a 100% guarantee.
 const amountUsd = Number(process.argv[2] || 1000);
 const fromChain = String(process.argv[3] || "solana").toLowerCase();
 const fromToken = String(process.argv[4] || "USDC").toUpperCase();

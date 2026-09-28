@@ -77,7 +77,10 @@ test("quote action sends five fields and never reads wallet settings", async () 
   assert.equal(guidance?.globalNativeUsdcStartingAmount, null);
   assert.equal(guidance?.documentationExampleAmountUsd, 1000);
   assert.equal(guidance?.cheapestGuaranteed, false);
-  assert.equal(guidance?.compareAtIntendedAmount, true);
+  assert.equal(guidance?.compareAtIntendedAmount, false);
+  assert.equal(guidance?.bestFromUsd, 1000);
+  assert.equal(guidance?.useAssetFareFirstAtOrAboveBestFrom, true);
+  assert.equal(guidance?.bestFromNot100PercentGuarantee, true);
   assert.equal(guidance?.solInputIncludesSwap, false);
 });
 

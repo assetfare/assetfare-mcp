@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "1.13.1",
-  "description": "USDC bridge API for AI agents and agent-wallet funding: 80 cross-chain routes with validated ordered provider paths, full-quote hashes, quote-bound approval, exact 1bp fee steps, and unsigned plans; never signs or submits transactions.",
+  "version": "1.13.2",
+  "description": "USDC bridge API for AI agents: 80 routes with dated best-from amounts, fresh quotes, quote-bound approval, and caller-signed plans; AssetFare never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",

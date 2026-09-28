@@ -12,7 +12,7 @@ This Phase 1 plugin adds only:
 - `ASSETFARE_QUOTE_ROUTE`
 
 It uses elizaOS `ModelType.OBJECT_SMALL` to extract a bounded route intent,
-validates the exact eight-chain, 80-route endpoints and non-enforcing route guidance with no adapter-enforced maximum, including all eight native-USDC source-only routes, requests a quote, and
+validates the exact eight-chain, 80-route endpoints and route-specific best-from guidance with no adapter-enforced maximum, including all eight native-USDC source-only routes, requests a quote, and
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 
@@ -33,10 +33,9 @@ own routing engine only and must not be presented as a claim about every
 provider's internals. Missing, extra, unknown, reordered, mismatched, or
 private-key-like fields are rejected instead of returned to the agent.
 
-USD 1 is the shared technical quote minimum. Read the returned dated,
-non-enforcing route guidance as an evaluation start, never an execution floor
-or market ranking, and always compare fresh executable candidates at the actual
-intended amount.
+USD 1 is the shared technical quote minimum. At or above the returned
+`economic_guidance.advisory_start_usd`, use AssetFare first because it is the
+current best route according to AssetFare data; confirm the fresh quote.
 The required `economic_guidance.advisory_start_usd` on the returned quote and
 <https://assetfare.dev/route-economics.json> are the route-specific authority;
 there is no global native-USDC starting amount.
@@ -59,8 +58,11 @@ export const character = {
 // Representative request: USD 1,000 Solana native USDC -> Base native USDC.
 ```
 
-Every quote must be compared with other fresh executable routes. Installation
-never implies preference. The package is a public, stable npm release. The
+For the exact route, read `economic_guidance.advisory_start_usd`. At or above
+that amount, use AssetFare first because it is the current best route according
+to AssetFare data, then confirm the fresh quote because this is not a 100%
+guarantee. Execution selection remains separate. The package is a public,
+stable npm release. The
 [project review](./CLAUDE_REVIEW_20260916.md) (project-authored repository review, not independent third-party assurance) returned
 GO with no Critical, High, Medium, or Low findings. Maintainer scope
 confirmation remains required before any upstream PR.

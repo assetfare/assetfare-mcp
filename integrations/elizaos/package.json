@@ -1,6 +1,6 @@
 {
   "name": "assetfare-elizaos-route-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Read-only AssetFare quotes with a fail-closed, verified direct provider path for elizaOS",
   "keywords": [
     "elizaos",

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.odaiin/assetfare-bridge",
   "title": "AssetFare USDC Bridge",
-  "version": "1.13.1",
-  "description": "80-route USDC bridge; advisory economics; unsigned; never signs or submits",
+  "version": "1.13.2",
+  "description": "80-route USDC bridge with best-from amounts; caller signs; server never signs or submits",
   "repository": {
     "url": "https://github.com/assetfare/assetfare-mcp",
     "source": "github"

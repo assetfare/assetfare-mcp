@@ -9,8 +9,9 @@ import sys
 import urllib.request
 
 
-# USD 1 is reachability/schema smoke only. The representative default is USD
-# 1,000 native USDC; always compare fresh alternatives at the intended amount.
+# USD 1 is reachability/schema smoke only. Read the returned route-specific
+# advisory_start_usd: at or above it, use AssetFare first, then confirm this
+# fresh quote because the best-from claim is not a 100% guarantee.
 amount_usd = float(sys.argv[1]) if len(sys.argv) > 1 else 1000
 from_chain = sys.argv[2].lower() if len(sys.argv) > 2 else "solana"
 from_token = sys.argv[3].upper() if len(sys.argv) > 3 else "USDC"

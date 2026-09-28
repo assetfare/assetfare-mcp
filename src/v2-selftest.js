@@ -48,10 +48,10 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.13.1");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.13.1");assert.equal(lockMetadata.packages[""].version, "1.13.1");}
-assert.equal(registryMetadata.version, "1.13.1");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.13.1");
+assert.equal(packageMetadata.version, "1.13.2");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.13.2");assert.equal(lockMetadata.packages[""].version, "1.13.2");}
+assert.equal(registryMetadata.version, "1.13.2");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.13.2");
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:80, steps:188 });
 assert.equal(directRouteContract.route_count,80);
 assert.equal(directRouteContract.step_count,188);
@@ -68,9 +68,9 @@ assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /80-route USDC bridge.*advisory economics.*unsigned.*never signs or submits/i);
+assert.match(registryMetadata.description, /80-route USDC bridge.*best-from amounts.*caller signs.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
-assert.doesNotMatch(registryMetadata.description, /best|leading|fastest|cheapest/i);
+assert.doesNotMatch(registryMetadata.description, /leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
 assert.match(readmeMetadata.slice(0, 2500).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
 assert.doesNotMatch(readmeMetadata, /flat[ -]?1 ?bp|execution-ready/i);
@@ -335,7 +335,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.13.1");
+  assert.equal(card.serverInfo.version, "1.13.2");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

@@ -71,7 +71,7 @@ if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.to_chain?.enum) !== JSO
 if (JSON.stringify(v2QuoteTool?.inputSchema?.properties?.from_token?.enum) !== JSON.stringify(["SOL", "ETH", "USDC", "USDG"])) throw new Error("v2 quote token schema mismatch");
 if (v2QuoteTool?.inputSchema?.properties?.amount_usd?.type !== "number" || v2QuoteTool?.inputSchema?.properties?.amount_usd?.minimum !== 1 || "maximum" in v2QuoteTool.inputSchema.properties.amount_usd) throw new Error("v2 quote amount schema mismatch");
 if (v2QuoteTool?.annotations?.readOnlyHint !== true || v2QuoteTool?.annotations?.destructiveHint !== false || v2QuoteTool?.annotations?.idempotentHint !== false) throw new Error("v2 quote annotations mismatch");
-if (!/unranked fresh candidate.*direct_route_summary.*continuation_v3.*full-quote hash.*never auto-selects/i.test(v2QuoteTool?.description || "")) throw new Error("v2 quote continuation description mismatch");
+if (!/fresh AssetFare quote.*advisory_start_usd.*use AssetFare first.*unranked_candidate.*explicit approval.*never creates approval/i.test(v2QuoteTool?.description || "")) throw new Error("v2 quote best-from and continuation description mismatch");
 if (!v2QuoteTool?.outputSchema?.required?.includes("direct_route_summary") || v2QuoteTool.outputSchema.properties?.direct_route_summary?.properties?.version?.const !== "assetfare-direct-route-summary-v1") throw new Error("v2 quote direct-route output schema mismatch");
 if (!v2QuoteTool?.outputSchema?.required?.includes("continuation_v3") || v2QuoteTool.outputSchema.properties?.continuation_v3?.properties?.selection_status?.const !== "unranked_candidate" || v2QuoteTool.outputSchema.properties?.continuation_v3?.properties?.automatic_selection_forbidden?.const !== true) throw new Error("v2 quote continuation output schema mismatch");
 if (names.some((name) => /sign|submit|send/i.test(name))) throw new Error("MCP must not expose transaction submission");
@@ -131,8 +131,8 @@ try {
     ["/discovery/apis-io/agent-card.json", "apis-io"],
     ["/discovery/manual/agent-card.json", "manual"],
   ].map(async ([path, channel]) => [channel, await getJson(port, path)]));
-  if (health.status !== 200 || health.body?.version !== "1.13.1" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
-  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.13.1" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
+  if (health.status !== 200 || health.body?.version !== "1.13.2" || health.body?.server_signing !== false || health.body?.server_submission !== false) throw new Error("health contract mismatch");
+  if (card.status !== 200 || card.body?.serverInfo?.version !== "1.13.2" || card.body?.tools?.length !== 9 || card.body?.profile !== "v2") throw new Error("remote server card contract mismatch");
   if (legacyCardHttp.status !== 200 || legacyCardHttp.body?.tools?.length !== 13 || legacyCardHttp.body?.profile !== "legacy") throw new Error("legacy server card contract mismatch");
   if (canonicalA2ACard.status !== 200) throw new Error("canonical A2A card unavailable");
   if (canonicalMcpHead.status !== 200 || bridgeMcpHead.status !== 200 || legacyMcpHead.status !== 200 || canonicalMcpHead.allow !== bridgeMcpHead.allow || canonicalMcpHead.allow !== legacyMcpHead.allow) throw new Error("MCP endpoint discovery mismatch");
@@ -161,6 +161,6 @@ try {
   await new Promise((resolve) => listener.close(resolve));
 }
 
-console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.13.1", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_http_integration: true }));
+console.log(JSON.stringify({ status: "pass", tool_count: names.length, health_version: "1.13.2", remote_server_card_tools: 9, legacy_remote_tools:13, stdio_tools: 22, remote_session_secret_generation: false, discovery_channel_cards: 3, has_submission_tool: false, provenance_validation: true, a2a_http_integration: true }));
 await client.close();
 await server.close();
