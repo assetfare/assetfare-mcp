@@ -45,7 +45,7 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "1.5.0");
+assert.equal(card.version, "1.5.1");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
@@ -65,6 +65,9 @@ assert.equal(JSON.parse(card.skills[0].examples[0]).amountUsd,1000);
 assert.equal(JSON.parse(card.skills[0].examples[1]).amountUsd,1000);
 const cardPrepareExample=JSON.parse(card.skills.find((skill)=>skill.id==="prepare-first-unsigned-action").examples[0]);
 const cardSessionExample=JSON.parse(card.skills.find((skill)=>skill.id==="session-lifecycle").examples[0]);
+for(const example of [cardPrepareExample,cardSessionExample]){
+  assert.equal(example.fromChain,"arbitrum");assert.equal(example.fromToken,"ETH");assert.equal(example.toChain,"arbitrum");assert.equal(example.toToken,"USDC");assert.equal(example.amountUsd,2500);assert.deepEqual(Object.keys(example.wallets),["arbitrum"]);
+}
 assert.equal(cardPrepareExample.approvalV3.selected_mode,"one_shot");
 assert.equal(cardPrepareExample.approvalV3.selection_status,"selected");
 assert.equal(cardSessionExample.approvalV3.selected_mode,"session");
