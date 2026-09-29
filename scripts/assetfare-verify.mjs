@@ -501,11 +501,11 @@ async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
     if (sha256Hex(Buffer.from(normalized.slice(2), "hex")) !== contract.runtime_code_sha256) fail(`RPC ${hostname} code SHA-256 mismatch for ${chain.name}:${contract.name}`);
     codes.set(contract.name, normalized);
     const receipt = byId.get(`receipt:${contract.name}`);
-    if (!isObject(receipt) || typeof receipt.transactionHash !== "string" || typeof receipt.blockHash !== "string" || typeof receipt.blockNumber !== "string" || typeof receipt.contractAddress !== "string" || receipt.transactionHash.toLowerCase() !== contract.transaction_hash || receipt.blockHash.toLowerCase() !== contract.block_hash || receipt.contractAddress.toLowerCase() !== contract.address.toLowerCase() || receipt.status !== "0x1" || receipt.to !== null) fail(`RPC ${hostname} deployment receipt mismatch for ${chain.name}:${contract.name}`);
+    if (!isObject(receipt) || typeof receipt.transactionHash !== "string" || typeof receipt.blockHash !== "string" || typeof receipt.blockNumber !== "string" || typeof receipt.contractAddress !== "string" || receipt.transactionHash.toLowerCase() !== contract.transaction_hash || receipt.blockHash.toLowerCase() !== contract.block_hash || receipt.contractAddress.toLowerCase() !== contract.address.toLowerCase() || receipt.status !== "0x1" || receipt.to != null) fail(`RPC ${hostname} deployment receipt mismatch for ${chain.name}:${contract.name}`);
     try {
       if (BigInt(receipt.blockNumber) !== BigInt(contract.block_number)) fail(`RPC ${hostname} deployment block mismatch for ${chain.name}:${contract.name}`);
     } catch { fail(`RPC ${hostname} deployment block is invalid for ${chain.name}:${contract.name}`); }
-    receipts.set(contract.name, canonical({ blockHash: receipt.blockHash.toLowerCase(), blockNumber: receipt.blockNumber.toLowerCase(), contractAddress: receipt.contractAddress.toLowerCase(), status: receipt.status, to: receipt.to, transactionHash: receipt.transactionHash.toLowerCase() }));
+    receipts.set(contract.name, canonical({ blockHash: receipt.blockHash.toLowerCase(), blockNumber: receipt.blockNumber.toLowerCase(), contractAddress: receipt.contractAddress.toLowerCase(), status: receipt.status, to: receipt.to ?? null, transactionHash: receipt.transactionHash.toLowerCase() }));
   }
   return { host: hostname, chainId: chain.chain_id, codes, receipts };
 }

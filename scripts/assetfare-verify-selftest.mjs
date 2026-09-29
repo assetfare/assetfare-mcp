@@ -271,7 +271,9 @@ function rpcFixture(fault = {}) {
       const contract = [...chain.contracts.values()].find((row) => row.transaction_hash === request.params[0]);
       assert.ok(contract);
       const receipt = { blockHash: contract.block_hash, blockNumber: `0x${BigInt(contract.block_number).toString(16)}`, contractAddress: contract.address, status: "0x1", to: null, transactionHash: contract.transaction_hash };
+      if (chainName === "sei" && request.id === "receipt:candidate_cctp") delete receipt.to;
       if (fault.type === "receipt" && fault.host === host && request.id === `receipt:${fault.contract}`) receipt.blockHash = HASH(9999);
+      if (fault.type === "receipt_to" && fault.host === host && request.id === `receipt:${fault.contract}`) receipt.to = ADDRESS(9999);
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: receipt }), { status: 200, headers: { "content-type": "application/json" } });
     }
     const address = request.params[0].toLowerCase();
@@ -288,6 +290,7 @@ assert.equal(goodQuorum.length, 10);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "chain", host: "mainnet.base.org" })), /chain id mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "code", host: "arbitrum.drpc.org", contract: "swap" })), /raw code mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt", host: "base.drpc.org", contract: "cctp" })), /deployment receipt mismatch/);
+await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt_to", host: "sei-evm-rpc.publicnode.com", contract: "candidate_cctp" })), /deployment receipt mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "incomplete", host: "polygon.drpc.org" })), /invalid response|incomplete evidence/);
 
 process.stdout.write("assetfare verifier hostile selftest: pass\n");
