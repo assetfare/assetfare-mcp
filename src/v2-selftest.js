@@ -26,7 +26,7 @@ const PREPARE_URL = "https://api.assetfare.dev/v2/prepare";
 const SESSION_URL = "https://api.assetfare.dev/v2/session";
 const REQUEST_FIELDS = ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"];
 const SOURCE_ONLY_ROUTES = ["ethereum:USDC->base:USDC", "ethereum:USDC->solana:USDC", "hyperevm:USDC->base:USDC", "hyperevm:USDC->solana:USDC", "optimism:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "polygon:USDC->arbitrum:USDC", "polygon:USDC->base:USDC"];
-const EXPECTED_KEYWORDS = ["ai-agents", "agent-wallet-funding", "payment-wallet-funding", "x402-wallet-funding", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "ethereum", "hyperevm", "mcp", "a2a", "openapi", "non-custodial"];
+const EXPECTED_KEYWORDS = ["ai-agents", "agent-wallet-funding", "payment-wallet-funding", "x402-wallet-funding", "route-quotes", "cross-chain", "cross-chain-swap", "bridge", "usdc-bridge", "native-usdc", "solana-usdc", "base-usdc", "unsigned-transaction-plan", "caller-signed", "cctp", "solana-to-base", "usdc", "swap", "solana", "base", "arbitrum", "robinhood-chain", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "mcp", "a2a", "openapi", "non-custodial"];
 const BUNDLE_VERSION = "assetfare-direct-multichain-action-v2";
 const BUNDLE_HASH_SPEC = "sha256(UTF-8 JSON with sorted keys and compact separators, excluding payload_sha256 itself)";
 const ECONOMIC_GUIDANCE = {version:"assetfare-route-economic-guidance-v1",as_of:"2026-09-27",route_count:80,currency:"USD",technical_quote_minimum_usd:1,economic_guidance_is_non_enforcing:true,amount_is_never_rejected_by_economic_guidance:true,values_change_with_market:true,fresh_quote_and_caller_decision_control:true,update_policy:"append_daily_observations_then_replace_values_without_schema_change",confidence_counts:{measured_two_day:4,measured_route_specific:11,structural_estimate:37,reworked_route_remeasure:14,coverage_only_retest:14},advisory_start_distribution:{"50":1,"100":6,"250":13,"500":12,"1000":19,"2500":4,"5000":18,"10000":7}};
@@ -48,27 +48,27 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.13.2");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.13.2");assert.equal(lockMetadata.packages[""].version, "1.13.2");}
-assert.equal(registryMetadata.version, "1.13.2");
-if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.13.2");
-assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:80, steps:188 });
-assert.equal(directRouteContract.route_count,80);
-assert.equal(directRouteContract.step_count,188);
+assert.equal(packageMetadata.version, "1.14.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.14.0");assert.equal(lockMetadata.packages[""].version, "1.14.0");}
+assert.equal(registryMetadata.version, "1.14.0");
+if(bridgeRegistryMetadata)assert.equal(bridgeRegistryMetadata.version, "1.14.0");
+assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:86, steps:194 });
+assert.equal(directRouteContract.route_count,86);
+assert.equal(directRouteContract.step_count,194);
 const publicPaxosRoutes=Object.keys(directRouteContract.legacy_routes).sort();assert.equal(publicPaxosRoutes.length,14);
-assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,80);
+assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,86);
 assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="external_intent").length,0);
 for(const route of publicPaxosRoutes){const definition=directRouteContract.routes[route];assert.equal(definition.mode,"robinhood_paxos_ingress_composition");assert.equal(definition.classification,"direct_protocol_only");assert.equal(definition.steps.some((step)=>step.provider==="across_intent_bridge"),false);assert.equal(definition.steps.some((step)=>step.provider==="paxos_usdg_layerzero_oft"),true);assert.equal(definition.steps.reduce((sum,step)=>sum+step.assetfare_fee_bps,0),1);assert.equal(definition.steps.reduce((sum,step)=>sum+Number(step.minimum_guard_bps||0),0),50);}
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
-assert.match(packageMetadata.description, /Solana USDC to Base USDC/i);
+assert.match(packageMetadata.description, /42 active routes.*48 economically inactive routes/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /80-route USDC bridge.*best-from amounts.*caller signs.*never signs or submits/i);
+assert.match(registryMetadata.description, /42 active-route USDC bridge.*caller signs.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
@@ -335,7 +335,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.13.2");
+  assert.equal(card.serverInfo.version, "1.14.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -357,7 +357,7 @@ try {
   assert.equal(dynamicQuote.description, staticQuote.description);
   assert.deepEqual(normalizedInputSchema(dynamicCapabilities.inputSchema), normalizedInputSchema(staticCapabilities.inputSchema));
   assert.deepEqual(normalizedInputSchema(dynamicQuote.inputSchema), normalizedInputSchema(staticQuote.inputSchema));
-  assert.deepEqual(dynamicQuote.inputSchema.properties.from_chain.enum, ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"]);
+  assert.deepEqual(dynamicQuote.inputSchema.properties.from_chain.enum, ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"]);
   assert.equal(dynamicQuote.inputSchema.additionalProperties, false);
   assert.equal(V2_TIMEOUT_MS, 45_000);
   assert.equal(V2_MAX_RESPONSE_BYTES, 1_048_576);

@@ -5,11 +5,12 @@ This plugin exposes two read-only GOAT tools:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It calls AssetFare REST/OpenAPI v2 across eight chains and 80 routes, including
-all eight native-USDC source-only routes. It never accepts a private key and cannot authenticate, create a
+It calls AssetFare REST/OpenAPI v2 across 42 active routes and lists 48
+economically inactive measured routes. It never accepts a private key and cannot authenticate, create a
 session, prepare an action, sign, submit, fund, swap, or bridge.
-Quote amounts must be finite and at least USD 1. At or above the returned
-`advisory_start_usd`, use AssetFare first and confirm the fresh quote.
+Quote amounts must be finite and at least USD 1. At or above a numeric
+`advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is
+availability-only and not a cheapest-price claim.
 This plugin imposes no maximum, while live availability still applies.
 Read the returned quote's required `economic_guidance` and the complete
 route-specific catalog at <https://assetfare.dev/route-economics.json>.

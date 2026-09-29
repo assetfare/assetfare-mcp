@@ -1,20 +1,20 @@
 type JsonRecord = Record<string, any>;
 
 const evidence = () => ({ status: "pass", inputAmount: "1000000", aggregatorApiUsed: false, signed: false, submitted: false });
-const guidance = () => ({ advisory_start_usd: 1000, advisory_role: "structural_evaluation_start_not_observed_eligibility", status: "provisional_evaluation_start", confidence: "structural_estimate", basis: "offline_fixture_only", tested_amounts_usd: [], not_an_execution_minimum: true, not_a_best_price_guarantee: true, fresh_quote_required: true });
-const capabilityGuidance = () => ({ version: "assetfare-route-economic-guidance-v1", as_of: "2026-09-27", route_count: 80, currency: "USD", technical_quote_minimum_usd: 1, economic_guidance_is_non_enforcing: true, amount_is_never_rejected_by_economic_guidance: true, values_change_with_market: true, fresh_quote_and_caller_decision_control: true, update_policy: "append_daily_observations_then_replace_values_without_schema_change", confidence_counts: { measured_two_day: 4, measured_route_specific: 11, structural_estimate: 37, reworked_route_remeasure: 14, coverage_only_retest: 14 }, advisory_start_distribution: { "50": 1, "100": 6, "250": 13, "500": 12, "1000": 19, "2500": 4, "5000": 18, "10000": 7 } });
+const guidance = () => ({ advisory_start_usd: 1000, best_from_usd: 1000, best_from_verified: true, availability_only: false, public_activation_status: "active_price_verified", public_active: true, recommendation_status: "active_price_verified", recommended_action: "use_assetfare_first_at_or_above_best_from", confidence: "paired_all_in_snapshot", basis: "offline_fixture_only", tested_amounts_usd: [50,100,250,500,1000,2500,5000,10000], tested_ceiling_usd: 10000, not_an_execution_minimum: true, not_a_best_price_guarantee: true, fresh_quote_required: true });
+const capabilityGuidance = () => ({ version: "assetfare-route-economic-guidance-v3", as_of: "2026-09-29", route_count: 90, public_active_route_count: 42, public_inactive_route_count: 48, verified_best_from_route_count: 40, availability_only_route_count: 2, currency: "USD", technical_quote_minimum_usd: 1, economic_guidance_is_non_enforcing: true, amount_is_never_rejected_by_economic_guidance: true, values_change_with_market: true, fresh_quote_and_caller_decision_control: true, update_policy: "daily_measurement_with_three_day_activation_hysteresis", first_use_zero_allowance_scenario: true, expected_output_ranking: true, incomplete_cost_never_promoted: true, tested_ceiling_usd: 10000, advisory_start_distribution: { "50": 8, "100": 3, "250": 3, "500": 6, "1000": 1, "2500": 4, "5000": 12, "10000": 3 }, recommendation_status_counts: { active_price_verified: 40, active_unique_availability: 2, inactive_economics: 48 } });
 
 export function currentCapabilities(): JsonRecord {
   const economic = capabilityGuidance();
   return {
     public_api_enabled: true,
-    directed_conversion_routes: 80,
-    execution_implemented_routes: 80,
+    directed_conversion_routes: 42,
+    execution_implemented_routes: 42,
     server_signing: false,
     server_submission: false,
     economic_guidance: economic,
-    route_product_policy: { amount_conditioned_routes: {}, economic_guidance: clone(economic), economic_guidance_url: "https://assetfare.dev/route-economics.json" },
-    evaluation_guidance: { schema_version: 2, route_specific_guidance: { version: "assetfare-route-economic-guidance-v1", url: "https://assetfare.dev/route-economics.json", required_on_every_quote: true, controls_evaluation_start: true, values_change_with_market: true } },
+    route_product_policy: { active_route_count: 42, inactive_route_count: 48, inactive_routes: Array.from({length:48},(_,index)=>`inactive-${index}`), amount_conditioned_routes: Object.fromEntries(Array.from({length:40},(_,index)=>[`active-${index}`,50])), economic_guidance: clone(economic), economic_guidance_url: "https://assetfare.dev/route-economics.json" },
+    evaluation_guidance: { schema_version: 4, route_specific_guidance: { version: "assetfare-route-economic-guidance-v3", url: "https://assetfare.dev/route-economics.json", required_on_every_quote: true, verified_best_from_only: true, nullable_when_unverified: true, controls_recommendation_only_when_verified: true, values_change_with_market: true, catalog_routes: 90, public_active_routes: 42, public_inactive_routes: 48, availability_only_routes: 2 } },
   };
 }
 

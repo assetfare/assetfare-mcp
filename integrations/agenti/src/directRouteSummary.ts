@@ -41,6 +41,8 @@ const GUIDANCE_ROLES = new Set(["observed_economic_zone_start", "structural_eval
 const GUIDANCE_STATUSES = new Set(["observed_near_parity", "observed_competitive_or_near_parity", "provisional_evaluation_start", "reworked_route_remeasure", "coverage_only_retest"]);
 const GUIDANCE_CONFIDENCE = new Set(["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"]);
 const CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "confidence_counts", "advisory_start_distribution"];
+const TARGET_CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "public_active_route_count", "public_inactive_route_count", "verified_best_from_route_count", "availability_only_route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "first_use_zero_allowance_scenario", "expected_output_ranking", "incomplete_cost_never_promoted", "tested_ceiling_usd", "advisory_start_distribution", "recommendation_status_counts"];
+const TARGET_GUIDANCE_KEYS = ["advisory_start_usd", "best_from_usd", "best_from_verified", "availability_only", "public_activation_status", "public_active", "recommendation_status", "recommended_action", "confidence", "basis", "tested_amounts_usd", "tested_ceiling_usd", "not_an_execution_minimum", "not_a_best_price_guarantee", "fresh_quote_required"];
 const CONFIDENCE_KEYS = ["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"];
 const DISTRIBUTION_KEYS = ["50", "100", "250", "500", "1000", "2500", "5000", "10000"];
 
@@ -68,11 +70,34 @@ export function validateCapabilitiesEconomicGuidance(capabilities: JsonRecord): 
   const top = record(capabilities.economic_guidance);
   const policy = record(capabilities.route_product_policy);
   const nested = record(policy.economic_guidance);
-  const confidence = record(top.confidence_counts);
   const distribution = record(top.advisory_start_distribution);
   const conditioned = record(policy.amount_conditioned_routes);
   const evaluation = record(capabilities.evaluation_guidance);
   const routeSpecific = record(evaluation.route_specific_guidance);
+  if (top.version === "assetfare-route-economic-guidance-v3") {
+    const recommendation = record(top.recommendation_status_counts);
+    if (
+      !exactKeys(top, TARGET_CAPABILITY_GUIDANCE_KEYS) ||
+      canonical(top) !== canonical(nested) ||
+      typeof top.as_of !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(top.as_of) ||
+      top.route_count !== 90 || top.public_active_route_count !== 42 || top.public_inactive_route_count !== 48 ||
+      top.verified_best_from_route_count !== 40 || top.availability_only_route_count !== 2 || top.currency !== "USD" ||
+      top.technical_quote_minimum_usd !== 1 || top.economic_guidance_is_non_enforcing !== true ||
+      top.amount_is_never_rejected_by_economic_guidance !== true || top.values_change_with_market !== true ||
+      top.fresh_quote_and_caller_decision_control !== true || top.update_policy !== "daily_measurement_with_three_day_activation_hysteresis" ||
+      top.first_use_zero_allowance_scenario !== true || top.expected_output_ranking !== true || top.incomplete_cost_never_promoted !== true || top.tested_ceiling_usd !== 10000 ||
+      !exactKeys(distribution, DISTRIBUTION_KEYS) || Object.values(distribution).reduce<number>((sum,count)=>sum+(count as number),0)!==40 ||
+      recommendation.active_price_verified !== 40 || recommendation.active_unique_availability !== 2 || recommendation.inactive_economics !== 48 ||
+      Object.keys(conditioned).length !== 40 || Object.values(conditioned).some((amount)=>!GUIDANCE_STARTS.has(amount as number)) ||
+      policy.active_route_count !== 42 || policy.inactive_route_count !== 48 || !Array.isArray(policy.inactive_routes) || policy.inactive_routes.length !== 48 ||
+      policy.economic_guidance_url !== "https://assetfare.dev/route-economics.json" || evaluation.schema_version !== 4 || Object.hasOwn(evaluation,"native_usdc_economic_evaluation_start_usd") ||
+      routeSpecific.version !== "assetfare-route-economic-guidance-v3" || routeSpecific.url !== "https://assetfare.dev/route-economics.json" ||
+      routeSpecific.required_on_every_quote !== true || routeSpecific.verified_best_from_only !== true || routeSpecific.nullable_when_unverified !== true ||
+      routeSpecific.controls_recommendation_only_when_verified !== true || routeSpecific.catalog_routes !== 90 || routeSpecific.public_active_routes !== 42 || routeSpecific.public_inactive_routes !== 48 || routeSpecific.availability_only_routes !== 2
+    ) throw new Error("assetfare_v2_economic_guidance_invalid");
+    return;
+  }
+  const confidence = record(top.confidence_counts);
   if (
     !exactKeys(top, CAPABILITY_GUIDANCE_KEYS) ||
     canonical(top) !== canonical(nested) ||
@@ -108,6 +133,11 @@ function validateRouteEconomicGuidance(value: unknown): JsonRecord {
   let guidance: JsonRecord;
   try { guidance = record(value); }
   catch { throw new Error("assetfare_v2_economic_guidance_invalid"); }
+  if (guidance.public_activation_status === "active_price_verified" || guidance.public_activation_status === "active_unique_availability") {
+    const price=guidance.public_activation_status === "active_price_verified";
+    if (!exactKeys(guidance,TARGET_GUIDANCE_KEYS) || guidance.public_active!==true || guidance.recommendation_status!==guidance.public_activation_status || guidance.confidence!=="paired_all_in_snapshot" || guidance.tested_ceiling_usd!==10000 || !Array.isArray(guidance.tested_amounts_usd) || guidance.tested_amounts_usd.length!==8 || guidance.not_an_execution_minimum!==true || guidance.not_a_best_price_guarantee!==true || guidance.fresh_quote_required!==true || price!==guidance.best_from_verified || price===guidance.availability_only || guidance.advisory_start_usd!==guidance.best_from_usd || (price?!GUIDANCE_STARTS.has(guidance.advisory_start_usd as number):guidance.advisory_start_usd!==null) || (price?guidance.recommended_action!=="use_assetfare_first_at_or_above_best_from":guidance.recommended_action!=="use_assetfare_when_route_availability_is_required")) throw new Error("assetfare_v2_economic_guidance_invalid");
+    return guidance;
+  }
   if (
     !exactKeys(guidance, GUIDANCE_KEYS) ||
     !GUIDANCE_STARTS.has(guidance.advisory_start_usd as number) ||
@@ -239,7 +269,8 @@ function rawStepKeys(definition: StepDefinition): string[] {
   if (definition.provider === "circle_cctp_receive") return ["kind", "provider", "chain", "from", "to", "source_chain", "cctp_mode", "destination_native_gas_required", "route_fee_bps", ...ADDED_STEP_KEYS];
   if (definition.provider === "across_intent_bridge") return ["kind", "provider", "from", "to", "from_asset", "to_asset", "external_intent_protocol", "route_fee_bps", ...ADDED_STEP_KEYS];
   const sourceOnly = definition.provider === "circle_cctp" && /^(polygon|optimism):/.test(definition.from);
-  return ["kind", "provider", "from", "to", "asset", ...(sourceOnly ? ["cctp_mode", "finality_threshold", "destination_native_gas_required", "economics_informational_only"] : []), "route_fee_bps", ...guard, ...ADDED_STEP_KEYS];
+  const candidateSource = definition.provider === "circle_cctp" && /^(xlayer|sei|sonic):/.test(definition.from);
+  return ["kind", "provider", "from", "to", "asset", ...(sourceOnly ? ["cctp_mode", "finality_threshold", "destination_native_gas_required", "economics_informational_only"] : candidateSource?["finality_threshold"]:[]), "route_fee_bps", ...guard, ...ADDED_STEP_KEYS];
 }
 
 function rawEndpoints(raw: JsonRecord, definition: StepDefinition): [string, string] {
@@ -313,6 +344,7 @@ export function validateQuoteDirectRoute(quote: JsonRecord, requested: DirectRou
     const rawKind = expected.action === "swap" ? "direct_swap" : expected.action === "receive" ? "direct_receive" : "direct_bridge";
     if (raw.kind !== rawKind || rawFrom !== expected.from || rawTo !== expected.to || (expected.provider === "across_intent_bridge" ? raw.external_intent_protocol !== true : Object.hasOwn(raw, "external_intent_protocol"))) throw new Error("assetfare_v2_direct_route_raw_plan_invalid");
     if (expected.provider === "circle_cctp" && /^(polygon|optimism):/.test(expected.from) && !(raw.cctp_mode === "no_forward" && raw.finality_threshold === 2000 && raw.destination_native_gas_required === true && raw.economics_informational_only === true)) throw new Error("assetfare_v2_direct_route_source_only_invalid");
+    if (expected.provider === "circle_cctp" && /^(xlayer|sei|sonic):/.test(expected.from) && raw.finality_threshold !== (expected.from.startsWith("xlayer:")?1000:2000)) throw new Error("assetfare_v2_direct_route_candidate_finality_invalid");
     if (expected.provider === "circle_cctp_receive" && !(raw.source_chain === requested.fromChain && raw.cctp_mode === "no_forward" && raw.destination_native_gas_required === true && raw.route_fee_bps === 0)) throw new Error("assetfare_v2_direct_route_receive_invalid");
     if (!evidenceValid(raw.expected_evidence) || (raw.floor_evidence !== null && !evidenceValid(raw.floor_evidence))) throw new Error("assetfare_v2_direct_route_evidence_invalid");
     const expectedInput = amount(step.expected_input_base);

@@ -12,7 +12,7 @@ This Phase 1 plugin adds only:
 - `ASSETFARE_QUOTE_ROUTE`
 
 It uses elizaOS `ModelType.OBJECT_SMALL` to extract a bounded route intent,
-validates the exact eight-chain, 80-route endpoints and route-specific best-from guidance with no adapter-enforced maximum, including all eight native-USDC source-only routes, requests a quote, and
+validates the exact 42-active/48-inactive route policy and route-specific guidance with no adapter-enforced maximum, requests a quote, and
 stops. It never reads `runtime.getSetting`, wallet providers, private keys, or
 signers and cannot prepare, sign, submit, swap, bridge, or fund anything.
 

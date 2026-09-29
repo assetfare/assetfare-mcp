@@ -435,72 +435,8 @@
       ]
     }
   },
-  "route_count": 80,
+  "route_count": 86,
   "routes": {
-    "ethereum:USDC->base:USDC": {
-      "classification": "direct_protocol_only",
-      "mode": "cctp_direct_composition",
-      "steps": [
-        {
-          "action": "bridge",
-          "assetfare_fee_bps": 1,
-          "direct_protocol": true,
-          "external_intent_protocol": false,
-          "from": "ethereum:USDC",
-          "index": 0,
-          "provider": "circle_cctp",
-          "to": "base:USDC"
-        }
-      ]
-    },
-    "ethereum:USDC->solana:USDC": {
-      "classification": "direct_protocol_only",
-      "mode": "cctp_direct_composition",
-      "steps": [
-        {
-          "action": "bridge",
-          "assetfare_fee_bps": 1,
-          "direct_protocol": true,
-          "external_intent_protocol": false,
-          "from": "ethereum:USDC",
-          "index": 0,
-          "provider": "circle_cctp",
-          "to": "solana:USDC"
-        }
-      ]
-    },
-    "hyperevm:USDC->base:USDC": {
-      "classification": "direct_protocol_only",
-      "mode": "cctp_direct_composition",
-      "steps": [
-        {
-          "action": "bridge",
-          "assetfare_fee_bps": 1,
-          "direct_protocol": true,
-          "external_intent_protocol": false,
-          "from": "hyperevm:USDC",
-          "index": 0,
-          "provider": "circle_cctp",
-          "to": "base:USDC"
-        }
-      ]
-    },
-    "hyperevm:USDC->solana:USDC": {
-      "classification": "direct_protocol_only",
-      "mode": "cctp_direct_composition",
-      "steps": [
-        {
-          "action": "bridge",
-          "assetfare_fee_bps": 1,
-          "direct_protocol": true,
-          "external_intent_protocol": false,
-          "from": "hyperevm:USDC",
-          "index": 0,
-          "provider": "circle_cctp",
-          "to": "solana:USDC"
-        }
-      ]
-    },
     "arbitrum:ETH->arbitrum:USDC": {
       "classification": "direct_protocol_only",
       "mode": "same_chain_direct",
@@ -1505,6 +1441,70 @@
         }
       ]
     },
+    "ethereum:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "ethereum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "ethereum:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "ethereum:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "hyperevm:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "hyperevm:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "hyperevm:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "hyperevm:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
     "optimism:USDC->arbitrum:USDC": {
       "classification": "direct_protocol_only",
       "mode": "optimism_source_cctp",
@@ -2195,6 +2195,38 @@
         }
       ]
     },
+    "sei:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "sei:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "sei:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "sei:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
     "solana:SOL->arbitrum:ETH": {
       "classification": "direct_protocol_only",
       "mode": "cctp_direct_composition",
@@ -2843,8 +2875,72 @@
           "to": "solana:USDC"
         }
       ]
+    },
+    "sonic:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "sonic:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "sonic:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "sonic:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
+    },
+    "xlayer:USDC->base:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "xlayer:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "base:USDC"
+        }
+      ]
+    },
+    "xlayer:USDC->solana:USDC": {
+      "classification": "direct_protocol_only",
+      "mode": "cctp_direct_composition",
+      "steps": [
+        {
+          "action": "bridge",
+          "assetfare_fee_bps": 1,
+          "direct_protocol": true,
+          "external_intent_protocol": false,
+          "from": "xlayer:USDC",
+          "index": 0,
+          "provider": "circle_cctp",
+          "to": "solana:USDC"
+        }
+      ]
     }
   },
-  "step_count": 188,
+  "step_count": 194,
   "version": "assetfare-direct-route-contract-v1"
 }

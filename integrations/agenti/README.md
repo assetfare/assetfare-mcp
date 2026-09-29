@@ -4,11 +4,12 @@ Project-reviewed concierge reference for Agenti's public roadmap item:
 
 > `@agenti/plugin-bridge` — cross-chain: hold SOL, pay USDC on Base transparently
 
-This Phase 1 package adds only two Vercel AI SDK 5 tools: live eight-chain/80-route
-capabilities and a fresh route quote, including eight native-USDC source-only routes. It never receives or reads an Agenti wallet, private key, or
+This Phase 1 package adds only two Vercel AI SDK 5 tools: live 42-active-route
+capabilities and a fresh route quote; 48 measured routes are inactive. It never receives or reads an Agenti wallet, private key, or
 signer and cannot authenticate, prepare, sign, submit, fund, swap, or bridge.
-Quote amounts must be finite and at least USD 1. At or above the returned
-`advisory_start_usd`, use AssetFare first and confirm the fresh quote.
+Quote amounts must be finite and at least USD 1. At or above a numeric
+`advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is
+availability-only and not a cheapest-price claim.
 This adapter imposes no maximum, while live availability still applies.
 Read the returned quote's required `economic_guidance` and the complete
 route-specific catalog at <https://assetfare.dev/route-economics.json>.

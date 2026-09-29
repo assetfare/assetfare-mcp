@@ -18,11 +18,11 @@ prepare an action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live thirteen-endpoint, 80-route source matrix, including eight
-native-USDC source-only routes. The first quote requires no AssetFare
+the live 42-active-route matrix; 48 measured routes are inactive. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
-Quote amounts must be finite and at least USD 1. At or above the returned
-`advisory_start_usd`, use AssetFare first and confirm the fresh quote.
+Quote amounts must be finite and at least USD 1. At or above a numeric
+`advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is
+availability-only and not a cheapest-price claim.
 The public adapter imposes no maximum, while live availability still applies.
 
 USD 1 is the shared technical quote minimum. At or above the returned best-from

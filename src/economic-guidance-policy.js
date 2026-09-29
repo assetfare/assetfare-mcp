@@ -8,6 +8,19 @@ const CURRENT_POLICY_KEYS = [
   "primary_direct_route_count",
 ];
 
+const TARGET_POLICY_KEYS = [
+  "active_route_count",
+  "amount_conditioned_routes",
+  "automatic_external_fallback_forbidden",
+  "economic_guidance",
+  "economic_guidance_url",
+  "external_coverage_only_route_count",
+  "inactive_route_count",
+  "inactive_routes",
+  "paxos_direct_ingress_routes",
+  "primary_direct_route_count",
+];
+
 const LEGACY_POLICY_KEYS = [
   "amount_conditioned_routes",
   "automatic_external_fallback_forbidden",
@@ -31,6 +44,17 @@ const PAXOS_DIRECT_INGRESS_ROUTES = [
   "base:ETH->robinhood:ETH",
   "base:ETH->robinhood:USDG",
   "base:USDC->robinhood:ETH",
+  "base:USDC->robinhood:USDG",
+  "solana:SOL->robinhood:ETH",
+  "solana:SOL->robinhood:USDG",
+  "solana:USDC->robinhood:ETH",
+  "solana:USDC->robinhood:USDG",
+  "solana:USDG->robinhood:ETH",
+  "solana:USDG->robinhood:USDG",
+];
+
+const TARGET_PAXOS_DIRECT_INGRESS_ROUTES = [
+  "arbitrum:USDC->robinhood:USDG",
   "base:USDC->robinhood:USDG",
   "solana:SOL->robinhood:ETH",
   "solana:SOL->robinhood:USDG",
@@ -64,7 +88,36 @@ function commonPolicyValid(policy) {
 export function validateExpandedEconomicPolicy(payload, parseGuidance) {
   const policy = payload?.route_product_policy;
   const packageFloor = payload?.caller_owned_agent_execution?.minimum_package_version;
-  if (!policy || typeof policy !== "object" || Array.isArray(policy) || !commonPolicyValid(policy)) throw new Error("assetfare_economic_policy_invalid");
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) throw new Error("assetfare_economic_policy_invalid");
+
+  const target = policy.primary_direct_route_count === 42;
+  if (target) {
+    if (!exactKeys(policy, TARGET_POLICY_KEYS)
+        || policy.external_coverage_only_route_count !== 0
+        || policy.active_route_count !== 42
+        || policy.inactive_route_count !== 48
+        || !Array.isArray(policy.inactive_routes)
+        || policy.inactive_routes.length !== 48
+        || new Set(policy.inactive_routes).size !== 48
+        || Object.keys(policy.amount_conditioned_routes || {}).length !== 40
+        || canonicalJson(policy.paxos_direct_ingress_routes) !== canonicalJson(TARGET_PAXOS_DIRECT_INGRESS_ROUTES)
+        || policy.automatic_external_fallback_forbidden !== true
+        || !["1.13.0", "1.14.0"].includes(packageFloor)
+        || policy.economic_guidance_url !== ECONOMIC_GUIDANCE_URL
+        || !Object.prototype.hasOwnProperty.call(payload, "economic_guidance")) throw new Error("assetfare_economic_policy_invalid");
+    let top;
+    let nested;
+    try {
+      top = parseGuidance(payload.economic_guidance);
+      nested = parseGuidance(policy.economic_guidance);
+    } catch {
+      throw new Error("assetfare_economic_policy_invalid");
+    }
+    if (canonicalJson(top) !== canonicalJson(nested)) throw new Error("assetfare_economic_policy_invalid");
+    return { kind: "active_route_policy_1_14", guidance: top };
+  }
+
+  if (!commonPolicyValid(policy)) throw new Error("assetfare_economic_policy_invalid");
 
   const legacy = exactKeys(policy, LEGACY_POLICY_KEYS)
     && canonicalJson(policy.amount_conditioned_routes) === canonicalJson(PREVIOUS_HARD_FLOORS)

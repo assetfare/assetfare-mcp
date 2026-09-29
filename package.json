@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.13.2",
-  "description": "USDC bridge API for AI agents: Solana USDC to Base USDC plus 80 routes across eight chains, with dated best-from amounts; exact 1bp service fee plus Circle/provider/network fees; caller signs; server never signs or submits.",
+  "version": "1.14.0",
+  "description": "USDC bridge API for AI agents: 42 active routes and 48 economically inactive routes; 40 best-from thresholds plus 2 unique-availability routes; exact 1bp service fee plus Circle/provider/network fees; caller signs; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
@@ -58,6 +58,9 @@
     "optimism",
     "ethereum",
     "hyperevm",
+    "xlayer",
+    "sei",
+    "sonic",
     "mcp",
     "a2a",
     "openapi",

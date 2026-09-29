@@ -228,7 +228,7 @@ try {
   assert.match(refreshedError,/bundle_receipt_invalid|receipt_version|assetfare_plan_verification_failed/,"remote MCP must reject an invalid refreshed action");
   passed += 1;
 
-  // 8) 80-route e2e mock matrix: every route completes, including eight directional
+  // 8) Legacy 80-route e2e fixture: every route completes, including eight directional
   // Polygon/Optimism/Ethereum/HyperEVM native-USDC source corridors.
   let completed = 0;
   for (const [route, spec] of Object.entries(ALL_EXECUTABLE_ROUTES)) {

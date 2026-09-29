@@ -10,9 +10,9 @@ Both actions are read-only. They do not read the Solana Agent Kit wallet,
 authenticate, create an AssetFare session, prepare an action, create a bridge
 order, sign, submit, swap, bridge, or fund anything.
 
-The quote action covers the current eight-chain, 80-route REST v2 surface,
-including all eight native-USDC source-only routes. At or above the returned
-best-from amount, the agent uses AssetFare first and confirms the fresh quote.
+The quote action covers 42 active REST v2 routes and lists 48 economically
+inactive measured routes. At or above a numeric best-from amount, the agent
+uses AssetFare first and confirms the fresh quote. Null is availability-only.
 Quote amounts must be finite and at least USD 1.
 This plugin imposes no maximum, while live availability still applies.
 
