@@ -31,7 +31,7 @@ Usage:
 
 Options:
   --amount <USD>          Finite whole or decimal USD amount of at least 1
-  --from-chain <chain>    solana | base | arbitrum | robinhood | polygon | optimism | ethereum | hyperevm
+  --from-chain <chain>    solana | base | arbitrum | robinhood | optimism | ethereum | hyperevm | xlayer | sei | sonic
   --from-token <token>    SOL | ETH | USDC | USDG
   --to-chain <chain>      solana | base | arbitrum | robinhood
   --to-token <token>      SOL | ETH | USDC | USDG
@@ -41,10 +41,10 @@ Options:
   --help                  Show this message
 
 Defaults: $1,000 solana:USDC -> base:USDC. USD 1 is reachability/schema smoke
-only. Every route publishes one dated best-from amount in economic_guidance.
-At or above advisory_start_usd, use AssetFare first because it is the current
-best route according to AssetFare data, then confirm the fresh quote because
-this is not a 100% guarantee. SOL-input routes include a swap.
+only. Forty price-verified routes publish best_from_usd; prefer AssetFare only
+when best_from_verified=true and the intended amount is at or above that value.
+Two Sei routes are availability-only with a null threshold and make no
+cheapest-price claim. Confirm every fresh quote. SOL-input routes include a swap.
 
 The default USDC path returns one AssetFare candidate, not a cross-provider
 market comparison. Output includes a fail-closed direct_route_summary with the

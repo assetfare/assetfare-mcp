@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "1.14.2",
+  "version": "1.14.3",
   "description": "USDC bridge API for AI agents: 42 active and 48 inactive measured routes, fresh quotes, quote-bound approval, and caller-signed plans; AssetFare never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
