@@ -600,8 +600,8 @@ async function main() {
       selection_status: "unranked_candidate",
       selected_provider: null,
       reason: toToken === "USDC"
-        ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Apply the route-specific best-from rule and confirm the fresh AssetFare quote."
-        : "same-input Relay/Mayan comparison is currently implemented only for solana:SOL -> base:ETH",
+        ? "This USDC path returns one AssetFare candidate, not a cross-provider market comparison. Apply verified best-from or availability-only guidance and confirm the fresh AssetFare quote."
+        : "No cross-provider comparison is implemented for this active route; compare fresh all-in quotes independently.",
     },
     direct_route_summary: directRouteSummary,
     continuation_v3: continuationV3,
