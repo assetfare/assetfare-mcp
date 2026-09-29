@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.14.4",
+  "version": "1.14.5",
   "description": "USDC bridge API for AI agents: 42 active routes and 48 economically inactive routes; 40 best-from thresholds plus 2 unique-availability routes; exact 1bp service fee plus Circle/provider/network fees; caller signs; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -26,7 +26,7 @@
     "LICENSE",
     "server.json"
   ],
-  "mcpName": "io.github.odaiin/assetfare",
+  "mcpName": "io.github.assetfare/assetfare",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/assetfare/assetfare-mcp.git"

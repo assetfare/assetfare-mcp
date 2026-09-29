@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.odaiin/assetfare",
+  "name": "io.github.assetfare/assetfare",
   "title": "AssetFare",
-  "version": "1.14.4",
+  "version": "1.14.5",
   "description": "42 active-route USDC bridge; caller signs; server never signs or submits",
   "repository": {
     "url": "https://github.com/assetfare/assetfare-mcp",
