@@ -21,7 +21,7 @@ const HASH = /^[0-9a-f]{64}$/;
 const POSITIVE_DECIMAL = /^[1-9][0-9]*$/;
 const IDEMPOTENCY = /^[A-Za-z0-9._:-]{8,128}$/;
 const EXACT_BASE_UNITS = /^[1-9][0-9]*$/;
-const CHAINS = ["arbitrum", "base", "ethereum", "hyperevm", "optimism", "polygon", "robinhood", "sei", "solana", "sonic", "xlayer"];
+const CHAINS = ["aptos", "arbitrum", "avalanche", "base", "cronos", "ethereum", "hyperevm", "injective", "linea", "monad", "optimism", "polygon", "robinhood", "sei", "solana", "sonic", "xlayer"];
 const MODES = ["one_shot", "session"];
 const hash = z.string().regex(HASH);
 const positiveDecimal = z.string().regex(POSITIVE_DECIMAL);
@@ -53,7 +53,7 @@ export const quoteFingerprintClaimSchema = z.object({
   quote_payload_sha256_spec: z.literal(QUOTE_PAYLOAD_SHA256_SPEC),
   input_base_bounds: z.object({ minimum: positiveDecimal, maximum: positiveDecimal }).strict(),
   minimum_output_base: positiveDecimal,
-  required_wallet_chains: z.array(chain).min(1).max(11),
+  required_wallet_chains: z.array(chain).min(1).max(17),
   event_signer_public_required: z.boolean(),
   step_count: positiveDecimal,
   allowed_modes: z.array(z.enum(MODES)).min(1).max(2),
@@ -80,7 +80,7 @@ export const continuationV3Schema = z.object({
   quote_payload_sha256_spec: z.literal(QUOTE_PAYLOAD_SHA256_SPEC),
   input_base_bounds: z.object({ minimum: positiveDecimal, maximum: positiveDecimal }).strict(),
   minimum_output_base: positiveDecimal,
-  required_wallet_chains: z.array(chain).min(1).max(11),
+  required_wallet_chains: z.array(chain).min(1).max(17),
   event_signer_public_required: z.boolean(),
   step_count: z.number().int().min(1).max(8),
   recommended_mode: z.enum(["session", "one_shot_or_session"]),
@@ -150,7 +150,7 @@ export const reapprovalV3Schema = z.object({
   selection_status: z.literal("unranked_candidate"),
   automatic_selection_forbidden: z.literal(true),
   caller_approved_boolean_is_not_human_proof: z.literal(true),
-  required_wallet_chains: z.array(chain).max(11),
+  required_wallet_chains: z.array(chain).max(17),
   event_signer_public_required: z.boolean(),
   server_signing: z.literal(false),
   server_submission: z.literal(false),

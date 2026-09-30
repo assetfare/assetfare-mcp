@@ -15,7 +15,7 @@ import { DIRECT_ROUTE_CONTRACT_COUNTS, isTargetActiveRoute, validateDirectRouteS
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.15.0";
+const VERSION = "1.15.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the active-route v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -130,7 +130,7 @@ const legacyObserveCctpIntent=z.object({access_token:accessToken,session_id:lega
 const legacyPrepareDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,idempotency_key:idempotencyKey}).strict();
 const legacyObserveDestinationIntent=z.object({access_token:accessToken,session_id:legacySessionId,transaction_hash:legacyTransactionHash,idempotency_key:idempotencyKey}).strict();
 const v2QuoteFields = {
-  from_chain: z.enum(V2_SOURCE_CHAINS).describe("Source chain for the v2 route. Polygon, Optimism, Ethereum, HyperEVM, X Layer, Sei and Sonic are source-only and cannot be used as to_chain."),
+  from_chain: z.enum(V2_SOURCE_CHAINS).describe("Source chain for the v2 route. Polygon, Optimism, Ethereum, HyperEVM, X Layer, Sei, Sonic, Monad, Avalanche, Cronos, Injective, Linea, and Aptos are source-only and cannot be used as to_chain."),
   from_token: z.enum(V2_TOKENS).describe("Input token symbol on from_chain. The chain-token pair must appear in current v2 capabilities."),
   to_chain: z.enum(V2_DESTINATION_CHAINS).describe("Destination chain for the v2 route: Solana, Base, Arbitrum, or Robinhood Chain. Source-only chains are not destinations."),
   to_token: z.enum(V2_TOKENS).describe("Output token symbol on to_chain. The chain-token pair must appear in current v2 capabilities."),
@@ -199,6 +199,7 @@ const callerOwnedAgentExecutionSchema=z.union([
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.14.4"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.14.5"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.15.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
+  z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.15.1"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
 ]);
 const directRouteCapabilityLegacy=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(172),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const directRouteCapabilityPrevious=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),primary_direct_route_count:z.literal(67),external_coverage_only_route_count:z.literal(9),step_count:z.literal(170),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();

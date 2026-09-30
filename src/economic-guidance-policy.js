@@ -102,7 +102,7 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
         || Object.keys(policy.amount_conditioned_routes || {}).length !== 44
         || canonicalJson(policy.paxos_direct_ingress_routes) !== canonicalJson(TARGET_PAXOS_DIRECT_INGRESS_ROUTES)
         || policy.automatic_external_fallback_forbidden !== true
-        || !["1.13.0", "1.14.0", "1.14.1", "1.14.2", "1.14.3", "1.14.4", "1.14.5", "1.15.0"].includes(packageFloor)
+        || !["1.13.0", "1.14.0", "1.14.1", "1.14.2", "1.14.3", "1.14.4", "1.14.5", "1.15.0", "1.15.1"].includes(packageFloor)
         || policy.economic_guidance_url !== ECONOMIC_GUIDANCE_URL
         || !Object.prototype.hasOwnProperty.call(payload, "economic_guidance")) throw new Error("assetfare_economic_policy_invalid");
     let top;

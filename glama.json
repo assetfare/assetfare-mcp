@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["odaiin"],
   "name": "AssetFare USDC Bridge",
-  "description": "USDC bridge API for AI agents: 54 active routes, 44 inactive measured routes, 40 best-from thresholds and 2 unique-availability routes. Execution stays caller-approved; server never signs or submits.",
+  "description": "USDC bridge API for AI agents: 54 active routes, 44 inactive measured routes, 44 verified best-from thresholds and 10 availability-only routes. Execution stays caller-approved; server never signs or submits.",
   "repository": "https://github.com/assetfare/assetfare-mcp",
   "homepage": "https://assetfare.dev/agents/",
   "license": "MIT",
