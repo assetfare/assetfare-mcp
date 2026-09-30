@@ -17,10 +17,10 @@ const TOKENS_BY_CHAIN = {
   optimism: ["USDC"],
   ethereum: ["USDC"],
   hyperevm: ["USDC"],
-  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"],
+  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"], monad: ["USDC"], avalanche: ["USDC"], cronos: ["USDC"], injective: ["USDC"], linea: ["USDC"], aptos: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const CapabilitiesResponseSchema = z.object({
   public_api_enabled: z.literal(true),
@@ -53,10 +53,10 @@ export const AssetFareQuoteSchema = z
     if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
     }
-    if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
+    if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
     if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
     if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-    if (["xlayer","sei","sonic"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base","solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({code:z.ZodIssueCode.custom,path:["toChain"],message:"candidate source route must be native USDC to Base or Solana USDC"});
+    if (["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea","aptos"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base","solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({code:z.ZodIssueCode.custom,path:["toChain"],message:"candidate source route must be native USDC to Base or Solana USDC"});
   });
 
 export interface AssetFarePluginConfig {
@@ -111,7 +111,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live 42 active routes and 48 economically inactive measured routes across ten chains. It never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's live 54 active routes and 44 economically inactive measured routes across sixteen chains. It never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},
@@ -140,7 +140,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh quote on AssetFare's 42 active routes. Forty have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh quote on AssetFare's 54 active routes. Fifty-two have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },

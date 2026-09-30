@@ -27,10 +27,10 @@ const TOKENS_BY_CHAIN = {
   optimism: ["USDC"],
   ethereum: ["USDC"],
   hyperevm: ["USDC"],
-  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"],
+  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"], monad: ["USDC"], avalanche: ["USDC"], cronos: ["USDC"], injective: ["USDC"], linea: ["USDC"], aptos: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 export const AssetFareQuoteIntentSchema = z.object({
   fromChain: ChainSchema,
@@ -48,10 +48,10 @@ export const AssetFareQuoteIntentSchema = z.object({
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
     context.addIssue({ code: "custom", path: ["toToken"], message: "identity route does not require a quote" });
   }
-  if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"].includes(value.toChain)) context.addIssue({ code: "custom", path: ["toChain"], message: "selected chain is source-only" });
+  if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"].includes(value.toChain)) context.addIssue({ code: "custom", path: ["toChain"], message: "selected chain is source-only" });
   if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
   if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: "custom", path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
-  if (["xlayer","sei","sonic"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base","solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({code:"custom",path:["toChain"],message:"candidate source route must be native USDC to Base or Solana USDC"});
+  if (["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea","aptos"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base","solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({code:"custom",path:["toChain"],message:"candidate source route must be native USDC to Base or Solana USDC"});
 });
 
 const CapabilitiesSchema = z.object({
@@ -159,7 +159,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh quote on AssetFare's 42 active routes. Forty have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh quote on AssetFare's 54 active routes. Fifty-two have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {

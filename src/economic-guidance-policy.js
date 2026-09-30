@@ -90,19 +90,19 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
   const packageFloor = payload?.caller_owned_agent_execution?.minimum_package_version;
   if (!policy || typeof policy !== "object" || Array.isArray(policy)) throw new Error("assetfare_economic_policy_invalid");
 
-  const target = policy.primary_direct_route_count === 42;
+  const target = policy.primary_direct_route_count === 54;
   if (target) {
     if (!exactKeys(policy, TARGET_POLICY_KEYS)
         || policy.external_coverage_only_route_count !== 0
-        || policy.active_route_count !== 42
-        || policy.inactive_route_count !== 48
+        || policy.active_route_count !== 54
+        || policy.inactive_route_count !== 44
         || !Array.isArray(policy.inactive_routes)
-        || policy.inactive_routes.length !== 48
-        || new Set(policy.inactive_routes).size !== 48
-        || Object.keys(policy.amount_conditioned_routes || {}).length !== 40
+        || policy.inactive_routes.length !== 44
+        || new Set(policy.inactive_routes).size !== 44
+        || Object.keys(policy.amount_conditioned_routes || {}).length !== 52
         || canonicalJson(policy.paxos_direct_ingress_routes) !== canonicalJson(TARGET_PAXOS_DIRECT_INGRESS_ROUTES)
         || policy.automatic_external_fallback_forbidden !== true
-        || !["1.13.0", "1.14.0", "1.14.1", "1.14.2", "1.14.3", "1.14.4", "1.14.5"].includes(packageFloor)
+        || !["1.13.0", "1.14.0", "1.14.1", "1.14.2", "1.14.3", "1.14.4", "1.14.5", "1.15.0"].includes(packageFloor)
         || policy.economic_guidance_url !== ECONOMIC_GUIDANCE_URL
         || !Object.prototype.hasOwnProperty.call(payload, "economic_guidance")) throw new Error("assetfare_economic_policy_invalid");
     let top;
@@ -114,7 +114,7 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
       throw new Error("assetfare_economic_policy_invalid");
     }
     if (canonicalJson(top) !== canonicalJson(nested)) throw new Error("assetfare_economic_policy_invalid");
-    return { kind: "active_route_policy_1_14", guidance: top };
+    return { kind: "active_route_policy_1_15", guidance: top };
   }
 
   if (!commonPolicyValid(policy)) throw new Error("assetfare_economic_policy_invalid");

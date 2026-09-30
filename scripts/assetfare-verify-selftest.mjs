@@ -48,6 +48,11 @@ const deployments = [
   ["sei:candidate_cctp", "sei", 1329, "candidate_cctp", "AssetFareXLayerSeiSonicCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["sonic:candidate_cctp", "sonic", 146, "candidate_cctp", "AssetFareXLayerSeiSonicCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["xlayer:candidate_cctp", "xlayer", 196, "candidate_cctp", "AssetFareXLayerSeiSonicCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["monad:public_expansion_cctp", "monad", 143, "public_expansion_cctp", "AssetFareMonadAvalancheCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["avalanche:public_expansion_cctp", "avalanche", 43114, "public_expansion_cctp", "AssetFareMonadAvalancheCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["cronos:public_expansion_cctp", "cronos", 25, "public_expansion_cctp", "AssetFareCronosCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["injective:public_expansion_cctp", "injective", 1776, "public_expansion_cctp", "AssetFareInjectiveCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["linea:public_expansion_cctp", "linea", 59144, "public_expansion_cctp", "AssetFareLineaCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
 ];
 
 function fixtureBundle() {
@@ -59,7 +64,7 @@ function fixtureBundle() {
       amount_policy: { maximum_usd: null, minimum_usd: 1 },
       fee_policy: { assetfare_service_fee_bps: 1, formula: "floor(fee_basis_stable_base * 1 / 10000)", maximum_stable_base: null, provider_and_network_fees_additional: true, zero_fee_routes_allowed: false },
       noncustody_policy: { accepts_private_keys: false, caller_verifies_signs_submits: true, server_signing: false, server_submission: false },
-      scope: { chains: Object.keys(RPC_PROVIDERS), evm_deployments: deployments.length, unique_solidity_sources: sourceNames.length },
+      scope: { chains: Object.keys(RPC_PROVIDERS).sort(), evm_deployments: deployments.length, unique_solidity_sources: sourceNames.length },
     },
     evidence: {
       build: {
@@ -73,7 +78,7 @@ function fixtureBundle() {
         package_lock_path: "package-lock.json",
         package_lock_sha256: SHA("lock"),
       },
-      deployments: deployments.map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
+      deployments: [...deployments].sort((left,right)=>left[0].localeCompare(right[0])).map(([id, chain, chainId, kind, sourceContract, configKeys], index) => {
         const runtimeCode = `0x6000${index.toString(16).padStart(2, "0")}`;
         const configuration = Object.fromEntries(configKeys.map((key, keyIndex) => [key, key === "source_domain" ? index : key === "solana_peer" ? HASH(index + keyIndex + 1) : ADDRESS(index * 10 + keyIndex + 1)]));
         return {
@@ -105,14 +110,14 @@ function fixtureBundle() {
         uptime: null,
         verifier: `https://github.com/assetfare/assetfare-mcp/blob/${VERIFIER_COMMIT}/scripts/assetfare-verify.mjs`,
       },
-      sources: sourceNames.map((contract) => ({
+      sources: [...sourceNames,"AssetFareAptosCctpV1"].map((contract) => ({
         artifact_path: `artifacts/${contract}.json`,
         artifact_sha256: SHA(`artifact-${contract}`),
         artifact_url: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/artifacts/${contract}.json`,
         contract,
-        path: `contracts/${contract}.sol`,
+        path: `contracts/${contract}.${contract==="AssetFareAptosCctpV1"?"move":"sol"}`,
         sha256: SHA(`source-${contract}`),
-        source_url: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/contracts/${contract}.sol`,
+        source_url: `https://raw.githubusercontent.com/assetfare/assetfare-core-evidence/${PUBLIC_EVIDENCE_COMMIT}/contracts/${contract}.${contract==="AssetFareAptosCctpV1"?"move":"sol"}`,
       })),
     },
     known_limitations: ["This proves published bytecode identity and factual invariants, not the absence of unknown defects."],
@@ -183,15 +188,15 @@ const bundle = fixtureBundle();
 const manifest = fixtureManifest(bundle);
 validateManifest(manifest, PUBLIC_KEY, "assetfare-selftest", NOW);
 const chains = validateBundle(bundle, manifest);
-assert.equal(chains.size, 10);
+assert.equal(chains.size, 15);
 const expandedBundle=structuredClone(bundle);
-expandedBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic"].includes(name)),evm_deployments:12,unique_solidity_sources:6};
-expandedBundle.evidence.deployments=expandedBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":candidate_cctp"));
-expandedBundle.evidence.sources=expandedBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareXLayerSeiSonicCctpExecutorV1");
+expandedBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea"].includes(name)),evm_deployments:12,unique_solidity_sources:6};
+expandedBundle.evidence.deployments=expandedBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":candidate_cctp")&&!row.id.endsWith(":public_expansion_cctp"));
+expandedBundle.evidence.sources=expandedBundle.evidence.sources.filter((row)=>!["AssetFareXLayerSeiSonicCctpExecutorV1","AssetFareMonadAvalancheCctpExecutorV1","AssetFareCronosCctpExecutorV1","AssetFareInjectiveCctpExecutorV1","AssetFareLineaCctpExecutorV1","AssetFareAptosCctpV1"].includes(row.contract));
 const expandedManifest=fixtureManifest(expandedBundle);
 assert.equal(validateBundle(expandedBundle,expandedManifest).size,7);
 const legacyBundle=structuredClone(expandedBundle);
-legacyBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["ethereum","hyperevm","xlayer","sei","sonic"].includes(name)),evm_deployments:10,unique_solidity_sources:5};
+legacyBundle.claims.scope={chains:expandedBundle.claims.scope.chains.filter((name)=>!["ethereum","hyperevm"].includes(name)),evm_deployments:10,unique_solidity_sources:5};
 legacyBundle.evidence.deployments=legacyBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":expansion_cctp"));
 legacyBundle.evidence.sources=legacyBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareExpansionCctpExecutorV2");
 const legacyManifest=fixtureManifest(legacyBundle);
@@ -209,7 +214,7 @@ async function publicEvidenceFixture(url) {
   throw new Error(`unexpected public evidence URL ${url}`);
 }
 const publicEvidence = await verifyPublicEvidence(bundle, publicEvidenceFixture);
-assert.equal(publicEvidence.hashed_files.length, 15);
+assert.equal(publicEvidence.hashed_files.length, 25);
 assert.equal(publicEvidence.build_scripts.length, 1);
 await expectReject(() => verifyPublicEvidence(bundle, async (url) => url.includes("/contracts/") ? new Response("mutated", { status: 200, headers: { "content-type": "text/plain" } }) : publicEvidenceFixture(url)), /SHA-256 mismatch/);
 
@@ -226,7 +231,7 @@ try {
   const result = await run({ mode: "offline", manifest: manifestPath, bundle: bundlePath, pubkey: publicKeyPath }, { now: NOW });
   assert.equal(result.status, "offline_evidence_verified");
   assert.equal(result.rpc_quorum.performed, false);
-  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 15);
+  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 20);
 } finally {
   await rm(fixtureDirectory, { recursive: true, force: true });
 }
@@ -286,7 +291,7 @@ function rpcFixture(fault = {}) {
 }
 
 const goodQuorum = await verifyRpcQuorum(chains, rpcFixture());
-assert.equal(goodQuorum.length, 10);
+assert.equal(goodQuorum.length, 15);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "chain", host: "mainnet.base.org" })), /chain id mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "code", host: "arbitrum.drpc.org", contract: "swap" })), /raw code mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt", host: "base.drpc.org", contract: "cctp" })), /deployment receipt mismatch/);

@@ -17,11 +17,11 @@ const release = read(releasePath);
 const publish = read(publishPath);
 
 const packages = [
-  ["@assetfare/agenti-route-tools", "integrations/agenti", "1.1.0"],
-  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit", "1.1.0"],
-  ["assetfare-elizaos-route-plugin", "integrations/elizaos", "1.1.0"],
-  ["@assetfare/goat-plugin", "integrations/goat-sdk", "1.1.0"],
-  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit", "1.1.0"],
+  ["@assetfare/agenti-route-tools", "integrations/agenti", "1.2.0"],
+  ["assetfare-agentkit-action-provider", "integrations/coinbase-agentkit", "1.2.0"],
+  ["assetfare-elizaos-route-plugin", "integrations/elizaos", "1.2.0"],
+  ["@assetfare/goat-plugin", "integrations/goat-sdk", "1.2.0"],
+  ["assetfare-solana-agent-kit-plugin", "integrations/solana-agent-kit", "1.2.0"],
 ];
 const exactChoiceBlock = `        type: choice
         options:
@@ -172,7 +172,7 @@ if (read("verification/assetfare-release-signers").trim() !== "twotw55@gmail.com
 execFileSync("git", ["-c", "gpg.format=ssh", "-c", `gpg.ssh.allowedSignersFile=${fileURLToPath(new URL("verification/assetfare-release-signers", root))}`, "verify-commit", "HEAD"], { cwd: rootPath, stdio: "pipe" });
 
 const readme = read("README.md");
-for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.1.0", "assetfare-agentkit-action-provider-v1.1.0", "assetfare-elizaos-route-plugin-v1.1.0", "assetfare-goat-plugin-v1.1.0", "assetfare-solana-agent-kit-plugin-v1.1.0", "Do not dispatch either integration release workflow", "--ref"]) {
+for (const value of ["publish-integration-npm.yml", "release-integration-provenance.yml", "assetfare-agenti-route-tools-v1.2.0", "assetfare-agentkit-action-provider-v1.2.0", "assetfare-elizaos-route-plugin-v1.2.0", "assetfare-goat-plugin-v1.2.0", "assetfare-solana-agent-kit-plugin-v1.2.0", "Do not dispatch either integration release workflow", "--ref"]) {
   if (!readme.includes(value)) throw new Error(`README missing integration prerequisite: ${value}`);
 }
 

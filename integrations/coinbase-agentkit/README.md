@@ -5,7 +5,7 @@ This integration exposes two read-only AgentKit actions:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It uses AssetFare REST/OpenAPI v2 across 42 active routes and lists 48
+It uses AssetFare REST/OpenAPI v2 across 54 active routes and lists 48
 economically inactive measured routes. It never accepts a private key and never authenticates a wallet, creates
 a session, prepares an action, signs, submits, funds, swaps, or bridges.
 Quote amounts must be finite and at least USD 1. At or above a numeric

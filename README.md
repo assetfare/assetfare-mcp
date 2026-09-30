@@ -1,7 +1,7 @@
 # AssetFare — non-custodial bridge and cross-chain swap for AI agents
 
 USDC bridge API for AI agents and agent-wallet funding: 42 economically active
-routes across ten chains, with 48 measured routes inactive. Forty active routes
+routes across sixteen chains, with 48 measured routes inactive. Fifty-two active routes
 have a route-specific best-from amount; at or above it, use AssetFare first and
 confirm the fresh quote. Two Sei routes are active for unique availability and
 make no cheapest-price claim. Each active route
@@ -10,7 +10,7 @@ step. Caller approves and signs; the server never signs or submits.
 AssetFare service fee 1bp; Circle/provider/network fees additional; quote
 exposes total token-path cost and live availability.
 
-Core 2.5.1 quotes also include strict `continuation_v3`. MCP 1.14.5 verifies the
+Core 2.5.1 quotes also include strict `continuation_v3`. MCP 1.15.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -36,8 +36,8 @@ AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain
 route service. **Solana native USDC → Base native USDC** is the canonical route:
 an agent gets a fresh quote and, only after explicit caller approval, a bounded
 unsigned transaction plan the caller verifies and signs. AssetFare also provides
-bridge and cross-chain swap routes across ten chains, fourteen active
-endpoints, and 42 active directed routes. AssetFare service fee 1bp;
+bridge and cross-chain swap routes across sixteen chains, twenty active
+endpoints, and 54 active directed routes. AssetFare service fee 1bp;
 Circle/provider/network fees additional; quote exposes total token-path cost and
 live availability; server never signs/submits. Solana SOL → Base USDC and
 Optimism USDC → Base USDC are also supported. AssetFare never receives private
@@ -153,11 +153,11 @@ MCP:
   1bp at one eligible successful atomic action; no route is fee-free. The 1bp is
   not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
   and network fees are additional and appear in the quote's total token-path cost.
-- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose 42 active routes and list 48 inactive routes. Availability is live: check capabilities/quote before preparing. Optimism is active to Base; Ethereum/HyperEVM to Solana; X Layer, Sei and Sonic to Base/Solana. Forty active routes publish a numeric threshold; two Sei routes publish null and are availability-only. The shared USD 1 technical minimum applies.
+- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose 54 active routes and list 44 inactive routes. Availability is live: check capabilities/quote before preparing. Optimism is active to Base; Ethereum/HyperEVM to Solana; X Layer, Sei, Sonic, Monad, Avalanche, Cronos, Injective, Linea and Aptos to Base/Solana. Fifty-two active routes publish a numeric threshold; two Sei routes publish null and are availability-only. The shared USD 1 technical minimum applies.
 - Remote MCP/A2A clients must send strict `approval_v3` to prepare and session create. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. The lower-level REST compatibility surface still labels omission `legacy_advisory`; it is not action authority for a new flow. Each call also requires literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
 - A session capability is a sensitive bearer credential, never a private key. Remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply it only in `X-AssetFare-Session-Token`. The server stores only its hash. The remote MCP/A2A service never generates the secret; `assetfare-plan` keeps it in memory by default and writes it only to an explicit new mode-0600 file. The optional local stdio helper remains offline-only.
 - Remote MCP session create/get/observe/refresh calls must also retain the strict caller-side `verification_context` from the selected quote, approval and public wallet map. A2A v1 uses the same object as required `verificationContext`. Both adapters validate it before any upstream call, keep it out of the upstream request, apply the complete semantic verifier to every returned `current_action`, and emit a fresh self-verifying wallet handoff. If context is missing after a restart or any target/program/bounds/binding drifts, the adapter fails before creating state or exposing an action.
-- Remote MCP/A2A one-shot prepare likewise requires a separately typed one-shot verification context. The adapter validates it before prepare, keeps it caller-side, deeply verifies the first EVM/Solana action and approval bounds, and returns the untouched Core bundle inside a verified wrapper with a fresh wallet handoff. The nested bundle retains its original `payload_sha256`; wrapper fields are not part of that Core hash.
+- Remote MCP/A2A one-shot prepare likewise requires a separately typed one-shot verification context. The adapter validates it before prepare, keeps it caller-side, verifies the first EVM, Solana or Aptos action and approval bounds, and returns the untouched Core bundle inside a verified wrapper with a fresh wallet handoff. The nested bundle retains its original `payload_sha256`; wrapper fields are not part of that Core hash.
 - The unversioned MCP quote/status and all MCP authentication/session/action tools are isolated at `/mcp/legacy` for original-corridor compatibility only.
 - MCP state-changing tools only create authentication/session records or prepare/verify unsigned legacy workflow actions. MCP clients should require user approval for those calls.
 - The caller independently verifies every returned unsigned action and signs/submits with its own wallets.
@@ -172,9 +172,9 @@ records were retired during the ownership-preserving GitHub organization
 migration tracked in
 [registry issue #1666](https://github.com/modelcontextprotocol/registry/issues/1666).
 npm, the public source, the hosted endpoint, and Registry metadata are current
-at `1.14.5`.
+at `1.15.0`.
 
-Primary MCP quote scope: 42 active directed routes across fourteen active endpoints; 48 measured routes are inactive.
+Primary MCP quote scope: 54 active directed routes across twenty active endpoints; 44 measured routes are inactive.
 The only technical quote minimum is $1; no route has a separate economic floor
 or adapter-enforced maximum. The route-specific guidance is non-enforcing and
 changes as observations accumulate. Live
@@ -182,8 +182,9 @@ upstream availability and liquidity still apply. Each route charges an AssetFare
 exactly 1bp; Circle/provider/network fees are additional, and each quote
 exposes total token-path cost and live availability.
 Canonical examples are `solana:SOL → base:USDC`, `solana:USDC → base:USDC`,
-and `ethereum:USDC → solana:USDC`. X Layer, Sei and Sonic contribute six
-source-only routes to Base/Solana. The
+and `ethereum:USDC → solana:USDC`. X Layer, Sei, Sonic, Monad, Avalanche,
+Cronos, Injective, Linea and Aptos contribute eighteen source-only routes to
+Base/Solana. The
 unversioned legacy workflow remains limited to `solana:SOL → base:ETH` and
 `solana:SOL → arbitrum:ETH`; it does not limit the v2 route matrix.
 
@@ -219,7 +220,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -235,7 +236,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -281,10 +282,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -302,7 +303,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -322,6 +323,11 @@ replaces a still-live action early, invokes a wallet, signs, or submits.
 agent's existing wallet without making AssetFare a custodian. It runs in the
 caller's process. The caller supplies two local files:
 
+The packaged delegated runner supports EVM and Solana handoffs. Aptos routes
+return a verified Aptos Wallet Standard unsigned-BCS handoff with delegated
+runner execution disabled; the caller confirms, simulates, signs and submits
+that handoff in its own Aptos wallet.
+
 - a mode-0600 policy matching
   [`caller-owned-execution-policy-v2`](./schemas/caller-owned-execution-policy-v2.json),
   containing only public wallets and explicit execution caps; and
@@ -336,7 +342,7 @@ Before funding it, validate the local adapter contract without invoking any
 wallet, signer, RPC submit, or network request:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-adapter-conformance \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-adapter-conformance \
   --wallet-adapter ./my-local-wallet-adapter.mjs
 ```
 
@@ -344,7 +350,7 @@ The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
 transaction, remote signer, or hosted-wallet option:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.14.5 assetfare-agent-runner \
+npx --yes --package=assetfare-mcp@1.15.0 assetfare-agent-runner \
   --capability-file ./session-capability.json \
   --policy-file ./caller-execution-policy.json \
   --state-file ./caller-runner-state.json \
@@ -421,7 +427,7 @@ revision. The complete source and tests are in
 
 ## A2A v1 quote adapter
 
-AssetFare also exposes A2A Agent Card version 1.5.1 for agents that discover
+AssetFare also exposes A2A Agent Card version 1.6.0 for agents that discover
 quote and caller-approved unsigned workflows without MCP:
 
 - canonical Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
@@ -444,7 +450,7 @@ its session token locally; the remote A2A endpoint deliberately exposes no
 token-generation operation. Every session operation also requires the same
 hash-bound `verificationContext` copied from the exact selected quote, strict
 approval and public-wallet map. The adapter validates that context before the
-upstream request, deeply verifies every EVM/Solana `current_action`, and emits
+  upstream request, verifies every EVM, Solana or Aptos `current_action`, and emits
 a fresh self-verifying caller-wallet handoff. Each execution operation requires
 an explicit `callerApproved:true` and the caller's public wallet addresses;
 AssetFare never signs or submits, and only the caller's own submitted
@@ -603,11 +609,11 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 The five stable integration packages use a separate, package-allowlisted
 release path. Their immutable tags are pinned exactly as follows:
 
-- `assetfare-agenti-route-tools-v1.1.0` (`@assetfare/agenti-route-tools`)
-- `assetfare-agentkit-action-provider-v1.1.0`
-- `assetfare-elizaos-route-plugin-v1.1.0`
-- `assetfare-goat-plugin-v1.1.0` (`@assetfare/goat-plugin`)
-- `assetfare-solana-agent-kit-plugin-v1.1.0`
+- `assetfare-agenti-route-tools-v1.2.0` (`@assetfare/agenti-route-tools`)
+- `assetfare-agentkit-action-provider-v1.2.0`
+- `assetfare-elizaos-route-plugin-v1.2.0`
+- `assetfare-goat-plugin-v1.2.0` (`@assetfare/goat-plugin`)
+- `assetfare-solana-agent-kit-plugin-v1.2.0`
 
 Current stable packages and direct installation commands:
 

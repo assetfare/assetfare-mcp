@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "1.14.5",
-  "description": "USDC bridge API for AI agents: 42 active and 48 inactive measured routes, fresh quotes, quote-bound approval, and caller-signed plans; AssetFare never signs or submits transactions.",
+  "version": "1.15.0",
+  "description": "USDC bridge API for AI agents: 54 active and 44 inactive measured routes, fresh quotes, quote-bound approval, and caller-signed plans; AssetFare never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",
