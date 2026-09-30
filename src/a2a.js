@@ -299,7 +299,9 @@ function assertExecutableRoute(fromChain, fromToken, toChain, toToken) {
   const source = `${fromChain}:${fromToken}`, destination = `${toChain}:${toToken}`;
   if (!ENDPOINTS.has(source) || !ENDPOINTS.has(destination)) throw new Error("assetfare_route_unsupported");
   if (source === destination) throw new Error("assetfare_identity_route");
-  if (SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
+  if (NO_FORWARD_SOURCE_ONLY_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "arbitrum"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
+  if (EXPANSION_SOURCE_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "solana"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
+  if (CANDIDATE_SOURCE_CHAINS.has(fromChain) && !(fromToken === "USDC" && ["base", "solana"].includes(toChain) && toToken === "USDC")) throw new Error("assetfare_route_unsupported");
 }
 function rejectSigningClaims(value) {
   const stack=[[value,0]];let seen=0;
