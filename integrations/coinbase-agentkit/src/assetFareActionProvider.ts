@@ -73,7 +73,7 @@ Use this before requesting a quote. Read the route-specific best-from amount fro
 
   @CreateAction({
     name: "quote_route",
-    description: `Request one fresh AssetFare quote on the 54 active routes. Fifty-two have a verified best-from threshold; two Sei routes are availability-only with a null threshold.
+    description: `Request one fresh AssetFare quote on the 54 active routes. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim.
 
 Every accepted result includes a fail-closed, intent-bound direct_route_summary: the ordered provider path, normalized chain:asset endpoints, continuous expected/minimum base-unit amounts, and the exact AssetFare 1bp fee step. All current routes are direct_protocol_only; external_intent remains a compatibility enum. route_aggregator_used=false describes AssetFare's route engine only, not every provider's internals.
 

@@ -140,7 +140,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh quote on AssetFare's 54 active routes. Fifty-two have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh quote on AssetFare's 54 active routes. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },

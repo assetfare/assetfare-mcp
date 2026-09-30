@@ -159,7 +159,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh quote on AssetFare's 54 active routes. Fifty-two have a verified best-from threshold; two Sei routes are availability-only with a null threshold. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh quote on AssetFare's 54 active routes. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {

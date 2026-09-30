@@ -52,7 +52,7 @@ assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
 assert.match(card.description,/non-custodial.*54-active-route.*44 measured routes inactive/i);
-assert.match(card.description,/Fifty-two active routes.*best-from amount.*two Sei routes.*unique availability.*Confirm every fresh quote/i);
+assert.match(card.description,/Forty-four active routes.*best-from amount.*ten routes.*availability-only.*(?:no|without a) cheapest-price claim.*Confirm every fresh quote/i);
 assert.match(card.description,/unranked_candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*legacy compatibility only/i);
 assert.match(card.description,/never auto-selects.*signs, or submits/i);
 assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
