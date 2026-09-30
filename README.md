@@ -682,7 +682,7 @@ workflows remain separate and unchanged.
 - Mainnet evidence: `https://assetfare.dev/evidence/`
 - Paired route evidence: [`evidence/solana-base-paired-quotes-20260916.md`](./evidence/solana-base-paired-quotes-20260916.md)
 - Agent-payment route evidence: [`evidence/solana-base-usdc-paired-quotes-20260916.md`](./evidence/solana-base-usdc-paired-quotes-20260916.md)
-- Live same-input comparison: `https://assetfare.dev/compare/solana-to-base/`
+- Historical same-input comparison for an inactive corridor: `https://assetfare.dev/compare/solana-to-base/`
 - Dated Solana USDC → Base USDC comparison ($250, 2026-09-23; explicit non-all-in and non-identical-lane caveats): `https://assetfare.dev/compare/solana-usdc-to-base-usdc/`
 
 ## Discovery
@@ -693,8 +693,10 @@ workflows remain separate and unchanged.
 - Glama: `https://glama.ai/mcp/connectors/io.github.odaiin/assetfare`
 - Agent Skill: `https://www.skills.sh/assetfare/assetfare-mcp/assetfare-route`
 - Dify Marketplace: `https://marketplace.dify.ai/plugin/odaiin/assetfare`
-- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `8d0464911cf7db3528458c53082a08dfa01f276c`)
-- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `9abd25f1c40a0b77d51f901108b490949fb80bbf`)
+- Hugging Face quote tool: `https://huggingface.co/spaces/odaiin/assetfare-quote` (canonical reviewed revision `a2895876d7adec645e93d7092e63b2ed4be17ef5`)
+- Hugging Face capabilities tool: `https://huggingface.co/spaces/odaiin/assetfare-capabilities` (canonical reviewed revision `bdbe1e82be617c77283dd44e67cc9bda2d220ec7`)
+- Hugging Face prepare tool: `https://huggingface.co/spaces/odaiin/assetfare-prepare` (canonical reviewed revision `bc4619ea3d5443ed24e0e0892994530dea259188`)
+- Hugging Face session-create tool: `https://huggingface.co/spaces/odaiin/assetfare-session-create` (canonical reviewed revision `f4af546056d1ac3f3cf44af428b66766f8beef15`)
 - A2A Registry: `https://a2aregistry.org/agents/d4f9ab1a-904c-4227-8fc6-548e45749de1`
 - ARD: `https://assetfare.dev/.well-known/ard.json`
 
