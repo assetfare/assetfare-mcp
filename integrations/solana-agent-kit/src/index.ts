@@ -24,8 +24,8 @@ const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon"
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 const CapabilitiesResponseSchema = z.object({
   public_api_enabled: z.literal(true),
-  directed_conversion_routes: z.literal(42),
-  execution_implemented_routes: z.literal(42),
+  directed_conversion_routes: z.literal(54),
+  execution_implemented_routes: z.literal(54),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();

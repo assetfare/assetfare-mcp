@@ -5,7 +5,7 @@ This plugin exposes two read-only GOAT tools:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It calls AssetFare REST/OpenAPI v2 across 54 active routes and lists 48
+It calls AssetFare REST/OpenAPI v2 across 54 active routes and lists 44
 economically inactive measured routes. It never accepts a private key and cannot authenticate, create a
 session, prepare an action, sign, submit, fund, swap, or bridge.
 Quote amounts must be finite and at least USD 1. At or above a numeric

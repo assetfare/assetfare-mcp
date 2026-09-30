@@ -51,7 +51,7 @@ assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-un
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*42-active-route.*48 measured routes inactive/i);
+assert.match(card.description,/non-custodial.*54-active-route.*44 measured routes inactive/i);
 assert.match(card.description,/Fifty-two active routes.*best-from amount.*two Sei routes.*unique availability.*Confirm every fresh quote/i);
 assert.match(card.description,/unranked_candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*legacy compatibility only/i);
 assert.match(card.description,/never auto-selects.*signs, or submits/i);

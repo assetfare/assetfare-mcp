@@ -813,7 +813,7 @@ function createServer(provenance = {}, profile = "v2") {
     { name: "AssetFare", version: VERSION },
     { instructions: profile === "legacy"
       ? "Legacy compatibility endpoint for the original Solana SOL to Base/Arbitrum ETH workflow. Use only its unversioned tools. It returns unsigned actions and never receives private keys, signs, or submits. New integrations must use https://api.assetfare.dev/mcp."
-      : "Current AssetFare v2 endpoint: 42 economically active non-custodial routes; 44 measured routes are inactive. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
+      : "Current AssetFare v2 endpoint: 54 economically active non-custodial routes; 44 measured routes are inactive. Start with assetfare_v2_capabilities, then quote. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
   );
 
   if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, emptyStrictInput, readonly(), () => api("/v1/status"));

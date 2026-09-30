@@ -18,7 +18,7 @@ prepare an action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live 42-active-route matrix; 44 measured routes are inactive. The first quote requires no AssetFare
+the live 54-active-route matrix; 44 measured routes are inactive. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
 Quote amounts must be finite and at least USD 1. At or above a numeric
 `advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is

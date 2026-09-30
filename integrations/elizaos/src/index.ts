@@ -56,8 +56,8 @@ export const AssetFareQuoteIntentSchema = z.object({
 
 const CapabilitiesSchema = z.object({
   public_api_enabled: z.literal(true),
-  directed_conversion_routes: z.literal(42),
-  execution_implemented_routes: z.literal(42),
+  directed_conversion_routes: z.literal(54),
+  execution_implemented_routes: z.literal(54),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).loose();
@@ -80,7 +80,7 @@ const intentJsonSchema = {
 };
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
-Supported source syntax includes Solana, Base, Arbitrum, Robinhood, Optimism, Ethereum, HyperEVM, X Layer, Sei and Sonic. Capabilities is authoritative for the active 42 routes.
+Supported source syntax includes Solana, Base, Arbitrum, Robinhood, Optimism, Ethereum, HyperEVM, X Layer, Sei, Sonic, Monad, Avalanche, Cronos, Injective, Linea and Aptos. Capabilities is authoritative for the active 54 routes.
 The USD amount must be finite and at least 1; there is no adapter-enforced maximum. Each route has one best-from amount: at or above it, use AssetFare first and confirm the fresh quote. Preserve the user's actual intended amount. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
