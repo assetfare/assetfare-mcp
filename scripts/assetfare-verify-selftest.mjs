@@ -31,6 +31,7 @@ const NOW = Date.parse("2026-09-23T00:00:00Z");
 const ADDRESS = (number) => `0x${number.toString(16).padStart(40, "0")}`;
 const HASH = (number) => `0x${number.toString(16).padStart(64, "0")}`;
 const SHA = (text) => sha256Hex(Buffer.from(text));
+assert.deepEqual(RPC_PROVIDERS.sei.urls, ["https://evm-rpc-sei.stingray.plus", "https://sei-evm-rpc.publicnode.com"]);
 
 const deployments = [
   ["arbitrum:cctp", "arbitrum", 42161, "cctp", "AssetFareDirectCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],

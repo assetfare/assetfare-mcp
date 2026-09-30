@@ -55,7 +55,7 @@ const RPC_PROVIDERS = Object.freeze({
   }),
   sei: Object.freeze({
     chainId: 1329,
-    urls: Object.freeze(["https://evm-rpc.sei-apis.com", "https://sei-evm-rpc.publicnode.com"]),
+    urls: Object.freeze(["https://evm-rpc-sei.stingray.plus", "https://sei-evm-rpc.publicnode.com"]),
     contractNames: Object.freeze(["candidate_cctp"]),
   }),
   sonic: Object.freeze({

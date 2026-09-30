@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.15.1",
+  "version": "1.15.2",
   "description": "USDC bridge API for AI agents: 54 active routes and 44 economically inactive routes; 44 verified best-from thresholds plus 10 availability-only routes; exact 1bp service fee plus Circle/provider/network fees; caller signs; server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
