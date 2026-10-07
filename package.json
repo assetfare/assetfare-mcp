@@ -77,7 +77,7 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "1.1.0",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@noble/hashes": "1.8.0",
     "@solana/web3.js": "1.99.0",
     "bs58": "6.0.0",
