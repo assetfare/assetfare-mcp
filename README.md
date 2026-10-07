@@ -10,7 +10,7 @@ step. Caller approves and signs; the server never signs or submits.
 AssetFare service fee 1bp; Circle/provider/network fees additional; quote
 exposes total token-path cost and live availability.
 
-Core 2.5.1 quotes also include strict `continuation_v3`. MCP 1.15.2 verifies the
+Core 2.5.1 quotes also include strict `continuation_v3`. MCP 1.15.3 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -69,7 +69,11 @@ uses a disclosed direct protocol. All current routes use that classification;
 `external_intent` remains only as a compatibility enum.
 `route_aggregator_used=false` describes AssetFare's own engine and does not
 claim every provider avoids internal aggregation. Circle/provider costs remain
-in `cost_summary.provider_fee_components`; network gas is in `unpriced_costs`.
+in `cost_summary.provider_fee_components`. Contract 2.6.1 also exposes known
+LayerZero native fees and bounded source-gas estimates in
+`separately_paid_costs`, provides `expected_all_in_cost_usd_estimate`, and names
+the native balance the caller must retain. Costs that still cannot be priced
+remain explicit in `unpriced_costs`.
 
 `continuation_v3` binds the entire quote (excluding the continuation object
 itself) to a process-local, maximum-60-second Core cache. A later exact
@@ -172,7 +176,7 @@ records were retired during the ownership-preserving GitHub organization
 migration tracked in
 [registry issue #1666](https://github.com/modelcontextprotocol/registry/issues/1666).
 npm, the public source, the hosted endpoint, and Registry metadata are current
-at `1.15.2`.
+at `1.15.3`.
 
 Primary MCP quote scope: 54 active directed routes across twenty active endpoints; 44 measured routes are inactive.
 The only technical quote minimum is $1; no route has a separate economic floor
@@ -220,7 +224,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -236,7 +240,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -282,10 +286,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -303,7 +307,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-session \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -342,7 +346,7 @@ Before funding it, validate the local adapter contract without invoking any
 wallet, signer, RPC submit, or network request:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-adapter-conformance \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-adapter-conformance \
   --wallet-adapter ./my-local-wallet-adapter.mjs
 ```
 
@@ -350,7 +354,7 @@ The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
 transaction, remote signer, or hosted-wallet option:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.15.2 assetfare-agent-runner \
+npx --yes --package=assetfare-mcp@1.15.3 assetfare-agent-runner \
   --capability-file ./session-capability.json \
   --policy-file ./caller-execution-policy.json \
   --state-file ./caller-runner-state.json \
