@@ -51,13 +51,13 @@ assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-un
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*54-active-route.*44 measured routes inactive/i);
-assert.match(card.description,/Forty-four active routes.*best-from amount.*ten routes.*availability-only.*(?:no|without a) cheapest-price claim.*Confirm every fresh quote/i);
-assert.match(card.description,/unranked_candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*legacy compatibility only/i);
+assert.match(card.description,/non-custodial.*98 technically available routes.*(?:44|Forty-four).*price-recommended.*54.*no current price recommendation/i);
+assert.match(card.description,/economic guidance is advisory.*compare alternatives when price matters.*no extra acknowledgement step/i);
+assert.match(card.description,/unranked_candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*server-enforced binding/i);
 assert.match(card.description,/never auto-selects.*signs, or submits/i);
 assert.doesNotMatch(JSON.stringify(card),/flat[ -]?1 ?bp|execution-ready/i);
 assert.match(card.description,/full-payload.*exact path.*bounds.*TTL.*one_shot\/session/i);
-assert.match(card.skills[0].description,/unranked_candidate.*route-specific guidance.*direct_route_summary.*continuation_v3.*Price-verified routes.*availability-only routes.*null threshold.*auto-select.*auto-prepare.*approvalV3/i);
+assert.match(card.skills[0].description,/unranked_candidate.*amount-specific guidance.*direct_route_summary.*continuation_v3.*price_recommended_for_amount.*advisory.*compare alternatives.*no economic acknowledgement.*auto-select.*auto-prepare.*approvalV3/i);
 assert.deepEqual(card.skills[0].tags.slice(0,5),["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]);
 assert.deepEqual(card.skills[0].examples[0],'{"fromChain":"solana","fromToken":"USDC","toChain":"base","toToken":"USDC","amountUsd":1000}');
 for (const tag of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed","agent-wallet-funding","payment-wallet-funding","x402-wallet-funding"]) assert.ok(card.skills[0].tags.includes(tag));
@@ -106,7 +106,9 @@ assert.equal(result.result.message.parts[0].data.guidance.bestFromUsd, ROUTE_ECO
 assert.equal(result.result.message.parts[0].data.guidance.useAssetFareFirstAtOrAboveBestFrom, false);
 assert.equal(result.result.message.parts[0].data.guidance.bestFromNot100PercentGuarantee, true);
 assert.equal(result.result.message.parts[0].data.guidance.confirmFreshAssetFareQuote, true);
-assert.equal(result.result.message.parts[0].data.guidance.compareAtIntendedAmount, false);
+assert.equal(result.result.message.parts[0].data.guidance.compareAtIntendedAmount, true);
+assert.equal(result.result.message.parts[0].data.guidance.economicGuidanceIsAdvisory, true);
+assert.equal(result.result.message.parts[0].data.guidance.economicGuidanceBlocksExecution, false);
 
 const uncappedIntent = { ...intent, amountUsd: 2500.25 };
 const uncappedResult = await transport.handle(request([data(uncappedIntent)], "uncapped"), context());

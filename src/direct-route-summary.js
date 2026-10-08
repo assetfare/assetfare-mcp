@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 const CONTRACT = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const ACTIVE_CONTRACT = JSON.parse(readFileSync(new URL("./active-route-contract.json", import.meta.url), "utf8"));
 const ACTIVE_ROUTES = new Set(ACTIVE_CONTRACT.active_routes);
-if(ACTIVE_CONTRACT.version!=="assetfare-active-route-contract-1.0.0"||ACTIVE_CONTRACT.active_route_count!==54||ACTIVE_ROUTES.size!==54)throw new Error("assetfare_active_route_contract_invalid");
+if(ACTIVE_CONTRACT.version!=="assetfare-route-availability-contract-1.0.0"||ACTIVE_CONTRACT.active_route_count!==98||ACTIVE_ROUTES.size!==98||[...ACTIVE_ROUTES].some((route)=>!Object.hasOwn(CONTRACT.routes,route)))throw new Error("assetfare_active_route_contract_invalid");
 const PRODUCT_KEYS = ["product_classification", "economic_eligibility", "public_execution_eligible", "primary_selection_eligible", "route_minimum_guard_bps"];
 const ROOT_KEYS = ["version", "route", "from", "to", "classification", "mode", ...PRODUCT_KEYS, "route_aggregator_used", "external_intent_protocol_used", "provider_internal_dex_aggregation_possible", "assetfare_fee_bps", "fee_collection_step_index", "server_signing", "server_submission", "step_count", "steps"];
 const LEGACY_ROOT_KEYS = ROOT_KEYS.filter((key) => !PRODUCT_KEYS.includes(key));

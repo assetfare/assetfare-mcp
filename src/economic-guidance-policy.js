@@ -21,6 +21,24 @@ const TARGET_POLICY_KEYS = [
   "primary_direct_route_count",
 ];
 
+const AVAILABLE_POLICY_KEYS = [
+  "active_route_count",
+  "amount_conditioned_routes",
+  "automatic_external_fallback_forbidden",
+  "availability_only_route_count",
+  "compare_required_route_count",
+  "economic_guidance",
+  "economic_guidance_blocks_execution",
+  "economic_guidance_url",
+  "external_coverage_only_route_count",
+  "inactive_route_count",
+  "inactive_routes",
+  "nonrecommended_route_count",
+  "paxos_direct_ingress_routes",
+  "price_recommended_route_count",
+  "primary_direct_route_count",
+];
+
 const LEGACY_POLICY_KEYS = [
   "amount_conditioned_routes",
   "automatic_external_fallback_forbidden",
@@ -89,6 +107,37 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
   const policy = payload?.route_product_policy;
   const packageFloor = payload?.caller_owned_agent_execution?.minimum_package_version;
   if (!policy || typeof policy !== "object" || Array.isArray(policy)) throw new Error("assetfare_economic_policy_invalid");
+
+  const available = policy.primary_direct_route_count === 98;
+  if (available) {
+    if (!exactKeys(policy, AVAILABLE_POLICY_KEYS)
+        || policy.external_coverage_only_route_count !== 0
+        || policy.active_route_count !== 98
+        || policy.price_recommended_route_count !== 44
+        || policy.availability_only_route_count !== 10
+        || policy.compare_required_route_count !== 44
+        || policy.nonrecommended_route_count !== 54
+        || policy.inactive_route_count !== 0
+        || !Array.isArray(policy.inactive_routes)
+        || policy.inactive_routes.length !== 0
+        || Object.keys(policy.amount_conditioned_routes || {}).length !== 44
+        || canonicalJson(policy.paxos_direct_ingress_routes) !== canonicalJson(PAXOS_DIRECT_INGRESS_ROUTES)
+        || policy.economic_guidance_blocks_execution !== false
+        || policy.automatic_external_fallback_forbidden !== true
+        || packageFloor !== "1.16.0"
+        || policy.economic_guidance_url !== ECONOMIC_GUIDANCE_URL
+        || !Object.prototype.hasOwnProperty.call(payload, "economic_guidance")) throw new Error("assetfare_economic_policy_invalid");
+    let top;
+    let nested;
+    try {
+      top = parseGuidance(payload.economic_guidance);
+      nested = parseGuidance(policy.economic_guidance);
+    } catch {
+      throw new Error("assetfare_economic_policy_invalid");
+    }
+    if (canonicalJson(top) !== canonicalJson(nested)) throw new Error("assetfare_economic_policy_invalid");
+    return { kind: "available_route_policy_1_16", guidance: top };
+  }
 
   const target = policy.primary_direct_route_count === 54;
   if (target) {

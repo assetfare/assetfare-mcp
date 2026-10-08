@@ -48,12 +48,12 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.15.3");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.15.3");assert.equal(lockMetadata.packages[""].version, "1.15.3");}
-assert.equal(registryMetadata.version, "1.15.3");
+assert.equal(packageMetadata.version, "1.16.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.16.0");assert.equal(lockMetadata.packages[""].version, "1.16.0");}
+assert.equal(registryMetadata.version, "1.16.0");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.15.3");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.16.0");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:98, steps:206 });
 assert.equal(directRouteContract.route_count,98);
 assert.equal(directRouteContract.step_count,206);
@@ -64,13 +64,13 @@ for(const route of publicPaxosRoutes){const definition=directRouteContract.route
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
-assert.match(packageMetadata.description, /54 active routes.*44 economically inactive routes/i);
+assert.match(packageMetadata.description, /98 available routes.*44 price-recommended.*54 without a current price recommendation/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /54 active-route USDC bridge.*caller signs.*never signs or submits/i);
+assert.match(registryMetadata.description, /98 available-route USDC bridge.*caller signs.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
@@ -339,7 +339,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.15.3");
+  assert.equal(card.serverInfo.version, "1.16.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -418,6 +418,15 @@ try {
       assert.deepEqual(value.caller_action_plan_handoff.request_fields, REQUEST_FIELDS);
       assert.equal(value.guidance.caller_action_plan.mcp_tools.one_shot_prepare, "assetfare_v2_prepare");
       assert.equal(value.guidance.caller_action_plan.rest_endpoints.prepare, PREPARE_URL);
+      assert.equal(value.guidance.unsignedPrepare.readyToPrepare, false);
+      assert.deepEqual(value.guidance.unsignedPrepare.requiredWalletChains,value.continuation_v3.required_wallet_chains);
+      assert.deepEqual(value.guidance.unsignedPrepare.walletFields.map((row)=>row.requestField),value.continuation_v3.required_wallet_chains.map((chain)=>`wallets.${chain}`));
+      assert.equal(value.guidance.unsignedPrepare.eventSignerPublic.required,value.continuation_v3.event_signer_public_required);
+      assert.deepEqual(value.guidance.unsignedPrepare.modeSelection.allowedModes,value.continuation_v3.allowed_modes);
+      assert.equal(value.guidance.unsignedPrepare.approvalV3Draft.selection_status,"unranked_candidate");
+      assert.equal(value.guidance.unsignedPrepare.approvalV3Draft.selected_mode,null);
+      assert.equal(value.guidance.unsignedPrepare.approvalV3Draft.executable,false);
+      assert.equal(value.guidance.unsignedPrepare.privateKeysAccepted,false);
       if (from_chain === validIntent.from_chain && from_token === validIntent.from_token && to_chain === validIntent.to_chain && to_token === validIntent.to_token) quoteValue = value;
       routeCount += 1;
     }

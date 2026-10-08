@@ -54,6 +54,9 @@ function usage() {
     --wallet base=<0x-address> --wallet arbitrum=<0x-address> \\
     --wallet-handoff-output ./caller-wallet-handoff.json
 
+Economic guidance is advisory. Compare alternatives when price matters; no
+extra economic acknowledgement flag or request field is required.
+
 Instead of --select-exact-quote-bounds, pass --approval approval.json to use a
 separately reviewed assetfare-select file with custom stricter bounds. Exactly
 one selection source is required.
@@ -411,7 +414,7 @@ async function runPlan(argv,{fetchImpl=fetch,stdout=process.stdout,nowMs}={}){
     if(session.current_action){bundle=session.current_action;verification={...verifyPlanBundle(bundle,{...intent,wallets:args.wallets,event_signer_public:args.event_signer_public},nowMs??Date.now()),approval_v3:verifyApprovalBundleBounds(bundle,quote,approval)};}
   }
   const walletHandoff=bundle?callerWalletHandoff(bundle,verification):null;if(args.wallet_handoff_output&&!walletHandoff)throw new Error("assetfare_plan_wallet_handoff_unavailable");const walletHandoffPath=args.wallet_handoff_output?writeWalletHandoff(args.wallet_handoff_output,walletHandoff):null;
-  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,approval_v3_source:approvalSource,approval_v3_generated_locally:args.select_exact_quote_bounds,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,human_approval_proof_claimed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle,caller_wallet_handoff:walletHandoff}:{}),wallet_handoff_output_path:walletHandoffPath,...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_capability_reused:sessionTokenReused,session_create_retry_idempotent:sessionTokenReused,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
+  const result={status:"pass",mode:args.mode,approval_v3_enforced:true,approval_v3_source:approvalSource,approval_v3_generated_locally:args.select_exact_quote_bounds,selection_status:"selected",selection_was_explicit:true,automatic_selection_performed:false,economic_guidance_is_advisory:true,economic_guidance_blocks_execution:false,human_approval_proof_claimed:false,caller_approved_boolean_is_not_human_proof:true,intent,quote_summary:{quote_id:quote.quote_id,quote_fingerprint:continuation.quote_fingerprint,expires_at:continuation.expires_at,direct_route_summary:quote.direct_route_summary,cost_summary:quote.cost_summary,eta:quote.eta,offer:quote.offer},verification,...(bundle?{bundle,caller_wallet_handoff:walletHandoff}:{}),wallet_handoff_output_path:walletHandoffPath,...(session?{session}:{}),session_token_persisted:sessionTokenPersisted,session_token_output_path:sessionTokenPath,session_capability_reused:sessionTokenReused,session_create_retry_idempotent:sessionTokenReused,session_recovery_after_process_exit:sessionTokenPersisted,raw_session_token_exposed:false,server_signing:false,server_submission:false,signed:false,submitted:false};
   stdout.write(`${JSON.stringify(result,null,2)}\n`);return result;
 }
 
