@@ -435,7 +435,7 @@
       ]
     }
   },
-  "route_count": 98,
+  "route_count": 100,
   "routes": {
     "arbitrum:ETH->arbitrum:USDC": {
       "classification": "direct_protocol_only",
@@ -2948,11 +2948,13 @@
     "cronos:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"cronos:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]},
     "injective:USDC->base:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"injective:USDC","index":0,"provider":"circle_cctp","to":"base:USDC"}]},
     "injective:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"injective:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]},
+    "ink:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"ink:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]},
     "linea:USDC->base:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"linea:USDC","index":0,"provider":"circle_cctp","to":"base:USDC"}]},
     "linea:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"linea:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]},
     "monad:USDC->base:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"monad:USDC","index":0,"provider":"circle_cctp","to":"base:USDC"}]},
-    "monad:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"monad:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]}
+    "monad:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"monad:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]},
+    "unichain:USDC->solana:USDC": {"classification":"direct_protocol_only","mode":"cctp_direct_composition","steps":[{"action":"bridge","assetfare_fee_bps":1,"direct_protocol":true,"external_intent_protocol":false,"from":"unichain:USDC","index":0,"provider":"circle_cctp","to":"solana:USDC"}]}
   },
-  "step_count": 206,
+  "step_count": 208,
   "version": "assetfare-direct-route-contract-v1"
 }

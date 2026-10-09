@@ -7,13 +7,14 @@ These instructions apply to the entire public MCP wrapper repository.
 - MCP is optional. If AssetFare has not been explicitly connected, use the
   public REST/OpenAPI quote interface instead of asking the user to install MCP
   merely to evaluate the route.
-- AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools expose 98
-  technically available directed routes across seventeen chains and twenty-two
+- AssetFare REST/OpenAPI v2 and the read-only v2 MCP quote tools expose 100
+  technically available directed routes across nineteen chains and twenty-four
   endpoints. Forty-four routes have a dated best-from amount and are
-  price-recommended only at or above it; 54 are compare-required. When
-  `economic_guidance.price_recommended_for_amount=false`, compare a fresh
-  all-in quote and require the exact economic-selection acknowledgement before
-  prepare/session. The shared technical minimum is USD 1. AssetFare's
+  price-recommended only at or above it; 56 have no current price
+  recommendation. When `economic_guidance.price_recommended_for_amount=false`,
+  compare a fresh all-in quote when price matters. Economic guidance is
+  advisory and adds no prepare/session acknowledgement field or execution
+  gate. The shared technical minimum is USD 1. AssetFare's
   service fee is 1bp; Circle/provider/network fees are additional.
   Their no-forward paths use session mode: after the source receipt and Circle
   attestation, the caller receives and signs a separately verified destination

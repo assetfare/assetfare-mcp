@@ -17,10 +17,10 @@ const TOKENS_BY_CHAIN = {
   optimism: ["USDC"],
   ethereum: ["USDC"],
   hyperevm: ["USDC"],
-  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"], monad: ["USDC"], avalanche: ["USDC"], cronos: ["USDC"], injective: ["USDC"], linea: ["USDC"], aptos: ["USDC"],
+  xlayer: ["USDC"], sei: ["USDC"], sonic: ["USDC"], monad: ["USDC"], avalanche: ["USDC"], cronos: ["USDC"], injective: ["USDC"], linea: ["USDC"], aptos: ["USDC"], unichain: ["USDC"], ink: ["USDC"],
 } as const;
 
-const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"]);
+const ChainSchema = z.enum(["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos", "unichain", "ink"]);
 const TokenSchema = z.enum(["SOL", "ETH", "USDC", "USDG"]);
 
 export const AssetFareQuoteSchema = z.object({
@@ -39,16 +39,17 @@ export const AssetFareQuoteSchema = z.object({
   if (value.fromChain === value.toChain && value.fromToken === value.toToken) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["toToken"], message: "identity route does not require a quote" });
   }
-  if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
+  if (["polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos", "unichain", "ink"].includes(value.toChain)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "selected chain is source-only" });
   if ((value.fromChain === "polygon" || value.fromChain === "optimism") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "arbitrum") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "source-only route must be native USDC to Base or Arbitrum USDC" });
   if ((value.fromChain === "ethereum" || value.fromChain === "hyperevm") && !(value.fromToken === "USDC" && (value.toChain === "base" || value.toChain === "solana") && value.toToken === "USDC")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["toChain"], message: "expansion source route must be native USDC to Base or Solana USDC" });
   if (["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea","aptos"].includes(value.fromChain) && !(value.fromToken === "USDC" && ["base","solana"].includes(value.toChain) && value.toToken === "USDC")) context.addIssue({code:z.ZodIssueCode.custom,path:["toChain"],message:"candidate source route must be native USDC to Base or Solana USDC"});
+  if (["unichain","ink"].includes(value.fromChain) && !(value.fromToken === "USDC" && value.toChain === "solana" && value.toToken === "USDC")) context.addIssue({code:z.ZodIssueCode.custom,path:["toChain"],message:"source route must be native USDC to Solana USDC"});
 });
 
 const CapabilitiesSchema = z.object({
   public_api_enabled: z.literal(true),
-  directed_conversion_routes: z.literal(54),
-  execution_implemented_routes: z.literal(54),
+  directed_conversion_routes: z.literal(100),
+  execution_implemented_routes: z.literal(100),
   server_signing: z.literal(false),
   server_submission: z.literal(false),
 }).passthrough();
@@ -140,7 +141,7 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh quote on AssetFare's 54 active routes and stop. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim. Confirm every fresh quote. Never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh quote on AssetFare's 100 available routes and stop. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote. Never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       inputSchema: AssetFareQuoteSchema,
       execute: async (input) => {
         const quote = await client.quote(input);

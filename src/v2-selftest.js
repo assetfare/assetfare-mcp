@@ -48,29 +48,30 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.16.0");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.16.0");assert.equal(lockMetadata.packages[""].version, "1.16.0");}
-assert.equal(registryMetadata.version, "1.16.0");
+assert.equal(packageMetadata.version, "1.17.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.17.0");assert.equal(lockMetadata.packages[""].version, "1.17.0");}
+assert.equal(registryMetadata.version, "1.17.0");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.16.0");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
-assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:98, steps:206 });
-assert.equal(directRouteContract.route_count,98);
-assert.equal(directRouteContract.step_count,206);
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.17.0");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:100, steps:208 });
+assert.equal(directRouteContract.route_count,100);
+assert.equal(directRouteContract.step_count,208);
 const publicPaxosRoutes=Object.keys(directRouteContract.legacy_routes).sort();assert.equal(publicPaxosRoutes.length,14);
-assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,98);
+assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="direct_protocol_only").length,100);
 assert.equal(Object.values(directRouteContract.routes).filter((route)=>route.classification==="external_intent").length,0);
+for(const chain of ["unichain","ink"]){const route=directRouteContract.routes[`${chain}:USDC->solana:USDC`];assert.equal(route.mode,"cctp_direct_composition");assert.equal(route.steps.length,1);assert.equal(route.steps[0].provider,"circle_cctp");assert.equal(route.steps[0].assetfare_fee_bps,1);}
 for(const route of publicPaxosRoutes){const definition=directRouteContract.routes[route];assert.equal(definition.mode,"robinhood_paxos_ingress_composition");assert.equal(definition.classification,"direct_protocol_only");assert.equal(definition.steps.some((step)=>step.provider==="across_intent_bridge"),false);assert.equal(definition.steps.some((step)=>step.provider==="paxos_usdg_layerzero_oft"),true);assert.equal(definition.steps.reduce((sum,step)=>sum+step.assetfare_fee_bps,0),1);assert.equal(definition.steps.reduce((sum,step)=>sum+Number(step.minimum_guard_bps||0),0),50);}
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
-assert.match(packageMetadata.description, /98 available routes.*44 price-recommended.*54 without a current price recommendation/i);
+assert.match(packageMetadata.description, /100 available routes.*44 price-recommended.*56 without a current price recommendation/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
 assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /98 available-route USDC bridge.*caller signs.*never signs or submits/i);
+assert.match(registryMetadata.description, /100 available-route USDC bridge.*caller signs.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /leading|fastest|cheapest/i);
 assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
@@ -339,7 +340,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.16.0");
+  assert.equal(card.serverInfo.version, "1.17.0");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -361,7 +362,7 @@ try {
   assert.equal(dynamicQuote.description, staticQuote.description);
   assert.deepEqual(normalizedInputSchema(dynamicCapabilities.inputSchema), normalizedInputSchema(staticCapabilities.inputSchema));
   assert.deepEqual(normalizedInputSchema(dynamicQuote.inputSchema), normalizedInputSchema(staticQuote.inputSchema));
-  assert.deepEqual(dynamicQuote.inputSchema.properties.from_chain.enum, ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"]);
+  assert.deepEqual(dynamicQuote.inputSchema.properties.from_chain.enum, ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos", "unichain", "ink"]);
   assert.equal(dynamicQuote.inputSchema.additionalProperties, false);
   assert.equal(V2_TIMEOUT_MS, 45_000);
   assert.equal(V2_MAX_RESPONSE_BYTES, 1_048_576);

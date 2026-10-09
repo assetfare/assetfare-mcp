@@ -1,6 +1,6 @@
 {
   "version": "assetfare-route-availability-contract-1.0.0",
-  "active_route_count": 98,
+  "active_route_count": 100,
   "active_routes": [
     "aptos:USDC->base:USDC",
     "aptos:USDC->solana:USDC",
@@ -46,6 +46,7 @@
     "hyperevm:USDC->solana:USDC",
     "injective:USDC->base:USDC",
     "injective:USDC->solana:USDC",
+    "ink:USDC->solana:USDC",
     "linea:USDC->base:USDC",
     "linea:USDC->solana:USDC",
     "monad:USDC->base:USDC",
@@ -98,6 +99,7 @@
     "solana:USDG->solana:USDC",
     "sonic:USDC->base:USDC",
     "sonic:USDC->solana:USDC",
+    "unichain:USDC->solana:USDC",
     "xlayer:USDC->base:USDC",
     "xlayer:USDC->solana:USDC"
   ]

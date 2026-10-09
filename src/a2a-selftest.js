@@ -45,13 +45,13 @@ const context = (headers = {}) => defaultServerCallContextBuilder({ headers, use
 
 const card = assetFareAgentCard();
 canonicalizeAgentCard(card);
-assert.equal(card.version, "1.6.1");
+assert.equal(card.version, "1.7.0");
 assert.equal(card.skills.length, 3);
 assert.deepEqual(card.skills.map((skill) => skill.id).sort(), ["prepare-first-unsigned-action", "quote-cross-chain-route", "session-lifecycle"]);
 assert.equal(card.supportedInterfaces[0].protocolVersion, "1.0");
 assert.equal(card.supportedInterfaces[0].protocolBinding, "JSONRPC");
 assert.equal(card.supportedInterfaces[0].url, "https://api.assetfare.dev/a2a");
-assert.match(card.description,/non-custodial.*98 technically available routes.*(?:44|Forty-four).*price-recommended.*54.*no current price recommendation/i);
+assert.match(card.description,/non-custodial.*100 technically available routes.*(?:44|Forty-four).*price-recommended.*56.*no current price recommendation/i);
 assert.match(card.description,/economic guidance is advisory.*compare alternatives when price matters.*no extra acknowledgement step/i);
 assert.match(card.description,/unranked_candidate.*continuation_v3.*callerApproved:true.*every new A2A flow.*approvalV3.*server-enforced binding/i);
 assert.match(card.description,/never auto-selects.*signs, or submits/i);

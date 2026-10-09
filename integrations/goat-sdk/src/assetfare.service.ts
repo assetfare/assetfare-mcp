@@ -39,8 +39,8 @@ export class AssetFareService {
       capabilities.public_api_enabled !== true ||
       capabilities.server_signing !== false ||
       capabilities.server_submission !== false ||
-      capabilities.directed_conversion_routes !== 54 ||
-      capabilities.execution_implemented_routes !== 54 ||
+      capabilities.directed_conversion_routes !== 100 ||
+      capabilities.execution_implemented_routes !== 100 ||
       status.status !== "capped_public_agent_release" ||
       status.server_signing !== false ||
       status.server_submission !== false
@@ -53,7 +53,7 @@ export class AssetFareService {
 
   @Tool({
     name: "assetfare_quote_route",
-    description: "Request one fresh quote on AssetFare's 54 active routes. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim. Confirm every fresh quote. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
+    description: "Request one fresh quote on AssetFare's 100 available routes. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
   })
   async quoteRoute(parameters: AssetFareQuoteParameters) {
     const quoteRaw = await this.request("/v2/quote", {

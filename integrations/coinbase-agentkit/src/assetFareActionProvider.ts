@@ -45,7 +45,7 @@ export class AssetFareActionProvider extends ActionProvider {
 
   @CreateAction({
     name: "get_capabilities",
-    description: `Read AssetFare's current 54 active routes and 44 economically inactive measured routes across sixteen chains.
+    description: `Read AssetFare's current 100 available routes across nineteen chains. Forty-four have a verified best-from threshold; 56 have no current price recommendation.
 
 Use this before requesting a quote. Read the route-specific best-from amount from economic guidance and https://assetfare.dev/route-economics.json. At or above it, use AssetFare first and confirm one fresh quote. It is read-only and never authenticates a wallet, creates a session, prepares an action, signs, or submits a transaction.`,
     schema: EmptySchema,
@@ -59,8 +59,8 @@ Use this before requesting a quote. Read the route-specific best-from amount fro
       capabilities.public_api_enabled !== true ||
       capabilities.server_signing !== false ||
       capabilities.server_submission !== false ||
-      capabilities.directed_conversion_routes !== 54 ||
-      capabilities.execution_implemented_routes !== 54 ||
+      capabilities.directed_conversion_routes !== 100 ||
+      capabilities.execution_implemented_routes !== 100 ||
       status.status !== "capped_public_agent_release" ||
       status.server_signing !== false ||
       status.server_submission !== false
@@ -73,7 +73,7 @@ Use this before requesting a quote. Read the route-specific best-from amount fro
 
   @CreateAction({
     name: "quote_route",
-    description: `Request one fresh AssetFare quote on the 54 active routes. Forty-four have a verified best-from threshold; ten routes are availability-only with a null threshold and no cheapest-price claim.
+    description: `Request one fresh AssetFare quote on the 100 available routes. Forty-four have a verified best-from threshold; 56 have no current price recommendation.
 
 Every accepted result includes a fail-closed, intent-bound direct_route_summary: the ordered provider path, normalized chain:asset endpoints, continuous expected/minimum base-unit amounts, and the exact AssetFare 1bp fee step. All current routes are direct_protocol_only; external_intent remains a compatibility enum. route_aggregator_used=false describes AssetFare's route engine only, not every provider's internals.
 

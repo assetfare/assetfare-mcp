@@ -41,28 +41,28 @@ jobs:
           case "$REQUESTED_PACKAGE" in
             @assetfare/agenti-route-tools)
               directory="integrations/agenti"
-              version="1.2.0"
-              tag="assetfare-agenti-route-tools-v1.2.0"
+              version="1.3.0"
+              tag="assetfare-agenti-route-tools-v1.3.0"
               ;;
             assetfare-agentkit-action-provider)
               directory="integrations/coinbase-agentkit"
-              version="1.2.0"
-              tag="assetfare-agentkit-action-provider-v1.2.0"
+              version="1.3.0"
+              tag="assetfare-agentkit-action-provider-v1.3.0"
               ;;
             assetfare-elizaos-route-plugin)
               directory="integrations/elizaos"
-              version="1.2.0"
-              tag="assetfare-elizaos-route-plugin-v1.2.0"
+              version="1.3.0"
+              tag="assetfare-elizaos-route-plugin-v1.3.0"
               ;;
             @assetfare/goat-plugin)
               directory="integrations/goat-sdk"
-              version="1.2.0"
-              tag="assetfare-goat-plugin-v1.2.0"
+              version="1.3.0"
+              tag="assetfare-goat-plugin-v1.3.0"
               ;;
             assetfare-solana-agent-kit-plugin)
               directory="integrations/solana-agent-kit"
-              version="1.2.0"
-              tag="assetfare-solana-agent-kit-plugin-v1.2.0"
+              version="1.3.0"
+              tag="assetfare-solana-agent-kit-plugin-v1.3.0"
               ;;
             *)
               echo "Package is outside the integration release allowlist" >&2
@@ -191,11 +191,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$REQUESTED_PACKAGE" in
-            @assetfare/agenti-route-tools) version="1.2.0"; tag="assetfare-agenti-route-tools-v1.2.0" ;;
-            assetfare-agentkit-action-provider) version="1.2.0"; tag="assetfare-agentkit-action-provider-v1.2.0" ;;
-            assetfare-elizaos-route-plugin) version="1.2.0"; tag="assetfare-elizaos-route-plugin-v1.2.0" ;;
-            @assetfare/goat-plugin) version="1.2.0"; tag="assetfare-goat-plugin-v1.2.0" ;;
-            assetfare-solana-agent-kit-plugin) version="1.2.0"; tag="assetfare-solana-agent-kit-plugin-v1.2.0" ;;
+            @assetfare/agenti-route-tools) version="1.3.0"; tag="assetfare-agenti-route-tools-v1.3.0" ;;
+            assetfare-agentkit-action-provider) version="1.3.0"; tag="assetfare-agentkit-action-provider-v1.3.0" ;;
+            assetfare-elizaos-route-plugin) version="1.3.0"; tag="assetfare-elizaos-route-plugin-v1.3.0" ;;
+            @assetfare/goat-plugin) version="1.3.0"; tag="assetfare-goat-plugin-v1.3.0" ;;
+            assetfare-solana-agent-kit-plugin) version="1.3.0"; tag="assetfare-solana-agent-kit-plugin-v1.3.0" ;;
             *) echo "Package is outside the integration release allowlist" >&2; exit 1 ;;
           esac
           expected_tag="${REQUESTED_PACKAGE#@}"

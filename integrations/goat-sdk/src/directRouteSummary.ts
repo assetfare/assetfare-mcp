@@ -41,8 +41,10 @@ const GUIDANCE_ROLES = new Set(["observed_economic_zone_start", "structural_eval
 const GUIDANCE_STATUSES = new Set(["observed_near_parity", "observed_competitive_or_near_parity", "provisional_evaluation_start", "reworked_route_remeasure", "coverage_only_retest"]);
 const GUIDANCE_CONFIDENCE = new Set(["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"]);
 const CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "confidence_counts", "advisory_start_distribution"];
-const TARGET_CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "public_active_route_count", "public_inactive_route_count", "verified_best_from_route_count", "availability_only_route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "first_use_zero_allowance_scenario", "expected_output_ranking", "incomplete_cost_never_promoted", "tested_ceiling_usd", "advisory_start_distribution", "recommendation_status_counts"];
-const TARGET_GUIDANCE_KEYS = ["advisory_start_usd", "best_from_usd", "best_from_verified", "availability_only", "public_activation_status", "public_active", "recommendation_status", "recommended_action", "confidence", "basis", "tested_amounts_usd", "tested_ceiling_usd", "not_an_execution_minimum", "not_a_best_price_guarantee", "fresh_quote_required"];
+const PREVIOUS_CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "public_active_route_count", "public_inactive_route_count", "verified_best_from_route_count", "availability_only_route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "first_use_zero_allowance_scenario", "expected_output_ranking", "incomplete_cost_never_promoted", "tested_ceiling_usd", "advisory_start_distribution", "recommendation_status_counts"];
+const TARGET_CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "public_active_route_count", "public_inactive_route_count", "verified_best_from_route_count", "availability_only_route_count", "compare_required_route_count", "nonrecommended_route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "economic_guidance_blocks_execution", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "first_use_zero_allowance_scenario", "expected_output_ranking", "incomplete_cost_never_promoted", "tested_ceiling_usd", "advisory_start_distribution", "recommendation_status_counts"];
+const PREVIOUS_TARGET_GUIDANCE_KEYS = ["advisory_start_usd", "best_from_usd", "best_from_verified", "availability_only", "public_activation_status", "public_active", "recommendation_status", "recommended_action", "confidence", "basis", "tested_amounts_usd", "tested_ceiling_usd", "not_an_execution_minimum", "not_a_best_price_guarantee", "fresh_quote_required"];
+const TARGET_GUIDANCE_KEYS = ["advisory_start_usd", "best_from_usd", "best_from_verified", "availability_only", "public_activation_status", "public_active", "recommendation_status", "recommended_action", "confidence", "basis", "economic_selection_policy", "economic_guidance_blocks_execution", "tested_amounts_usd", "tested_ceiling_usd", "not_an_execution_minimum", "not_a_best_price_guarantee", "fresh_quote_required", "quoted_amount_usd", "price_recommended_for_amount"];
 const CONFIDENCE_KEYS = ["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"];
 const DISTRIBUTION_KEYS = ["50", "100", "250", "500", "1000", "2500", "5000", "10000"];
 
@@ -74,10 +76,36 @@ export function validateCapabilitiesEconomicGuidance(capabilities: JsonRecord): 
   const conditioned = record(policy.amount_conditioned_routes);
   const evaluation = record(capabilities.evaluation_guidance);
   const routeSpecific = record(evaluation.route_specific_guidance);
+  if (top.version === "assetfare-route-economic-guidance-v4") {
+    const recommendation = record(top.recommendation_status_counts);
+    if (
+      !exactKeys(top, TARGET_CAPABILITY_GUIDANCE_KEYS) || canonical(top) !== canonical(nested) ||
+      typeof top.as_of !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(top.as_of) ||
+      top.route_count !== 100 || top.public_active_route_count !== 100 || top.public_inactive_route_count !== 0 ||
+      top.verified_best_from_route_count !== 44 || top.availability_only_route_count !== 10 || top.compare_required_route_count !== 46 || top.nonrecommended_route_count !== 56 ||
+      top.currency !== "USD" || top.technical_quote_minimum_usd !== 1 || top.economic_guidance_is_non_enforcing !== true || top.economic_guidance_blocks_execution !== false ||
+      top.amount_is_never_rejected_by_economic_guidance !== true || top.values_change_with_market !== true || top.fresh_quote_and_caller_decision_control !== true ||
+      top.update_policy !== "daily_measurement_with_three_day_recommendation_hysteresis_availability_separate" || top.first_use_zero_allowance_scenario !== true ||
+      top.expected_output_ranking !== true || top.incomplete_cost_never_promoted !== true || top.tested_ceiling_usd !== 10000 ||
+      !exactKeys(distribution, DISTRIBUTION_KEYS) || Object.values(distribution).reduce<number>((sum,count)=>sum+(count as number),0)!==44 ||
+      recommendation.active_price_verified !== 44 || recommendation.active_availability_only !== 10 || recommendation.active_compare_required !== 46 ||
+      Object.keys(conditioned).length !== 44 || Object.values(conditioned).some((amount)=>!GUIDANCE_STARTS.has(amount as number)) ||
+      policy.active_route_count !== 100 || policy.inactive_route_count !== 0 || !Array.isArray(policy.inactive_routes) || policy.inactive_routes.length !== 0 ||
+      policy.price_recommended_route_count !== 44 || policy.availability_only_route_count !== 10 || policy.compare_required_route_count !== 46 || policy.nonrecommended_route_count !== 56 ||
+      policy.economic_guidance_blocks_execution !== false || policy.economic_guidance_url !== "https://assetfare.dev/route-economics.json" ||
+      evaluation.schema_version !== 5 || Object.hasOwn(evaluation,"native_usdc_economic_evaluation_start_usd") ||
+      routeSpecific.version !== "assetfare-route-economic-guidance-v4" || routeSpecific.url !== "https://assetfare.dev/route-economics.json" ||
+      routeSpecific.required_on_every_quote !== true || routeSpecific.verified_best_from_only !== true || routeSpecific.nullable_when_unverified !== true ||
+      routeSpecific.controls_recommendation_only_when_verified !== true || routeSpecific.catalog_routes !== 100 || routeSpecific.public_active_routes !== 100 ||
+      routeSpecific.public_inactive_routes !== 0 || routeSpecific.availability_only_routes !== 10 || routeSpecific.compare_required_routes !== 46 ||
+      routeSpecific.nonrecommended_routes !== 56 || routeSpecific.economic_guidance_blocks_prepare_or_session !== false
+    ) throw new Error("assetfare_v2_economic_guidance_invalid");
+    return;
+  }
   if (top.version === "assetfare-route-economic-guidance-v3") {
     const recommendation = record(top.recommendation_status_counts);
     if (
-      !exactKeys(top, TARGET_CAPABILITY_GUIDANCE_KEYS) ||
+      !exactKeys(top, PREVIOUS_CAPABILITY_GUIDANCE_KEYS) ||
       canonical(top) !== canonical(nested) ||
       typeof top.as_of !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(top.as_of) ||
       top.route_count !== 98 || top.public_active_route_count !== 54 || top.public_inactive_route_count !== 44 ||
@@ -133,9 +161,18 @@ function validateRouteEconomicGuidance(value: unknown): JsonRecord {
   let guidance: JsonRecord;
   try { guidance = record(value); }
   catch { throw new Error("assetfare_v2_economic_guidance_invalid"); }
+  if (guidance.economic_selection_policy === "advisory_only_no_execution_gate") {
+    const status=guidance.public_activation_status;
+    const price=status === "active_price_verified",availability=status === "active_availability_only",compare=status === "active_compare_required";
+    const expectedConfidence=price?"paired_all_in_snapshot":availability?"availability_only_no_price_claim":"paired_all_in_snapshot_competitor_cheaper_through_tested_ceiling";
+    const expectedAction=price?"price_recommended_at_or_above_best_from_otherwise_no_price_recommendation":availability?"available_no_cheapest_price_claim_compare_if_price_matters":"available_not_price_recommended_compare_if_price_matters";
+    const recommended=price&&typeof guidance.best_from_usd==="number"&&typeof guidance.quoted_amount_usd==="number"&&guidance.quoted_amount_usd>=guidance.best_from_usd;
+    if (!exactKeys(guidance,TARGET_GUIDANCE_KEYS) || (!price&&!availability&&!compare) || guidance.public_active!==true || guidance.recommendation_status!==status || guidance.confidence!==expectedConfidence || guidance.recommended_action!==expectedAction || guidance.economic_guidance_blocks_execution!==false || guidance.tested_ceiling_usd!==10000 || !Array.isArray(guidance.tested_amounts_usd) || guidance.tested_amounts_usd.length!==8 || guidance.not_an_execution_minimum!==true || guidance.not_a_best_price_guarantee!==true || guidance.fresh_quote_required!==true || guidance.best_from_verified!==price || guidance.availability_only!==availability || guidance.advisory_start_usd!==guidance.best_from_usd || (price?!GUIDANCE_STARTS.has(guidance.advisory_start_usd as number):guidance.advisory_start_usd!==null) || typeof guidance.quoted_amount_usd!=="number" || guidance.quoted_amount_usd<1 || guidance.price_recommended_for_amount!==recommended) throw new Error("assetfare_v2_economic_guidance_invalid");
+    return guidance;
+  }
   if (guidance.public_activation_status === "active_price_verified" || guidance.public_activation_status === "active_availability_only") {
     const price=guidance.public_activation_status === "active_price_verified";
-    if (!exactKeys(guidance,TARGET_GUIDANCE_KEYS) || guidance.public_active!==true || guidance.recommendation_status!==guidance.public_activation_status || guidance.confidence!==(price?"paired_all_in_snapshot":"availability_only_no_price_claim") || guidance.tested_ceiling_usd!==10000 || !Array.isArray(guidance.tested_amounts_usd) || guidance.tested_amounts_usd.length!==8 || guidance.not_an_execution_minimum!==true || guidance.not_a_best_price_guarantee!==true || guidance.fresh_quote_required!==true || price!==guidance.best_from_verified || price===guidance.availability_only || guidance.advisory_start_usd!==guidance.best_from_usd || (price?!GUIDANCE_STARTS.has(guidance.advisory_start_usd as number):guidance.advisory_start_usd!==null) || (price?guidance.recommended_action!=="use_assetfare_first_at_or_above_best_from":guidance.recommended_action!=="use_assetfare_when_route_availability_is_required_without_price_claim")) throw new Error("assetfare_v2_economic_guidance_invalid");
+    if (!exactKeys(guidance,PREVIOUS_TARGET_GUIDANCE_KEYS) || guidance.public_active!==true || guidance.recommendation_status!==guidance.public_activation_status || guidance.confidence!==(price?"paired_all_in_snapshot":"availability_only_no_price_claim") || guidance.tested_ceiling_usd!==10000 || !Array.isArray(guidance.tested_amounts_usd) || guidance.tested_amounts_usd.length!==8 || guidance.not_an_execution_minimum!==true || guidance.not_a_best_price_guarantee!==true || guidance.fresh_quote_required!==true || price!==guidance.best_from_verified || price===guidance.availability_only || guidance.advisory_start_usd!==guidance.best_from_usd || (price?!GUIDANCE_STARTS.has(guidance.advisory_start_usd as number):guidance.advisory_start_usd!==null) || (price?guidance.recommended_action!=="use_assetfare_first_at_or_above_best_from":guidance.recommended_action!=="use_assetfare_when_route_availability_is_required_without_price_claim")) throw new Error("assetfare_v2_economic_guidance_invalid");
     return guidance;
   }
   if (

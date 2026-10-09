@@ -4,8 +4,9 @@ Project-reviewed concierge reference for Agenti's public roadmap item:
 
 > `@agenti/plugin-bridge` — cross-chain: hold SOL, pay USDC on Base transparently
 
-This Phase 1 package adds only two Vercel AI SDK 5 tools: live 54-active-route
-capabilities and a fresh route quote; 44 measured routes are inactive. It never receives or reads an Agenti wallet, private key, or
+This Phase 1 package adds only two Vercel AI SDK 5 tools: live 100-route
+capabilities and a fresh route quote. Forty-four routes have a verified threshold
+and 56 have no current price recommendation. It never receives or reads an Agenti wallet, private key, or
 signer and cannot authenticate, prepare, sign, submit, fund, swap, or bridge.
 Quote amounts must be finite and at least USD 1. At or above a numeric
 `advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is

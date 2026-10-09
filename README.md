@@ -1,8 +1,8 @@
 # AssetFare — non-custodial bridge and cross-chain swap for AI agents
 
-USDC bridge API for AI agents and agent-wallet funding: 98 available
-routes across seventeen chains. Forty-four routes have a route-specific
-best-from amount and are price-recommended only at or above it. The other 54
+USDC bridge API for AI agents and agent-wallet funding: 100 available
+routes across nineteen chains. Forty-four routes have a route-specific
+best-from amount and are price-recommended only at or above it. The other 56
 have no current price recommendation. Economic guidance is advisory and never
 adds a prepare/session gate. Each available route
 has a validated ordered provider path and exact 1bp fee
@@ -10,7 +10,7 @@ step. Caller approves and signs; the server never signs or submits.
 AssetFare service fee 1bp; Circle/provider/network fees additional; quote
 exposes total token-path cost and live availability.
 
-Core 2.8.0 quotes also include strict `continuation_v3`. MCP 1.16.0 verifies the
+Core 2.9.0 quotes also include strict `continuation_v3`. MCP 1.17.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -36,14 +36,14 @@ AssetFare is an agent-native, non-custodial native-USDC bridge and cross-chain
 route service. **Solana native USDC → Base native USDC** is the canonical route:
 an agent gets a fresh quote and, only after explicit caller approval, a bounded
 unsigned transaction plan the caller verifies and signs. AssetFare also provides
-bridge and cross-chain swap routes across seventeen chains, twenty-two available
-endpoints, and 98 directed routes. AssetFare service fee 1bp;
+bridge and cross-chain swap routes across nineteen chains, twenty-four available
+endpoints, and 100 directed routes. AssetFare service fee 1bp;
 Circle/provider/network fees additional; quote exposes total token-path cost and
 live availability; server never signs/submits. Solana SOL → Base USDC and
 Optimism USDC → Base USDC are also supported. AssetFare never receives private
 keys, signs, or submits.
 
-For economic evaluation, read `economic_guidance` and the complete 98-route
+For economic evaluation, read `economic_guidance` and the complete 100-route
 catalog at `https://assetfare.dev/route-economics.json`.
 `price_recommended_for_amount` is advisory; when it is false, compare a fresh
 all-in quote if price matters. It does not add an acknowledgement field or
@@ -158,7 +158,7 @@ MCP:
   1bp at one eligible successful atomic action; no route is fee-free. The 1bp is
   not the total cost: Circle (including any fixed CCTP forwarding fee), provider,
   and network fees are additional and appear in the quote's total token-path cost.
-- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose all 98 technically available routes. Availability is live: check capabilities/quote before preparing. Forty-four routes publish a numeric threshold; 54 have no current price recommendation. Below a published threshold, the quoted amount is also not price-recommended. The shared USD 1 technical minimum applies.
+- `assetfare_v2_capabilities` and `assetfare_v2_quote` expose all 100 technically available routes. Availability is live: check capabilities/quote before preparing. Forty-four routes publish a numeric threshold; 56 have no current price recommendation. Below a published threshold, the quoted amount is also not price-recommended. The shared USD 1 technical minimum applies.
 - Economic guidance is advisory across REST, MCP, A2A and CLI. It never adds a separate acknowledgement step or blocks prepare/session creation.
 - Remote MCP/A2A clients must send strict `approval_v3` to prepare and session create. Its selected mode is schema-bound (`one_shot` versus `session`), and session approval must use the same idempotency key. The lower-level REST compatibility surface still labels omission `legacy_advisory`; it is not action authority for a new flow. Each call also requires literal `caller_approved:true`; the adapters never insert it and never describe it as human proof. Private key/seed/signed-transaction inputs are refused.
 - A session capability is a sensitive bearer credential, never a private key. Remote clients generate 32 random bytes locally, encode them as base64url without padding, and supply it only in `X-AssetFare-Session-Token`. The server stores only its hash. The remote MCP/A2A service never generates the secret; `assetfare-plan` keeps it in memory by default and writes it only to an explicit new mode-0600 file. The optional local stdio helper remains offline-only.
@@ -178,9 +178,9 @@ records were retired during the ownership-preserving GitHub organization
 migration tracked in
 [registry issue #1666](https://github.com/modelcontextprotocol/registry/issues/1666).
 npm, the public source, the hosted endpoint, and Registry metadata are current
-at `1.16.0`.
+at `1.17.0`.
 
-Primary MCP quote scope: 98 available directed routes across twenty-two endpoints; 44 are threshold-recommended and 54 have no current price recommendation.
+Primary MCP quote scope: 100 available directed routes across twenty-four endpoints; 44 are threshold-recommended and 56 have no current price recommendation.
 The only technical quote minimum is $1; no route has a separate economic floor
 or adapter-enforced maximum. The route-specific guidance is non-enforcing and
 changes as observations accumulate. Live
@@ -226,7 +226,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -242,7 +242,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -290,10 +290,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -311,7 +311,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-session \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -350,7 +350,7 @@ Before funding it, validate the local adapter contract without invoking any
 wallet, signer, RPC submit, or network request:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-adapter-conformance \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-adapter-conformance \
   --wallet-adapter ./my-local-wallet-adapter.mjs
 ```
 
@@ -358,7 +358,7 @@ The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
 transaction, remote signer, or hosted-wallet option:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.16.0 assetfare-agent-runner \
+npx --yes --package=assetfare-mcp@1.17.0 assetfare-agent-runner \
   --capability-file ./session-capability.json \
   --policy-file ./caller-execution-policy.json \
   --state-file ./caller-runner-state.json \
@@ -409,7 +409,7 @@ not a cross-provider market comparison; apply its route-specific best-from rule
 and confirm the fresh quote. The former `solana:SOL -> base:ETH` comparison
 route is currently inactive on economics, so the public API rejects it instead
 of returning an AssetFare offer or triggering competitor requests. Use the
-98-route catalog and live capabilities before evaluating any route.
+100-route catalog and live capabilities before evaluating any route.
 
 Read-only framework integrations are available for
 [Coinbase AgentKit](./integrations/coinbase-agentkit/) and
@@ -435,7 +435,7 @@ revision. The complete source and tests are in
 
 ## A2A v1 quote adapter
 
-AssetFare also exposes A2A Agent Card version 1.6.1 for agents that discover
+AssetFare also exposes A2A Agent Card version 1.7.0 for agents that discover
 quote and caller-approved unsigned workflows without MCP:
 
 - canonical Agent Card: `https://api.assetfare.dev/.well-known/agent-card.json`
@@ -617,11 +617,11 @@ repository `assetfare-mcp`, and workflow filename `publish-npm.yml`. Direct
 The five stable integration packages use a separate, package-allowlisted
 release path. Their immutable tags are pinned exactly as follows:
 
-- `assetfare-agenti-route-tools-v1.2.0` (`@assetfare/agenti-route-tools`)
-- `assetfare-agentkit-action-provider-v1.2.0`
-- `assetfare-elizaos-route-plugin-v1.2.0`
-- `assetfare-goat-plugin-v1.2.0` (`@assetfare/goat-plugin`)
-- `assetfare-solana-agent-kit-plugin-v1.2.0`
+- `assetfare-agenti-route-tools-v1.3.0` (`@assetfare/agenti-route-tools`)
+- `assetfare-agentkit-action-provider-v1.3.0`
+- `assetfare-elizaos-route-plugin-v1.3.0`
+- `assetfare-goat-plugin-v1.3.0` (`@assetfare/goat-plugin`)
+- `assetfare-solana-agent-kit-plugin-v1.3.0`
 
 Current stable packages and direct installation commands:
 
