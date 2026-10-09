@@ -61,7 +61,12 @@ function securityErrors(releaseText, publishText) {
       "npm install --global npm@12.1.0",
       "test \"$GITHUB_REF\" = \"refs/tags/$RELEASE_TAG\"",
       "test \"$GITHUB_SHA\" = \"$tag_commit\"",
+      'test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = "tag"',
+      'tag_object="$(git rev-parse "refs/tags/$RELEASE_TAG")"',
+      'git rev-list -n 1 "refs/tags/$RELEASE_TAG"',
+      'git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$tag_object"',
       "git merge-base --is-ancestor",
+      "verify-tag",
       "verify-commit",
       "verification/assetfare-release-signers",
       "npm ci",
@@ -80,6 +85,8 @@ function securityErrors(releaseText, publishText) {
       if (!text.includes(`directory=\"${directory}\"`)) errors.push(`${label}: directory ${directory}`);
     }
     if (text.includes("candidate-${{ inputs.package }}")) errors.push(`${label}: unsanitized artifact name`);
+    if (text.includes('cat-file -t "refs/tags/$RELEASE_TAG\")" = "commit"'))
+      errors.push(`${label}: unsigned lightweight tag accepted`);
     for (const forbidden of [
       "NODE_AUTH_TOKEN", "NPM_TOKEN", "secrets.", "_authToken", "npm login",
       "pull_request_target:", "pull_request:\n", "schedule:", "push:\n", "\n  release:",
@@ -138,6 +145,7 @@ if (errors.length) throw new Error(errors.join("\n"));
 const hostileCases = [
   ["non-E404 registry error accepted", release.replaceAll('test "$npm_error_code" = "E404"', 'test -n "$npm_error_code"') , publish],
   ["tag/source TOCTOU pin removed", release.replaceAll("$GITHUB_SHA", "$UNPINNED_SHA"), publish.replaceAll("$GITHUB_SHA", "$UNPINNED_SHA")],
+  ["signed tag verification removed", release.replaceAll("verify-tag", "verify-unsigned-tag"), publish.replaceAll("verify-tag", "verify-unsigned-tag")],
   ["partial release asset bytes not compared", release.replaceAll('cmp "$candidate/$name" "$existing/$name"', ": # comparison removed"), publish],
   ["dependency lifecycle receives privileged token", release.replace("permissions:\n      contents: read\n    env:", "permissions:\n      contents: read\n      id-token: write\n    env:\n      GH_TOKEN: ${{ github.token }}"), publish],
 ];
