@@ -15,7 +15,7 @@ import { DIRECT_ROUTE_CONTRACT_COUNTS, isTargetActiveRoute, validateDirectRouteS
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.17.0";
+const VERSION = "1.17.1";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the active-route v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -486,7 +486,7 @@ function rejectSecretMaterial(value) {
 function rejectPrivateOutputMaterial(value) {
   const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","password","passphrase"]);
   const stack=[[value,0]];let seen=0;
-  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const key of Object.keys(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");if([...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_secret_material_rejected");}for(const child of Object.values(node))stack.push([child,depth+1]);}}
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_secret_material_rejected");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");const safePrivateKeyPolicy=(normalized==="privatekeysaccepted"&&child===false)||(normalized==="privatekeystaysclientside"&&child===true)||(normalized==="assetfareacceptsprivatekey"&&child===false);if(!safePrivateKeyPolicy&&[...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_secret_material_rejected");}for(const child of Object.values(node))stack.push([child,depth+1]);}}
 }
 
 // Session capability values are caller-owned bearer secrets. Public hashes and
@@ -499,7 +499,7 @@ function rejectSessionTokenEcho(value, expectedToken = null) {
 
 function rejectUnsignedActionMaterial(value) {
   const forbidden=new Set(["privatekey","privkey","secretkey","seed","seedphrase","mnemonic","keypair","secret","signedtransaction","signedtx","rawtransaction","password","passphrase","signature","signatures"]),stack=[[value,0]];let seen=0;
-  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_bundle_unsafe");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");const aptosUnsignedRaw=["rawtransactionbcsbase64","rawtransactionsha256"].includes(normalized)&&value?.safety_receipt?.action?.kind==="aptos_cctp";if(!aptosUnsignedRaw&&[...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_bundle_unsafe");if(["signed","submitted"].includes(normalized)&&child!==false)throw new Error("assetfare_v2_bundle_unsafe");stack.push([child,depth+1]);}}}
+  while(stack.length){const [node,depth]=stack.pop();seen+=1;if(seen>1024||depth>16)throw new Error("assetfare_v2_bundle_unsafe");if(Array.isArray(node)){for(const child of node)stack.push([child,depth+1]);continue;}if(node&&typeof node==="object"){for(const [key,child] of Object.entries(node)){const normalized=String(key).toLowerCase().replaceAll("_","").replaceAll("-","");const aptosUnsignedRaw=["rawtransactionbcsbase64","rawtransactionsha256"].includes(normalized)&&value?.safety_receipt?.action?.kind==="aptos_cctp",safePrivateKeyPolicy=(normalized==="privatekeysaccepted"&&child===false)||(normalized==="privatekeystaysclientside"&&child===true)||(normalized==="assetfareacceptsprivatekey"&&child===false);if(!aptosUnsignedRaw&&!safePrivateKeyPolicy&&[...forbidden].some((term)=>normalized.includes(term)))throw new Error("assetfare_v2_bundle_unsafe");if(["signed","submitted"].includes(normalized)&&child!==false)throw new Error("assetfare_v2_bundle_unsafe");stack.push([child,depth+1]);}}}
 }
 
 function deepEqualArray(actual, expected) {

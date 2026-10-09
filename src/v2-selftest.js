@@ -48,12 +48,12 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.17.0");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.17.0");assert.equal(lockMetadata.packages[""].version, "1.17.0");}
-assert.equal(registryMetadata.version, "1.17.0");
+assert.equal(packageMetadata.version, "1.17.1");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.17.1");assert.equal(lockMetadata.packages[""].version, "1.17.1");}
+assert.equal(registryMetadata.version, "1.17.1");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.17.0");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.17.1");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:100, steps:208 });
 assert.equal(directRouteContract.route_count,100);
 assert.equal(directRouteContract.step_count,208);
@@ -183,6 +183,7 @@ function quote(intent, overrides = {}, {legacy=false}={}) {
     caller_action_plan_handoff: executableHandoff(),
     caller_action_plan_handoff_v2: executableHandoffV2(),
     handoff_schema_version: 2,
+    unsigned_prepare_requirements: { private_keys_accepted: false, event_signer_public: { private_key_stays_client_side: true, assetfare_accepts_private_key: false } },
     ...overrides,
   });
 }
@@ -238,6 +239,9 @@ globalThis.fetch = async (url, init = {}) => {
     if (mode === "nested-signing") { const value = quote(intent); value.offer.server_submission = true; value.route.steps[0].server_signing = true; value.execution.server_submission = true; return Response.json(value); }
     if(mode==="quote-private-key"){const value=quote(intent);value.route.steps[0].private_key="secret";return Response.json(value);}
     if(mode==="quote-seed-phrase"){const value=quote(intent);value.route.steps[0].seedPhrase="alpha beta gamma";return Response.json(value);}
+    if(mode==="quote-private-keys-accepted-true"){const value=quote(intent);value.unsigned_prepare_requirements.private_keys_accepted=true;return Response.json(value);}
+    if(mode==="quote-private-key-stays-client-side-false"){const value=quote(intent);value.unsigned_prepare_requirements.event_signer_public.private_key_stays_client_side=false;return Response.json(value);}
+    if(mode==="quote-assetfare-accepts-private-key-true"){const value=quote(intent);value.unsigned_prepare_requirements.event_signer_public.assetfare_accepts_private_key=true;return Response.json(value);}
     if(mode==="quote-signed-transaction"){const value=quote(intent);value.route.steps[0].signedTransaction="0xdead";return Response.json(value);}
     if(mode==="quote-signed-true"){const value=quote(intent);value.route.steps[0].signed=true;return Response.json(value);}
     if(mode==="direct-summary-missing"){const value=quote(intent);delete value.direct_route_summary;return Response.json(value);}
@@ -340,7 +344,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.17.0");
+  assert.equal(card.serverInfo.version, "1.17.1");
   assert.equal(card.tools.length, 9);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -489,7 +493,7 @@ try {
   mode="success";
 
   // Fail-closed handoff / fee / execution hostiles (all on a valid executable route).
-  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "native-cost-total-mismatch", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra", "continuation-missing", "continuation-extra", "continuation-fingerprint", "continuation-summary-hash", "continuation-payload-hash", "continuation-payload-spec", "continuation-claim-payload-spec", "continuation-wallets", "continuation-signer", "continuation-mode", "continuation-bounds", "continuation-ttl", "continuation-expired", "continuation-future-issued", "continuation-quote-ttl-mismatch", "continuation-selected"];
+  const failClosed = ["missing-handoff", "null-handoff", "array-handoff", "handoff-extra-field", "handoff-request-fields-reordered", "handoff-request-fields-short", "handoff-approval-false", "handoff-server-signs", "handoff-v2-not-mutually-exclusive", "handoff-v2-wrong-schema-version", "handoff-v2-cross-field", "handoff-v2-enforcement-overclaim", "handoff-schema-version-mismatch", "handoff-v2-orphan-version", "handoff-v2-orphan-sibling", "handoff-v2-null-sibling", "handoff-v2-option-missing-note", "handoff-v2-option-missing-required", "handoff-v2-missing-lifecycle", "handoff-v2-arbitrary-lifecycle", "handoff-v2-extra-lifecycle", "handoff-v2-lifecycle-missing-method", "handoff-v2-null-without-version", "handoff-v2-array-sibling", "handoff-v2-blocker-key", "handoff-v2-missing-required-top", "fee-8bp", "fee-0bp", "fee-2-step", "fee-0-step-for-1bp", "fee-step-out-of-range", "execution-false-on-executable", "cost-total-mismatch", "cost-service-fee-mismatch", "cost-provider-negative", "cost-component-sum", "cost-component-inverted", "cost-warning-false", "cost-unpriced-empty", "native-cost-total-mismatch", "eta-mismatch", "eta-inverted", "eta-incomplete-with-time", "ttl-too-long", "quote-private-key", "quote-seed-phrase", "quote-private-keys-accepted-true", "quote-private-key-stays-client-side-false", "quote-assetfare-accepts-private-key-true", "quote-signed-transaction", "quote-signed-true", "direct-summary-missing", "direct-summary-extra", "direct-summary-private", "direct-summary-mode", "direct-summary-top-aggregator", "direct-summary-step-aggregator", "direct-summary-known-wrong-provider", "direct-summary-intent-input", "direct-summary-risk-external", "direct-summary-fee-index", "direct-summary-raw-extra", "continuation-missing", "continuation-extra", "continuation-fingerprint", "continuation-summary-hash", "continuation-payload-hash", "continuation-payload-spec", "continuation-claim-payload-spec", "continuation-wallets", "continuation-signer", "continuation-mode", "continuation-bounds", "continuation-ttl", "continuation-expired", "continuation-future-issued", "continuation-quote-ttl-mismatch", "continuation-selected"];
   const executableIntent = { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 25 };
   for (const failureMode of failClosed) {
     mode = failureMode;
