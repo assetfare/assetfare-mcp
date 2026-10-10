@@ -73,6 +73,8 @@ const RPC_PROVIDERS = Object.freeze({
   cronos: Object.freeze({chainId:25,urls:Object.freeze(["https://evm.cronos.org","https://cronos-evm-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   injective: Object.freeze({chainId:1776,urls:Object.freeze(["https://sentry.evm-rpc.injective.network","https://injectiveevm-rpc.polkachu.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   linea: Object.freeze({chainId:59144,urls:Object.freeze(["https://rpc.linea.build","https://linea-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
+  unichain: Object.freeze({chainId:130,urls:Object.freeze(["https://mainnet.unichain.org","https://unichain-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
+  ink: Object.freeze({chainId:57073,urls:Object.freeze(["https://rpc-gel.inkonchain.com","https://rpc-qnd.inkonchain.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
 });
 
 const MANIFEST_KEYS = ["endpoints", "execution", "issued_at", "limits", "mainnet_evidence", "release_commit", "safety_bundle", "schema", "service", "signature", "valid_until", "verification"];
@@ -116,15 +118,20 @@ const DEPLOYMENTS = Object.freeze({
   "cronos:public_expansion_cctp": Object.freeze({chain:"cronos",kind:"public_expansion_cctp",source:"AssetFareCronosCctpExecutorV1",configuration:Object.freeze(["fee_recipient","source_domain","token_messenger","usdc"])}),
   "injective:public_expansion_cctp": Object.freeze({chain:"injective",kind:"public_expansion_cctp",source:"AssetFareInjectiveCctpExecutorV1",configuration:Object.freeze(["fee_recipient","source_domain","token_messenger","usdc"])}),
   "linea:public_expansion_cctp": Object.freeze({chain:"linea",kind:"public_expansion_cctp",source:"AssetFareLineaCctpExecutorV1",configuration:Object.freeze(["fee_recipient","source_domain","token_messenger","usdc"])}),
+  "unichain:public_expansion_cctp": Object.freeze({chain:"unichain",kind:"public_expansion_cctp",source:"AssetFareUnichainInkCctpExecutorV1",configuration:Object.freeze(["fee_recipient","source_domain","token_messenger","usdc"])}),
+  "ink:public_expansion_cctp": Object.freeze({chain:"ink",kind:"public_expansion_cctp",source:"AssetFareUnichainInkCctpExecutorV1",configuration:Object.freeze(["fee_recipient","source_domain","token_messenger","usdc"])}),
 });
+const UNICHAIN_INK_DEPLOYMENT_IDS = new Set(["unichain:public_expansion_cctp", "ink:public_expansion_cctp"]);
 const EXPANSION_DEPLOYMENT_IDS = new Set(["ethereum:expansion_cctp", "hyperevm:expansion_cctp"]);
 const CANDIDATE_DEPLOYMENT_IDS = new Set(["xlayer:candidate_cctp","sei:candidate_cctp","sonic:candidate_cctp"]);
 const PUBLIC_EXPANSION_DEPLOYMENT_IDS = new Set(["monad:public_expansion_cctp","avalanche:public_expansion_cctp","cronos:public_expansion_cctp","injective:public_expansion_cctp","linea:public_expansion_cctp"]);
-const PREVIOUS_TARGET_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id)=>!PUBLIC_EXPANSION_DEPLOYMENT_IDS.has(id)));
-const EXPANDED_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id)=>!CANDIDATE_DEPLOYMENT_IDS.has(id)&&!PUBLIC_EXPANSION_DEPLOYMENT_IDS.has(id)));
+const PRE_UNICHAIN_INK_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id)=>!UNICHAIN_INK_DEPLOYMENT_IDS.has(id)).sort());
+const PREVIOUS_TARGET_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id)=>!UNICHAIN_INK_DEPLOYMENT_IDS.has(id)&&!PUBLIC_EXPANSION_DEPLOYMENT_IDS.has(id)));
+const EXPANDED_DEPLOYMENT_IDS = Object.freeze(Object.keys(DEPLOYMENTS).filter((id)=>!UNICHAIN_INK_DEPLOYMENT_IDS.has(id)&&!CANDIDATE_DEPLOYMENT_IDS.has(id)&&!PUBLIC_EXPANSION_DEPLOYMENT_IDS.has(id)));
 const LEGACY_DEPLOYMENT_IDS = Object.freeze(EXPANDED_DEPLOYMENT_IDS.filter((id) => !EXPANSION_DEPLOYMENT_IDS.has(id)));
-const EXPANDED_RPC_NAMES=Object.freeze(Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea"].includes(name)));
-const PREVIOUS_TARGET_RPC_NAMES=Object.freeze(Object.keys(RPC_PROVIDERS).filter((name)=>!["monad","avalanche","cronos","injective","linea"].includes(name)));
+const PRE_UNICHAIN_INK_RPC_NAMES=Object.freeze(Object.keys(RPC_PROVIDERS).filter((name)=>!["unichain","ink"].includes(name)).sort());
+const EXPANDED_RPC_NAMES=Object.freeze(Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea","unichain","ink"].includes(name)));
+const PREVIOUS_TARGET_RPC_NAMES=Object.freeze(Object.keys(RPC_PROVIDERS).filter((name)=>!["monad","avalanche","cronos","injective","linea","unichain","ink"].includes(name)));
 const LEGACY_RPC_NAMES = Object.freeze(EXPANDED_RPC_NAMES.filter((name) => !["ethereum", "hyperevm"].includes(name)));
 
 function fail(message) {
@@ -293,13 +300,14 @@ function validateBundle(bundle, manifest) {
 
   exactKeys(bundle.claims, CLAIM_KEYS, "bundle.claims");
   exactKeys(bundle.claims.scope, SCOPE_KEYS, "bundle.claims.scope");
-  const targetScope=bundle.claims.scope.unique_solidity_sources===11&&bundle.claims.scope.evm_deployments===Object.keys(DEPLOYMENTS).length;
+  const targetScope=bundle.claims.scope.unique_solidity_sources===12&&bundle.claims.scope.evm_deployments===Object.keys(DEPLOYMENTS).length;
+  const preUnichainInkScope=bundle.claims.scope.unique_solidity_sources===11&&bundle.claims.scope.evm_deployments===PRE_UNICHAIN_INK_DEPLOYMENT_IDS.length;
   const previousTargetScope=bundle.claims.scope.unique_solidity_sources===7&&bundle.claims.scope.evm_deployments===PREVIOUS_TARGET_DEPLOYMENT_IDS.length;
   const expandedScope=bundle.claims.scope.unique_solidity_sources===6&&bundle.claims.scope.evm_deployments===EXPANDED_DEPLOYMENT_IDS.length;
   const legacyScope=bundle.claims.scope.unique_solidity_sources===5&&bundle.claims.scope.evm_deployments===LEGACY_DEPLOYMENT_IDS.length;
-  const expectedChains=targetScope?Object.keys(RPC_PROVIDERS).sort():previousTargetScope?PREVIOUS_TARGET_RPC_NAMES:expandedScope?EXPANDED_RPC_NAMES:LEGACY_RPC_NAMES;
-  if ((!targetScope&&!previousTargetScope&&!expandedScope&&!legacyScope)||!Array.isArray(bundle.claims.scope.chains)||canonical(bundle.claims.scope.chains)!==canonical(expectedChains)) fail("bundle deployment scope is invalid");
-  const expectedDeploymentIds=targetScope?Object.keys(DEPLOYMENTS).sort():previousTargetScope?PREVIOUS_TARGET_DEPLOYMENT_IDS:expandedScope?EXPANDED_DEPLOYMENT_IDS:LEGACY_DEPLOYMENT_IDS;
+  const expectedChains=targetScope?Object.keys(RPC_PROVIDERS).sort():preUnichainInkScope?PRE_UNICHAIN_INK_RPC_NAMES:previousTargetScope?PREVIOUS_TARGET_RPC_NAMES:expandedScope?EXPANDED_RPC_NAMES:LEGACY_RPC_NAMES;
+  if ((!targetScope&&!preUnichainInkScope&&!previousTargetScope&&!expandedScope&&!legacyScope)||!Array.isArray(bundle.claims.scope.chains)||canonical(bundle.claims.scope.chains)!==canonical(expectedChains)) fail("bundle deployment scope is invalid");
+  const expectedDeploymentIds=targetScope?Object.keys(DEPLOYMENTS).sort():preUnichainInkScope?PRE_UNICHAIN_INK_DEPLOYMENT_IDS:previousTargetScope?PREVIOUS_TARGET_DEPLOYMENT_IDS:expandedScope?EXPANDED_DEPLOYMENT_IDS:LEGACY_DEPLOYMENT_IDS;
   exactKeys(bundle.claims.fee_policy, FEE_KEYS, "bundle.claims.fee_policy");
   const fee = bundle.claims.fee_policy;
   if (fee.assetfare_service_fee_bps !== 1 || fee.formula !== "floor(fee_basis_stable_base * 1 / 10000)" || fee.maximum_stable_base !== null || fee.zero_fee_routes_allowed !== false || fee.provider_and_network_fees_additional !== true) fail("bundle exact 1bp/no-maximum fee policy is invalid");
@@ -314,7 +322,7 @@ function validateBundle(bundle, manifest) {
   if (administration.upgradeability !== false || administration.rescue_function !== false || administration.arbitrary_call !== false) fail("bundle administration policy is invalid");
 
   exactKeys(bundle.evidence, EVIDENCE_KEYS, "bundle.evidence");
-  if (!Array.isArray(bundle.evidence.sources) || bundle.evidence.sources.length !== (targetScope?12:previousTargetScope?7:expandedScope?6:5)) fail("bundle must include every in-scope source and pinned Move script");
+  if (!Array.isArray(bundle.evidence.sources) || bundle.evidence.sources.length !== (targetScope?13:preUnichainInkScope?12:previousTargetScope?7:expandedScope?6:5)) fail("bundle must include every in-scope source and pinned Move script");
   const sourceContracts = new Set();
   for (const [index, source] of bundle.evidence.sources.entries()) {
     exactKeys(source, SOURCE_KEYS, `bundle.evidence.sources[${index}]`);

@@ -32,6 +32,8 @@ const ADDRESS = (number) => `0x${number.toString(16).padStart(40, "0")}`;
 const HASH = (number) => `0x${number.toString(16).padStart(64, "0")}`;
 const SHA = (text) => sha256Hex(Buffer.from(text));
 assert.deepEqual(RPC_PROVIDERS.sei.urls, ["https://evm-rpc-sei.stingray.plus", "https://sei-evm-rpc.publicnode.com"]);
+assert.deepEqual(RPC_PROVIDERS.unichain.urls, ["https://mainnet.unichain.org", "https://unichain-rpc.publicnode.com"]);
+assert.deepEqual(RPC_PROVIDERS.ink.urls, ["https://rpc-gel.inkonchain.com", "https://rpc-qnd.inkonchain.com"]);
 
 const deployments = [
   ["arbitrum:cctp", "arbitrum", 42161, "cctp", "AssetFareDirectCctpExecutorV2", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
@@ -54,6 +56,8 @@ const deployments = [
   ["cronos:public_expansion_cctp", "cronos", 25, "public_expansion_cctp", "AssetFareCronosCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["injective:public_expansion_cctp", "injective", 1776, "public_expansion_cctp", "AssetFareInjectiveCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
   ["linea:public_expansion_cctp", "linea", 59144, "public_expansion_cctp", "AssetFareLineaCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["unichain:public_expansion_cctp", "unichain", 130, "public_expansion_cctp", "AssetFareUnichainInkCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
+  ["ink:public_expansion_cctp", "ink", 57073, "public_expansion_cctp", "AssetFareUnichainInkCctpExecutorV1", ["fee_recipient", "source_domain", "token_messenger", "usdc"]],
 ];
 
 function fixtureBundle() {
@@ -189,9 +193,15 @@ const bundle = fixtureBundle();
 const manifest = fixtureManifest(bundle);
 validateManifest(manifest, PUBLIC_KEY, "assetfare-selftest", NOW);
 const chains = validateBundle(bundle, manifest);
-assert.equal(chains.size, 15);
-const expandedBundle=structuredClone(bundle);
-expandedBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea"].includes(name)),evm_deployments:12,unique_solidity_sources:6};
+assert.equal(chains.size, 17);
+const preUnichainInkBundle=structuredClone(bundle);
+preUnichainInkBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["unichain","ink"].includes(name)).sort(),evm_deployments:20,unique_solidity_sources:11};
+preUnichainInkBundle.evidence.deployments=preUnichainInkBundle.evidence.deployments.filter((row)=>!["unichain","ink"].includes(row.chain));
+preUnichainInkBundle.evidence.sources=preUnichainInkBundle.evidence.sources.filter((row)=>row.contract!=="AssetFareUnichainInkCctpExecutorV1");
+const preUnichainInkManifest=fixtureManifest(preUnichainInkBundle);
+assert.equal(validateBundle(preUnichainInkBundle,preUnichainInkManifest).size,15);
+const expandedBundle=structuredClone(preUnichainInkBundle);
+expandedBundle.claims.scope={chains:Object.keys(RPC_PROVIDERS).filter((name)=>!["xlayer","sei","sonic","monad","avalanche","cronos","injective","linea","unichain","ink"].includes(name)),evm_deployments:12,unique_solidity_sources:6};
 expandedBundle.evidence.deployments=expandedBundle.evidence.deployments.filter((row)=>!row.id.endsWith(":candidate_cctp")&&!row.id.endsWith(":public_expansion_cctp"));
 expandedBundle.evidence.sources=expandedBundle.evidence.sources.filter((row)=>!["AssetFareXLayerSeiSonicCctpExecutorV1","AssetFareMonadAvalancheCctpExecutorV1","AssetFareCronosCctpExecutorV1","AssetFareInjectiveCctpExecutorV1","AssetFareLineaCctpExecutorV1","AssetFareAptosCctpV1"].includes(row.contract));
 const expandedManifest=fixtureManifest(expandedBundle);
@@ -215,7 +225,7 @@ async function publicEvidenceFixture(url) {
   throw new Error(`unexpected public evidence URL ${url}`);
 }
 const publicEvidence = await verifyPublicEvidence(bundle, publicEvidenceFixture);
-assert.equal(publicEvidence.hashed_files.length, 25);
+assert.equal(publicEvidence.hashed_files.length, 27);
 assert.equal(publicEvidence.build_scripts.length, 1);
 await expectReject(() => verifyPublicEvidence(bundle, async (url) => url.includes("/contracts/") ? new Response("mutated", { status: 200, headers: { "content-type": "text/plain" } }) : publicEvidenceFixture(url)), /SHA-256 mismatch/);
 
@@ -232,7 +242,7 @@ try {
   const result = await run({ mode: "offline", manifest: manifestPath, bundle: bundlePath, pubkey: publicKeyPath }, { now: NOW });
   assert.equal(result.status, "offline_evidence_verified");
   assert.equal(result.rpc_quorum.performed, false);
-  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 20);
+  assert.equal(result.safety_bundle.raw_runtime_code_hashes_verified, 22);
 } finally {
   await rm(fixtureDirectory, { recursive: true, force: true });
 }
@@ -292,7 +302,7 @@ function rpcFixture(fault = {}) {
 }
 
 const goodQuorum = await verifyRpcQuorum(chains, rpcFixture());
-assert.equal(goodQuorum.length, 15);
+assert.equal(goodQuorum.length, 17);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "chain", host: "mainnet.base.org" })), /chain id mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "code", host: "arbitrum.drpc.org", contract: "swap" })), /raw code mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt", host: "base.drpc.org", contract: "cctp" })), /deployment receipt mismatch/);
