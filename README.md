@@ -1,16 +1,17 @@
-# AssetFare — non-custodial bridge and cross-chain swap for AI agents
+# AssetFare — precomputed cross-chain route intelligence for AI agents
 
-USDC bridge API for AI agents and agent-wallet funding: 100 available
-routes across nineteen chains. Forty-four routes have a route-specific
-best-from amount and are price-recommended only at or above it. The other 56
-have no current price recommendation. Economic guidance is advisory and never
-adds a prepare/session gate. Each available route
-has a validated ordered provider path and exact 1bp fee
-step. Caller approves and signs; the server never signs or submits.
-AssetFare service fee 1bp; Circle/provider/network fees additional; quote
-exposes total token-path cost and live availability.
+AssetFare saves agent time and tokens by precomputing fresh, complete all-in
+route candidates. For an exact route and amount it returns at most two choices
+inside the caller's time profile: balanced defaults to 60 seconds, fast to 30
+seconds, and economy is an explicit slower mode. Candidates over the time limit
+remain reference-only. AssetFare's own assembled route and external providers
+are compared consistently. Choosing an external provider returns normalized
+fresh quote facts plus its handoff, without an executable payload;
+choosing AssetFare triggers an exact fresh requote without silent route-variant
+reselection. Selection itself is never transaction authority. Caller approves
+and signs; the server never signs or submits.
 
-Core 2.9.0 quotes also include strict `continuation_v3`. MCP 1.17.1 verifies the
+Core 2.10.0 quotes also include strict `continuation_v3`. MCP 1.18.0 verifies the
 canonical full-quote hash, route-summary hash and fingerprint claim, exact
 path/providers, caller wallet-chain and event-signer requirements, base-unit
 bounds, allowed mode and TTL. Every quote remains `unranked_candidate`; no
@@ -177,8 +178,8 @@ Official MCP Registry servers: `io.github.assetfare/assetfare` and
 records were retired during the ownership-preserving GitHub organization
 migration tracked in
 [registry issue #1666](https://github.com/modelcontextprotocol/registry/issues/1666).
-npm, the public source, the hosted endpoint, and Registry metadata are current
-at `1.17.1`.
+npm, the public source, the hosted endpoint, and Registry metadata target
+`1.18.0` for this route-intelligence release.
 
 Primary MCP quote scope: 100 available directed routes across twenty-four endpoints; 44 are threshold-recommended and 56 have no current price recommendation.
 The only technical quote minimum is $1; no route has a separate economic floor
@@ -198,8 +199,14 @@ The USD 1 API minimum is technical only. Price-verified quotes include a
 best-from amount; availability-only quotes include null. Confirm every fresh
 quote before choosing.
 
-For a new evaluation, call `assetfare_v2_capabilities` and then
-`assetfare_v2_quote`. The primary endpoint has no legacy tools to misselect.
+For a new evaluation, call `assetfare_v2_capabilities`, then
+`assetfare_v2_route_selection`. After the caller explicitly chooses one returned
+candidate, call `assetfare_v2_quote_selected_candidate`. An AssetFare choice
+returns the normal fresh `continuation_v3` quote; an external choice returns a
+normalized fresh quote for that provider plus its handoff, without an
+executable payload. `assetfare_v2_quote` remains available for direct
+AssetFare-only quoting and compatibility. The primary endpoint has no legacy
+tools to misselect.
 Existing unversioned clients can connect to
 `https://api.assetfare.dev/mcp/legacy`; new clients must not use it.
 
@@ -226,7 +233,7 @@ For a one-command, agent-readable evaluation that verifies the signed release
 manifest and remains strictly quote-only:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-route-eval \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-route-eval \
   --amount 1000 --from-chain solana --from-token USDC \
   --to-chain base --to-token USDC --quote-output quote.json
 ```
@@ -242,7 +249,7 @@ After that comparison and explicit caller approval, the shortest
 server-enforced path to one verified unsigned plan is:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-plan \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-plan \
   --caller-approved --mode session \
   --quote quote.json --select-exact-quote-bounds \
   --wallet solana=<CALLER_SOLANA_PUBLIC_KEY> \
@@ -290,10 +297,10 @@ token and idempotency key. Once the file contains a session ID, resume without
 recreating the session:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-session \
   --operation get --capability-file ./session-capability.json
 
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-session \
   --operation observe-source --capability-file ./session-capability.json \
   --idempotency-key source-0001 \
   --transaction-hash <CALLER_ALREADY_SUBMITTED_TRANSACTION_HASH>
@@ -311,7 +318,7 @@ an unverified action. Structured 409 recovery flags are preserved in CLI errors.
 Immediately before opening the caller wallet, request a just-in-time handoff:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-session \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-session \
   --operation wallet-ready \
   --capability-file ./session-capability.json \
   --idempotency-key wallet-ready-0001 \
@@ -350,7 +357,7 @@ Before funding it, validate the local adapter contract without invoking any
 wallet, signer, RPC submit, or network request:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-adapter-conformance \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-adapter-conformance \
   --wallet-adapter ./my-local-wallet-adapter.mjs
 ```
 
@@ -358,7 +365,7 @@ The CLI deliberately has no private-key, seed, mnemonic, keystore, raw signed
 transaction, remote signer, or hosted-wallet option:
 
 ```bash
-npx --yes --package=assetfare-mcp@1.17.1 assetfare-agent-runner \
+npx --yes --package=assetfare-mcp@1.18.0 assetfare-agent-runner \
   --capability-file ./session-capability.json \
   --policy-file ./caller-execution-policy.json \
   --state-file ./caller-runner-state.json \

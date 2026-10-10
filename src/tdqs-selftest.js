@@ -12,11 +12,11 @@ function properties(tool) {
 }
 
 function auditDefinitions(tools) {
-  assert.equal(tools.length, 9, "TDQS audit requires the lean v2 remote tool set");
+  assert.equal(tools.length, 11, "TDQS audit requires the lean v2 remote tool set");
   assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length, "tool names must be unique");
 
   const parameterized = tools.filter((tool) => properties(tool).length > 0);
-  assert.equal(parameterized.length, 7, "unexpected parameterized tool count");
+  assert.equal(parameterized.length, 9, "unexpected parameterized tool count");
 
   for (const tool of tools) {
     assert.ok(tool.description?.trim(), `${tool.name}: missing description`);

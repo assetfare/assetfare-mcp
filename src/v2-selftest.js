@@ -48,12 +48,12 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.17.1");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.17.1");assert.equal(lockMetadata.packages[""].version, "1.17.1");}
-assert.equal(registryMetadata.version, "1.17.1");
+assert.equal(packageMetadata.version, "1.18.0");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.18.0");assert.equal(lockMetadata.packages[""].version, "1.18.0");}
+assert.equal(registryMetadata.version, "1.18.0");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.17.1");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.18.0");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:100, steps:208 });
 assert.equal(directRouteContract.route_count,100);
 assert.equal(directRouteContract.step_count,208);
@@ -65,17 +65,17 @@ for(const route of publicPaxosRoutes){const definition=directRouteContract.route
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
-assert.match(packageMetadata.description, /100 available routes.*44 price-recommended.*56 without a current price recommendation/i);
+assert.match(packageMetadata.description, /Precomputed route intelligence.*100 available routes.*fresh top-two all-in recommendations/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
-assert.match(packageMetadata.description, /1bp service fee plus Circle\/provider\/network fees/i);
+assert.match(packageMetadata.description, /exact selected-candidate requotes/i);
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(packageMetadata.description, /never signs or submits/i);
 assert.ok(registryMetadata.description.length <= 100);
-assert.match(registryMetadata.description, /100 available-route USDC bridge.*caller signs.*never signs or submits/i);
+assert.match(registryMetadata.description, /Top-two route intelligence.*100 available routes.*caller signs.*never signs or submits/i);
 assert.doesNotMatch(registryMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
 assert.doesNotMatch(registryMetadata.description, /leading|fastest|cheapest/i);
-assert.match(readmeMetadata.slice(0, 2500), /Solana native USDC → Base native USDC/is);
-assert.match(readmeMetadata.slice(0, 2500).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
+assert.match(readmeMetadata.slice(0, 4000), /Solana native USDC → Base native USDC/is);
+assert.match(readmeMetadata.slice(0, 4000).replace(/\s+/g, " "), /AssetFare service fee 1bp; Circle\/provider\/network fees additional; quote exposes total token-path cost and live availability/i);
 assert.doesNotMatch(readmeMetadata, /flat[ -]?1 ?bp|execution-ready/i);
 assert.match(readmeMetadata, /--to-chain base --to-token USDC/);
 assert.match(readmeMetadata, /assetfare-route-eval[\s\S]{0,500}--quote-output quote\.json[\s\S]{0,1200}assetfare-plan[\s\S]{0,400}--select-exact-quote-bounds/);
@@ -338,14 +338,16 @@ try {
   await client.connect(clientTransport);
   const listed = await client.listTools();
   const dynamicCapabilities = listed.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
+  const dynamicSelection = listed.tools.find((tool) => tool.name === "assetfare_v2_route_selection");
+  const dynamicSelectedQuote = listed.tools.find((tool) => tool.name === "assetfare_v2_quote_selected_candidate");
   const dynamicQuote = listed.tools.find((tool) => tool.name === "assetfare_v2_quote");
   const dynamicPrepare = listed.tools.find((tool) => tool.name === "assetfare_v2_prepare");
   const card = await serverCard();
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
-  assert.equal(listed.tools.length, 9);
-  assert.equal(card.serverInfo.version, "1.17.1");
-  assert.equal(card.tools.length, 9);
+  assert.equal(listed.tools.length, 11);
+  assert.equal(card.serverInfo.version, "1.18.0");
+  assert.equal(card.tools.length, 11);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.description, BUNDLE_HASH_SPEC);
@@ -356,12 +358,12 @@ try {
   // Every dynamic tool has a matching static server-card entry with the same description.
   const dynamicNames = new Set(listed.tools.map((tool) => tool.name));
   const staticNames = new Set(card.tools.map((tool) => tool.name));
-  assert.equal(dynamicNames.size, 9);
+  assert.equal(dynamicNames.size, 11);
   assert.deepEqual([...dynamicNames].sort(), [...staticNames].sort());
   const newTools = ["assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
   for (const name of newTools) assert.ok(dynamicNames.has(name), `missing new tool ${name}`);
   // The v2 tool descriptions must be identical between the live tool list and the static server card.
-  for (const name of ["assetfare_v2_capabilities", "assetfare_v2_quote", ...newTools]) assert.equal(listed.tools.find((tool) => tool.name === name).description, card.tools.find((item) => item.name === name).description, `description drift for ${name}`);
+  for (const name of ["assetfare_v2_capabilities", "assetfare_v2_route_selection", "assetfare_v2_quote_selected_candidate", "assetfare_v2_quote", ...newTools]) assert.equal(listed.tools.find((tool) => tool.name === name).description, card.tools.find((item) => item.name === name).description, `description drift for ${name}`);
   assert.equal(dynamicCapabilities.description, staticCapabilities.description);
   assert.equal(dynamicQuote.description, staticQuote.description);
   assert.deepEqual(normalizedInputSchema(dynamicCapabilities.inputSchema), normalizedInputSchema(staticCapabilities.inputSchema));
@@ -372,7 +374,7 @@ try {
   assert.equal(V2_MAX_RESPONSE_BYTES, 1_048_576);
   // Quote/capabilities tools never take a wallet, token, or signature input.
   const forbidden = new Set(["wallets", "wallet", "access_token", "token", "idempotency_key", "session_id", "event_signer_public", "signature", "transaction_hash"]);
-  for (const tool of [dynamicCapabilities, dynamicQuote]) {
+  for (const tool of [dynamicCapabilities, dynamicSelection, dynamicSelectedQuote, dynamicQuote]) {
     for (const key of Object.keys(tool.inputSchema.properties || {})) assert.ok(!forbidden.has(key), `forbidden v2 input ${key}`);
   }
 

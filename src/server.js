@@ -15,7 +15,7 @@ import { DIRECT_ROUTE_CONTRACT_COUNTS, isTargetActiveRoute, validateDirectRouteS
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.17.1";
+const VERSION = "1.18.0";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the active-route v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
@@ -96,6 +96,8 @@ const LEGACY_STATUS_DESCRIPTION = "Read legacy v1 compatibility status and origi
 const LEGACY_QUOTE_DESCRIPTION = "Legacy v1 original-corridor quote: get Solana SOL to Base or Arbitrum ETH pricing. Use only with the unversioned legacy wallet-auth/session tools; for every new v2 evaluation use assetfare_v2_quote instead. Read-only; makes a network request and never authenticates, creates a session, prepares an action, signs, or submits.";
 const V2_MANIFEST_DESCRIPTION = "Read the Ed25519-signed release manifest and safety-bundle binding before preparing an action. Example: call this once to verify the current release and contract pins; it never creates state, signs, or submits.";
 const V2_CAPABILITIES_DESCRIPTION = "Read all 100 technically available routes, live provider readiness, route-specific guidance, direct_route_summary, and continuation_v3 contracts before quoting. Forty-four routes are price-recommended only at or above their published threshold; 56 have no current price recommendation. Example: call once before requesting an exact route quote. Confirm every fresh quote. Economic guidance is advisory and never adds an execution gate. continuation_v3 separately binds execution selection, wallets, bounds, and mode. Read-only; creates no wallet login, session, or action.";
+const V2_ROUTE_SELECTION_DESCRIPTION = "Return up to two fresh, complete all-in route recommendations for one exact route and amount. Example: compare Solana USDC to Base USDC at USD 1,000 with the balanced 60-second profile. Fast uses 30 seconds and economy is explicit up to 1,800 seconds; slower candidates are reference-only. The result is not execution approval and never prepares, signs, or submits.";
+const V2_SELECTED_QUOTE_DESCRIPTION = "Fresh-requote exactly one candidate from assetfare_v2_route_selection without silent reselection. Example: pass the chosen candidate_id and exact selection receipt hash. An AssetFare candidate returns a validated direct quote and continuation_v3; an external candidate returns normalized fresh quote facts plus its provider handoff, without executable payloads. This tool never prepares, signs, submits, or creates transaction authority.";
 const V2_QUOTE_DESCRIPTION = "Get one fresh AssetFare quote with amount-specific economic_guidance, direct_route_summary, continuation_v3, and unsigned_prepare_requirements. Example: quote Solana USDC to Base USDC. price_recommended_for_amount is advisory; compare alternatives when price matters, but no economic acknowledgement field is required. The quote remains an unranked_candidate until separate explicit approval selects one mode. The adapter validates hashes, path, bounds, and TTL and never creates approval, prepares, signs, or submits.";
 const V2_NEW_SESSION_CAPABILITY_DESCRIPTION = "Local stdio only: generate one caller-owned 256-bit session capability without a network call. Remote MCP/A2A servers deliberately do not expose this helper; remote clients generate 32 random bytes locally, encode them as 43-character base64url without padding, and pass the result to assetfare_v2_session_create and every lifecycle call. The token is a sensitive bearer capability, never a private key.";
 const V2_PREPARE_DESCRIPTION = "Return one deeply verified first unsigned bundle and caller-wallet handoff. Example: pass caller_approved=true, a one_shot approval_v3, and the quote-bound verification_context; multi-step routes reject one_shot. Economic guidance is advisory and adds no request field. Context is validated before the upstream request and never forwarded. AssetFare never signs or submits.";
@@ -143,6 +145,10 @@ const v2QuoteFields = {
 };
 const emptyStrictInput = z.object({}).strict();
 const v2QuoteIntent = z.object(v2QuoteFields).strict();
+const v2SelectionProfile=z.enum(["fast","balanced","economy"]).optional().describe("Time policy: fast (30s), balanced (60s default), or explicit economy (up to 1,800s).");
+const v2SelectionMaxEta=z.number().int().min(1).max(1800).optional().describe("Optional stricter maximum ETA in seconds; it cannot exceed the selected profile limit.");
+const v2RouteSelectionIntent = z.object({...v2QuoteFields,profile:v2SelectionProfile,max_eta_seconds:v2SelectionMaxEta}).strict();
+const v2SelectedQuoteIntent = z.object({...v2QuoteFields,profile:v2SelectionProfile,max_eta_seconds:v2SelectionMaxEta,candidate_id:z.string().min(1).max(160).describe("Exact candidate_id returned by assetfare_v2_route_selection; it is never chosen automatically."),selection_receipt_sha256:z.string().regex(/^[0-9a-f]{64}$/).describe("Exact selection_receipt.sha256 returned with the fresh shortlist.")}).strict();
 // A caller-generated session capability token: high-entropy, url-safe, 43-128 chars.
 // It is a SENSITIVE bearer capability, NOT a private key; the server stores only its hash.
 const v2SessionToken = z.string().regex(/^[A-Za-z0-9_-]{43,128}$/).describe("Sensitive caller-generated v2 session capability: at least 32 CSPRNG bytes encoded as 43-128 URL-safe base64 characters. Generate it locally; never log it or substitute a private key or legacy access token.");
@@ -209,6 +215,7 @@ const callerOwnedAgentExecutionSchema=z.union([
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.15.3"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.16.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
   z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.17.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
+  z.object({...callerOwnedExecutionBase,version:z.literal("assetfare-caller-owned-agent-execution-v2"),minimum_package_version:z.literal("1.18.0"),policy_schema:z.literal("https://assetfare.dev/schemas/caller-owned-execution-policy-v2.json"),wallet_adapter_contract_version:z.literal("assetfare-caller-wallet-adapter-v2")}).strict(),
 ]);
 const directRouteCapabilityLegacy=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),step_count:z.literal(172),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for Robinhood ingress; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
 const directRouteCapabilityPrevious=z.object({version:z.literal("assetfare-direct-route-summary-v1"),required_on_every_quote:z.literal(true),route_count:z.literal(76),primary_direct_route_count:z.literal(67),external_coverage_only_route_count:z.literal(9),step_count:z.literal(170),ordered_provider_path:z.literal(true),normalized_chain_asset_endpoints:z.literal(true),base_unit_amounts_are_decimal_strings:z.literal(true),assetfare_fee_step_bound:z.literal(true),classification_values:z.tuple([z.literal("direct_protocol_only"),z.literal("external_intent")]),product_classification_values:z.tuple([z.literal("primary_direct"),z.literal("external_coverage_only")]),economic_eligibility_is_route_and_amount_conditioned:z.literal(true),route_aggregator_used_scope:z.literal("assetfare_engine_only"),external_intent:z.literal("Across only for nine Robinhood ingress coverage routes; provider-internal liquidity sourcing or aggregation remains possible"),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
@@ -319,6 +326,15 @@ const v2QuoteResponse = z.object({
   caller_action_plan_handoff: z.object({}).passthrough(),
 }).passthrough();
 const v2QuoteOutput = v2QuoteResponse.extend({ cost_summary:v2CostSummary, eta:z.object(v2EtaShape).strict() }).passthrough();
+const v2RouteCandidateOutput=z.object({candidate_id:z.string().min(1).max(160),provider:z.string().min(1).max(160),provider_role:z.string().min(1).max(160),expected_receive_base:z.string().regex(/^[1-9][0-9]*$/),minimum_receive_base:z.string().regex(/^[1-9][0-9]*$/),all_in_cost_usd:z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/),eta_seconds:z.number().int().positive(),eta_upper_bound_seconds:z.number().int().positive(),eta_basis:z.enum(["provider_reported","policy_conservative_bound","observed_p95"]),verification_tier:z.enum(["quote_verified","execution_verified"]),prepare_mode:z.enum(["assetfare_unsigned","external_handoff","external_unsigned"]),prepare_available:z.boolean(),assetfare_direct:z.boolean(),fee_included:z.literal(true),rank:z.number().int().min(1).max(2).optional(),excluded_reason:z.string().min(1).optional()}).passthrough();
+const v2RouteSelectionOutput=z.object({schema_version:z.literal("assetfare-agent-route-selection-shadow-1.0.0"),status:z.enum(["recommendations_available","no_route_within_time_limit","no_comparable_candidate"]),shadow_only:z.literal(false),public_api_changed:z.literal(true),intent:z.object({route:z.enum([...V2_ROUTE_NAMES]),amount_usd:z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/)}).strict(),selection_policy:z.object({profile:z.enum(["fast","balanced","economy"]),max_eta_seconds:z.number().int().min(1).max(1800),slower_than_limit_handling:z.literal("reference_only"),scope:z.string().min(1)}).strict(),recommendations:z.array(v2RouteCandidateOutput).max(2),reference_only:z.array(v2RouteCandidateOutput).max(3),assetfare_direct_reference:v2RouteCandidateOutput.nullable(),coverage:z.object({}).passthrough(),selection_receipt:z.object({version:z.literal("assetfare-agent-route-selection-receipt-1.0.0"),claim:z.object({}).passthrough(),sha256:z.string().regex(/^[0-9a-f]{64}$/)}).strict(),as_of:z.string().min(1),evidence_observed_at:z.string().min(1),evidence_age_seconds:z.number().int().min(0).max(60),fresh_requote_required_after_selection:z.literal(true),selection_grants_execution_authority:z.literal(false),safety:z.object({network_requests:z.literal(false),wallet_authentication:z.literal(false),prepare:z.literal(false),session:z.literal(false),signing:z.literal(false),submission:z.literal(false),funds_movement:z.literal(false),server_signing:z.literal(false),server_submission:z.literal(false)}).strict()}).passthrough();
+const v2RouteChoiceBinding=z.object({version:z.literal("assetfare-agent-route-choice-1.0.0"),candidate_id:z.string().min(1).max(160),selection_receipt_sha256:z.string().regex(/^[0-9a-f]{64}$/),selection_status:z.literal("explicitly_selected"),selection_grants_execution_authority:z.literal(false),fresh_quote_required:z.literal(true),automatic_reselection_forbidden:z.literal(true),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
+const v2ExternalFreshQuote=z.object({provider:z.enum(["mayan","relay","lifi","across"]),candidate_id:z.string().min(1).max(160),route:z.enum([...V2_ROUTE_NAMES]),amount_usd:z.number().finite().min(1),expected_receive_base:z.string().regex(/^[1-9][0-9]*$/),minimum_receive_base:z.string().regex(/^[1-9][0-9]*$/),all_in_cost_usd:z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]+)?$/),cost_complete:z.boolean(),eta_seconds:z.number().int().positive().nullable(),provider_variant:z.string().min(1).nullable(),contains_executable_payload:z.literal(false),requires_provider_confirmation:z.literal(true),server_signing:z.literal(false),server_submission:z.literal(false)}).strict();
+const v2SelectedQuoteOutput=z.union([
+  z.object({version:z.literal("assetfare-agent-route-choice-1.0.0"),status:z.literal("fresh_assetfare_quote"),choice_binding:v2RouteChoiceBinding,quote:v2QuoteOutput,next_step:z.string().min(1),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
+  z.object({version:z.literal("assetfare-agent-route-choice-1.0.0"),status:z.literal("fresh_external_quote"),choice_binding:v2RouteChoiceBinding,provider:z.enum(["mayan","relay","lifi","across"]),provider_quote_documentation:z.string().url().nullable(),intent:z.object({from:z.enum([...V2_ENDPOINTS]),to:z.enum([...V2_ENDPOINTS]),amount_usd:z.number().finite().min(1)}).strict(),precomputed_candidate:v2RouteCandidateOutput,fresh_quote:v2ExternalFreshQuote,instructions:z.string().min(1),assetfare_executes_external_route:z.literal(false),server_signing:z.literal(false),server_submission:z.literal(false)}).strict(),
+]);
+const v2SelectedQuoteToolOutput=z.object({version:z.literal("assetfare-agent-route-choice-1.0.0"),status:z.enum(["fresh_assetfare_quote","fresh_external_quote"]),choice_binding:v2RouteChoiceBinding,server_signing:z.literal(false),server_submission:z.literal(false)}).passthrough();
 const v2ManifestOutput = z.object({
   service: z.literal("AssetFare"),
   release_commit: z.string().regex(/^[0-9a-f]{40}$/),
@@ -449,6 +465,39 @@ function parseV2Intent(args) {
   if (V2_CANDIDATE_SOURCE_CHAINS.has(intent.from_chain) && !(intent.from_token === "USDC" && ["base", "solana"].includes(intent.to_chain) && intent.to_token === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
   if (V2_SOLANA_ONLY_SOURCE_CHAINS.has(intent.from_chain) && !(intent.from_token === "USDC" && intent.to_chain === "solana" && intent.to_token === "USDC")) throw new Error("assetfare_v2_source_only_route_unsupported");
   return intent;
+}
+
+function parseV2RouteSelectionIntent(args, selected = false) {
+  let value;
+  try { value=(selected?v2SelectedQuoteIntent:v2RouteSelectionIntent).parse(args); }
+  catch { throw new Error(selected?"assetfare_v2_selected_quote_intent_invalid":"assetfare_v2_route_selection_intent_invalid"); }
+  parseV2Intent({from_chain:value.from_chain,from_token:value.from_token,to_chain:value.to_chain,to_token:value.to_token,amount_usd:value.amount_usd});
+  const profile=value.profile||"balanced",limit={fast:30,balanced:60,economy:1800}[profile];
+  if(value.max_eta_seconds!==undefined&&value.max_eta_seconds>limit)throw new Error("assetfare_v2_route_selection_time_limit_invalid");
+  return value;
+}
+
+function parseV2RouteSelection(payload,intent){
+  rejectSigningClaims(payload);rejectPrivateOutputMaterial(payload);rejectUnsignedActionMaterial(payload);
+  let value;try{value=v2RouteSelectionOutput.parse(payload);}catch{throw new Error("assetfare_v2_route_selection_response_invalid");}
+  const route=`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`;
+  if(value.intent.route!==route||Number(value.intent.amount_usd)!==intent.amount_usd||value.selection_policy.profile!==(intent.profile||"balanced")||(intent.max_eta_seconds!==undefined&&value.selection_policy.max_eta_seconds!==intent.max_eta_seconds))throw new Error("assetfare_v2_route_selection_binding_failed");
+  if(value.status!=="recommendations_available"||value.recommendations.length<1||value.recommendations.length>2)throw new Error("assetfare_v2_route_selection_unavailable");
+  const ids=value.recommendations.map((row)=>row.candidate_id);if(new Set(ids).size!==ids.length)throw new Error("assetfare_v2_route_selection_response_invalid");
+  return value;
+}
+
+function parseV2SelectedQuote(payload,intent){
+  rejectSigningClaims(payload);rejectPrivateOutputMaterial(payload);rejectUnsignedActionMaterial(payload);
+  let value;try{value=v2SelectedQuoteOutput.parse(payload);}catch{throw new Error("assetfare_v2_selected_quote_response_invalid");}
+  if(value.choice_binding.candidate_id!==intent.candidate_id||value.choice_binding.selection_receipt_sha256!==intent.selection_receipt_sha256)throw new Error("assetfare_v2_selected_quote_binding_failed");
+  if(value.status==="fresh_assetfare_quote"){
+    if(!intent.candidate_id.startsWith("assetfare:"))throw new Error("assetfare_v2_selected_quote_binding_failed");
+    value.quote=parseV2Quote(value.quote,intent);
+    const internal=intent.candidate_id==="assetfare:fixed_direct"?"assetfare_fixed_direct":intent.candidate_id.split(":",2)[1];
+    if(value.quote.route_selection?.candidate_id!==internal||value.quote.route_selection?.automatic_reselection_forbidden!==true)throw new Error("assetfare_v2_selected_quote_binding_failed");
+  }else if(intent.candidate_id.startsWith("assetfare:")||value.precomputed_candidate.candidate_id!==intent.candidate_id||value.fresh_quote.candidate_id!==intent.candidate_id||value.fresh_quote.provider!==value.provider||value.fresh_quote.route!==`${intent.from_chain}:${intent.from_token}->${intent.to_chain}:${intent.to_token}`||value.fresh_quote.amount_usd!==intent.amount_usd||value.assetfare_executes_external_route!==false)throw new Error("assetfare_v2_selected_quote_binding_failed");
+  return value;
 }
 
 // Gate a prepare/session route BEFORE any network call: endpoints must be real, the route
@@ -863,12 +912,20 @@ function createServer(provenance = {}, profile = "v2") {
     { name: "AssetFare", version: VERSION },
     { instructions: profile === "legacy"
       ? "Legacy compatibility endpoint for the original Solana SOL to Base/Arbitrum ETH workflow. Use only its unversioned tools. It returns unsigned actions and never receives private keys, signs, or submits. New integrations must use https://api.assetfare.dev/mcp."
-      : "Current AssetFare v2 endpoint: 100 technically available non-custodial routes; 44 are price-recommended at published thresholds and 56 have no current price recommendation. Start with assetfare_v2_capabilities, then quote. Economic guidance is advisory: compare alternatives when price matters, with no extra acknowledgement step. Prepare only after explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. Session capabilities are generated client-side. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
+      : "Current AssetFare v2 endpoint: 100 technically available non-custodial routes. Start with assetfare_v2_capabilities, then use assetfare_v2_route_selection for a fresh top-two shortlist when precompute covers the exact route and amount. Choose one candidate with assetfare_v2_quote_selected_candidate; AssetFare candidates are fresh-requoted without silent reselection, while external candidates return normalized fresh quote facts and a provider handoff without executable payloads. Route selection is not execution authority. Prepare only after confirming the fresh AssetFare quote, explicit caller approval and public wallets; choose one-shot prepare or session mode, never both. AssetFare never receives private keys, signs, or submits. Legacy tools live at https://api.assetfare.dev/mcp/legacy." },
   );
 
   if (includeLegacy) addTool(server, "assetfare_status", LEGACY_STATUS_DESCRIPTION, emptyStrictInput, readonly(), () => api("/v1/status"));
   addTool(server, "assetfare_manifest", V2_MANIFEST_DESCRIPTION, emptyStrictInput, readonly(), async ()=>{const value=await api("/.well-known/assetfare-manifest.json");rejectSigningClaims(value);rejectPrivateOutputMaterial(value);return value;}, v2ManifestOutput);
   if (includeV2) addTool(server, "assetfare_v2_capabilities", V2_CAPABILITIES_DESCRIPTION, emptyStrictInput, readonly(), async () => parseV2Capabilities(await v2Api("/v2/capabilities", { timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true })), v2CapabilitiesResponse);
+  if (includeV2) addTool(server, "assetfare_v2_route_selection", V2_ROUTE_SELECTION_DESCRIPTION, v2RouteSelectionIntent, quoteOnly(), async (args) => {
+    const intent=parseV2RouteSelectionIntent(args);
+    return parseV2RouteSelection(await v2Api("/v2/route-selection",{method:"POST",body:intent,timeoutMs:V2_TIMEOUT_MS,maximumBytes:V2_MAX_RESPONSE_BYTES,rejectRedirects:true,sanitizeErrors:true}),intent);
+  },v2RouteSelectionOutput);
+  if (includeV2) addTool(server, "assetfare_v2_quote_selected_candidate", V2_SELECTED_QUOTE_DESCRIPTION, v2SelectedQuoteIntent, quoteOnly(), async (args) => {
+    const intent=parseV2RouteSelectionIntent(args,true);
+    return parseV2SelectedQuote(await v2Api("/v2/route-selection/quote",{method:"POST",body:intent,timeoutMs:V2_TIMEOUT_MS,maximumBytes:V2_MAX_RESPONSE_BYTES,rejectRedirects:true,sanitizeErrors:true}),intent);
+  },v2SelectedQuoteToolOutput);
   if (includeV2) addTool(server, "assetfare_v2_quote", V2_QUOTE_DESCRIPTION, v2QuoteIntent, quoteOnly(), async (args) => {
     const intent = parseV2Intent(args);
     const quote = parseV2Quote(await v2Api("/v2/quote", { method: "POST", body: intent, timeoutMs: V2_TIMEOUT_MS, maximumBytes: V2_MAX_RESPONSE_BYTES, rejectRedirects: true, sanitizeErrors: true }), intent);

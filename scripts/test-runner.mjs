@@ -13,6 +13,7 @@ const packaged=[
   "src/selftest.js",
   "src/tdqs-selftest.js",
   "src/v2-selftest.js",
+  "src/route-selection-selftest.js",
   "src/expansion-selftest.js",
   "src/v2-session-selftest.js",
   "src/a2a-selftest.js",
