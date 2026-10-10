@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "assetfare",
-  "version": "1.18.0",
-  "description": "Precomputed route intelligence for AI agents: fresh top-two all-in recommendations across 100 routes and exact selected-candidate requotes. The server never signs or submits transactions.",
+  "version": "1.19.0",
+  "description": "Route intelligence for AI agents: multi-amount candidate exploration and fresh exact-request top-two recommendations on pilot corridors. The server never signs or submits transactions.",
   "author": {
     "name": "AssetFare",
     "email": "support@assetfare.dev",

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.assetfare/assetfare",
   "title": "AssetFare",
-  "version": "1.18.0",
-  "description": "Top-two route intelligence across 100 available routes; caller signs; server never signs or submits",
+  "version": "1.19.0",
+  "description": "Exact-amount top-two routing for two pilot corridors; caller signs; server never signs or submits",
   "repository": {
     "url": "https://github.com/assetfare/assetfare-mcp",
     "source": "github"
