@@ -113,7 +113,7 @@ export function validateExpandedEconomicPolicy(payload, parseGuidance) {
   if (available) {
     const compareRequired = availableCount - 54;
     const nonrecommended = availableCount - 44;
-    const expectedPackageFloor = availableCount === 100 ? "1.17.0" : "1.16.0";
+    const expectedPackageFloor = availableCount === 100 ? "1.18.0" : "1.16.0";
     if (!exactKeys(policy, AVAILABLE_POLICY_KEYS)
         || policy.external_coverage_only_route_count !== 0
         || policy.active_route_count !== availableCount
