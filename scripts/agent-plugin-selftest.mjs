@@ -85,7 +85,7 @@ assert.match(
 );
 assert.match(skill, /when the wallet is already funded on an accepted\s+payment rail/i);
 assert.match(readme, /npx plugins add assetfare\/assetfare-mcp/);
-assert.match(readme, /primary remote endpoint\s+exposes nine current v2 tools/i);
+assert.match(readme, /primary remote endpoint\s+exposes eleven current v2 tools/i);
 assert.match(
   readme,
   /legacy tools remain available at the separate `\/mcp\/legacy`/i,
