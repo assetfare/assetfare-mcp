@@ -15,7 +15,7 @@ import { DIRECT_ROUTE_CONTRACT_COUNTS, isTargetActiveRoute, validateDirectRouteS
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.20.1";
+const VERSION = "1.20.2";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the active-route v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,
