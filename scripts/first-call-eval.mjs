@@ -15,7 +15,7 @@ function parse(result) {
 try {
   await client.connect(transport);
   const tools = await client.listTools();
-  const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_quote", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
+  const required = ["assetfare_manifest", "assetfare_v2_capabilities", "assetfare_v2_route_selection", "assetfare_v2_quote_selected_candidate", "assetfare_v2_quote", "assetfare_v2_prepare", "assetfare_v2_session_create", "assetfare_v2_session_get", "assetfare_v2_session_observe_source", "assetfare_v2_session_observe_output", "assetfare_v2_session_refresh_action"];
   const names = tools.tools.map((tool) => tool.name);
   const capabilities = parse(await client.callTool({ name: "assetfare_v2_capabilities", arguments: {} }));
   const quote = parse(await client.callTool({ name: "assetfare_v2_quote", arguments: { from_chain: "solana", from_token: "USDC", to_chain: "base", to_token: "USDC", amount_usd: 1000 } }));

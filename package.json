@@ -1,7 +1,7 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.19.1",
-  "description": "Route intelligence for AI agents across 100 available routes: multi-amount pilot shortlisting, fresh exact-amount top-two recommendations, and caller-signed plans. The server never signs or submits.",
+  "version": "1.20.0",
+  "description": "Route intelligence for AI agents across 100 available routes: four-pilot multi-amount graph exploration, fresh exact-amount top-two recommendations, and caller-signed plans. The server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
   "bin": {
