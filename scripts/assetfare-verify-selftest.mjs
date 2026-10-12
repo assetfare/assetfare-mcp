@@ -32,6 +32,10 @@ const ADDRESS = (number) => `0x${number.toString(16).padStart(40, "0")}`;
 const HASH = (number) => `0x${number.toString(16).padStart(64, "0")}`;
 const SHA = (text) => sha256Hex(Buffer.from(text));
 assert.deepEqual(RPC_PROVIDERS.sei.urls, ["https://evm-rpc-sei.stingray.plus", "https://sei-evm-rpc.publicnode.com"]);
+assert.equal(RPC_PROVIDERS.sei.receiptMode, "code_only_due_pruned_public_history");
+assert.deepEqual(RPC_PROVIDERS.injective.urls, ["https://sentry.evm-rpc.injective.network", "https://injective-evm-rpc.publicnode.com", "https://injective.drpc.org"]);
+assert.equal(RPC_PROVIDERS.injective.providerCapabilities["injective-evm-rpc.publicnode.com"].deploymentReceipt, false);
+assert.equal(RPC_PROVIDERS.injective.providerCapabilities["injective.drpc.org"].chainId, false);
 assert.deepEqual(RPC_PROVIDERS.unichain.urls, ["https://mainnet.unichain.org", "https://unichain-rpc.publicnode.com"]);
 assert.deepEqual(RPC_PROVIDERS.ink.urls, ["https://rpc-gel.inkonchain.com", "https://rpc-qnd.inkonchain.com"]);
 
@@ -303,10 +307,22 @@ function rpcFixture(fault = {}) {
 
 const goodQuorum = await verifyRpcQuorum(chains, rpcFixture());
 assert.equal(goodQuorum.length, 17);
+assert.equal(goodQuorum.find((row) => row.chain === "sei").evidence_mode, "code_only_due_pruned_public_history");
+assert.equal(goodQuorum.find((row) => row.chain === "base").evidence_mode, "code_and_receipt");
+assert.deepEqual(goodQuorum.find((row) => row.chain === "injective"), {
+  chain: "injective",
+  chain_id: 1776,
+  providers: ["sentry.evm-rpc.injective.network", "injective-evm-rpc.publicnode.com", "injective.drpc.org"],
+  contracts_verified: ["public_expansion_cctp"],
+  evidence_mode: "split_capability_quorum",
+  chain_id_quorum: 2,
+  code_quorum: 3,
+  deployment_receipt_quorum: 2,
+});
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "chain", host: "mainnet.base.org" })), /chain id mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "code", host: "arbitrum.drpc.org", contract: "swap" })), /raw code mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt", host: "base.drpc.org", contract: "cctp" })), /deployment receipt mismatch/);
-await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt_to", host: "sei-evm-rpc.publicnode.com", contract: "candidate_cctp" })), /deployment receipt mismatch/);
+await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "receipt_to", host: "xlayer.drpc.org", contract: "candidate_cctp" })), /deployment receipt mismatch/);
 await expectReject(() => verifyRpcQuorum(chains, rpcFixture({ type: "incomplete", host: "polygon.drpc.org" })), /invalid response|incomplete evidence/);
 
 process.stdout.write("assetfare verifier hostile selftest: pass\n");

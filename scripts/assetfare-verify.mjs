@@ -30,7 +30,7 @@ const RPC_PROVIDERS = Object.freeze({
   }),
   ethereum: Object.freeze({
     chainId: 1,
-    urls: Object.freeze(["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"]),
+    urls: Object.freeze(["https://eth-mainnet.public.blastapi.io", "https://eth.drpc.org"]),
     contractNames: Object.freeze(["expansion_cctp"]),
   }),
   hyperevm: Object.freeze({
@@ -57,6 +57,7 @@ const RPC_PROVIDERS = Object.freeze({
     chainId: 1329,
     urls: Object.freeze(["https://evm-rpc-sei.stingray.plus", "https://sei-evm-rpc.publicnode.com"]),
     contractNames: Object.freeze(["candidate_cctp"]),
+    receiptMode: "code_only_due_pruned_public_history",
   }),
   sonic: Object.freeze({
     chainId: 146,
@@ -71,7 +72,20 @@ const RPC_PROVIDERS = Object.freeze({
   monad: Object.freeze({chainId:143,urls:Object.freeze(["https://rpc.monad.xyz","https://rpc-mainnet.monadinfra.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   avalanche: Object.freeze({chainId:43114,urls:Object.freeze(["https://api.avax.network/ext/bc/C/rpc","https://avalanche-c-chain-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   cronos: Object.freeze({chainId:25,urls:Object.freeze(["https://evm.cronos.org","https://cronos-evm-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
-  injective: Object.freeze({chainId:1776,urls:Object.freeze(["https://sentry.evm-rpc.injective.network","https://injectiveevm-rpc.polkachu.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
+  injective: Object.freeze({
+    chainId: 1776,
+    urls: Object.freeze([
+      "https://sentry.evm-rpc.injective.network",
+      "https://injective-evm-rpc.publicnode.com",
+      "https://injective.drpc.org",
+    ]),
+    contractNames: Object.freeze(["public_expansion_cctp"]),
+    evidenceMode: "split_capability_quorum",
+    providerCapabilities: Object.freeze({
+      "injective-evm-rpc.publicnode.com": Object.freeze({ deploymentReceipt: false }),
+      "injective.drpc.org": Object.freeze({ chainId: false }),
+    }),
+  }),
   linea: Object.freeze({chainId:59144,urls:Object.freeze(["https://rpc.linea.build","https://linea-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   unichain: Object.freeze({chainId:130,urls:Object.freeze(["https://mainnet.unichain.org","https://unichain-rpc.publicnode.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
   ink: Object.freeze({chainId:57073,urls:Object.freeze(["https://rpc-gel.inkonchain.com","https://rpc-qnd.inkonchain.com"]),contractNames:Object.freeze(["public_expansion_cctp"])}),
@@ -478,12 +492,16 @@ async function verifyPublicEvidence(bundle, fetchImpl = fetch) {
   return { repository: bundle.release.public_evidence_repository, commit, hashed_files: hashes, build_scripts: scripts };
 }
 
-async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
+async function rpcRead(providerUrl, chain, receiptMode = "code_and_receipt", providerCapabilities = {}, fetchImpl = fetch) {
+  const verifyChainId = providerCapabilities.chainId !== false;
+  const verifyDeploymentReceipt = receiptMode === "code_and_receipt" && providerCapabilities.deploymentReceipt !== false;
   const requests = [
-    { jsonrpc: "2.0", id: "chain-id", method: "eth_chainId", params: [] },
-    ...[...chain.contracts.values()].flatMap((contract) => [
+    ...(verifyChainId ? [{ jsonrpc: "2.0", id: "chain-id", method: "eth_chainId", params: [] }] : []),
+    ...[...chain.contracts.values()].flatMap((contract) => verifyDeploymentReceipt ? [
       { jsonrpc: "2.0", id: `code:${contract.name}`, method: "eth_getCode", params: [contract.address, "latest"] },
       { jsonrpc: "2.0", id: `receipt:${contract.name}`, method: "eth_getTransactionReceipt", params: [contract.transaction_hash] },
+    ] : [
+      { jsonrpc: "2.0", id: `code:${contract.name}`, method: "eth_getCode", params: [contract.address, "latest"] },
     ]),
   ];
   const hostname = new URL(providerUrl).hostname;
@@ -512,7 +530,7 @@ async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
   }
   const expectedChainId = `0x${chain.chain_id.toString(16)}`;
   if (byId.size !== requests.length) fail(`RPC ${hostname} returned incomplete evidence`);
-  if (byId.get("chain-id") !== expectedChainId) fail(`RPC ${hostname} chain id mismatch`);
+  if (verifyChainId && byId.get("chain-id") !== expectedChainId) fail(`RPC ${hostname} chain id mismatch`);
   const codes = new Map();
   const receipts = new Map();
   for (const contract of chain.contracts.values()) {
@@ -522,6 +540,7 @@ async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
     if (normalized !== contract.runtime_code.toLowerCase()) fail(`RPC ${hostname} raw code mismatch for ${chain.name}:${contract.name}`);
     if (sha256Hex(Buffer.from(normalized.slice(2), "hex")) !== contract.runtime_code_sha256) fail(`RPC ${hostname} code SHA-256 mismatch for ${chain.name}:${contract.name}`);
     codes.set(contract.name, normalized);
+    if (!verifyDeploymentReceipt) continue;
     const receipt = byId.get(`receipt:${contract.name}`);
     if (!isObject(receipt) || typeof receipt.transactionHash !== "string" || typeof receipt.blockHash !== "string" || typeof receipt.blockNumber !== "string" || typeof receipt.contractAddress !== "string" || receipt.transactionHash.toLowerCase() !== contract.transaction_hash || receipt.blockHash.toLowerCase() !== contract.block_hash || receipt.contractAddress.toLowerCase() !== contract.address.toLowerCase() || receipt.status !== "0x1" || receipt.to != null) fail(`RPC ${hostname} deployment receipt mismatch for ${chain.name}:${contract.name}`);
     try {
@@ -529,7 +548,7 @@ async function rpcRead(providerUrl, chain, fetchImpl = fetch) {
     } catch { fail(`RPC ${hostname} deployment block is invalid for ${chain.name}:${contract.name}`); }
     receipts.set(contract.name, canonical({ blockHash: receipt.blockHash.toLowerCase(), blockNumber: receipt.blockNumber.toLowerCase(), contractAddress: receipt.contractAddress.toLowerCase(), status: receipt.status, to: receipt.to ?? null, transactionHash: receipt.transactionHash.toLowerCase() }));
   }
-  return { host: hostname, chainId: chain.chain_id, codes, receipts };
+  return { host: hostname, chainIdVerified: verifyChainId, codes, deploymentReceiptVerified: verifyDeploymentReceipt, receipts };
 }
 
 async function verifyRpcQuorum(chains, fetchImpl = fetch) {
@@ -537,13 +556,30 @@ async function verifyRpcQuorum(chains, fetchImpl = fetch) {
   for (const name of Object.keys(RPC_PROVIDERS)) {
     const chain = chains.get(name);
     const pin = RPC_PROVIDERS[name];
-    if (new Set(pin.urls.map((url) => new URL(url).hostname)).size !== 2) fail(`RPC pins for ${name} are not independent hosts`);
-    const observations = await Promise.all(pin.urls.map((url) => rpcRead(url, chain, fetchImpl)));
+    if (pin.urls.length < 2 || new Set(pin.urls.map((url) => new URL(url).hostname)).size !== pin.urls.length) fail(`RPC pins for ${name} are not independent hosts`);
+    const receiptMode = pin.receiptMode ?? "code_and_receipt";
+    const observations = await Promise.all(pin.urls.map((url) => {
+      const hostname = new URL(url).hostname;
+      return rpcRead(url, chain, receiptMode, pin.providerCapabilities?.[hostname] ?? {}, fetchImpl);
+    }));
+    const chainIdObservations = observations.filter((row) => row.chainIdVerified);
+    if (chainIdObservations.length < 2) fail(`RPC pins for ${name} do not provide two chain id checks`);
+    const receiptObservations = observations.filter((row) => row.deploymentReceiptVerified);
+    if (receiptMode === "code_and_receipt" && receiptObservations.length < 2) fail(`RPC pins for ${name} do not provide two deployment receipt checks`);
     for (const contractName of pin.contractNames) {
-      if (observations[0].codes.get(contractName) !== observations[1].codes.get(contractName)) fail(`RPC providers disagree on ${name}:${contractName}`);
-      if (observations[0].receipts.get(contractName) !== observations[1].receipts.get(contractName)) fail(`RPC providers disagree on deployment receipt ${name}:${contractName}`);
+      if (observations.some((row) => row.codes.get(contractName) !== observations[0].codes.get(contractName))) fail(`RPC providers disagree on ${name}:${contractName}`);
+      if (receiptMode === "code_and_receipt" && receiptObservations.some((row) => row.receipts.get(contractName) !== receiptObservations[0].receipts.get(contractName))) fail(`RPC providers disagree on deployment receipt ${name}:${contractName}`);
     }
-    output.push({ chain: name, chain_id: chain.chain_id, providers: observations.map(({ host }) => host), contracts_verified: pin.contractNames });
+    output.push({
+      chain: name,
+      chain_id: chain.chain_id,
+      providers: observations.map(({ host }) => host),
+      contracts_verified: pin.contractNames,
+      evidence_mode: pin.evidenceMode ?? receiptMode,
+      chain_id_quorum: chainIdObservations.length,
+      code_quorum: observations.length,
+      deployment_receipt_quorum: receiptObservations.length,
+    });
   }
   return output;
 }
@@ -580,8 +616,8 @@ const USAGE = `Usage:
   assetfare-verify --offline --manifest FILE --bundle FILE --pubkey FILE
 
 Live mode uses an embedded AssetFare Ed25519 public key and key id, fetches only
-the pinned manifest/bundle URLs, and performs read-only quorum checks against two
-pinned public RPC providers per supported EVM chain. Offline mode performs no
+the pinned manifest/bundle URLs, and performs read-only quorum checks against at
+least two pinned public RPC providers per supported EVM chain. Offline mode performs no
 network requests and treats the explicitly supplied public key as its trust root.`;
 
 async function run(args, options = {}) {
