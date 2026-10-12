@@ -48,12 +48,12 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.21.2");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.21.2");assert.equal(lockMetadata.packages[""].version, "1.21.2");}
-assert.equal(registryMetadata.version, "1.21.2");
+assert.equal(packageMetadata.version, "1.21.3");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.21.3");assert.equal(lockMetadata.packages[""].version, "1.21.3");}
+assert.equal(registryMetadata.version, "1.21.3");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.21.2");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.21.3");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:100, steps:208 });
 assert.equal(directRouteContract.route_count,100);
 assert.equal(directRouteContract.step_count,208);
@@ -346,7 +346,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 11);
-  assert.equal(card.serverInfo.version, "1.21.2");
+  assert.equal(card.serverInfo.version, "1.21.3");
   assert.equal(card.tools.length, 11);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");
@@ -366,6 +366,9 @@ try {
   for (const name of ["assetfare_v2_capabilities", "assetfare_v2_route_selection", "assetfare_v2_quote_selected_candidate", "assetfare_v2_quote", ...newTools]) assert.equal(listed.tools.find((tool) => tool.name === name).description, card.tools.find((item) => item.name === name).description, `description drift for ${name}`);
   assert.equal(dynamicCapabilities.description, staticCapabilities.description);
   assert.equal(dynamicQuote.description, staticQuote.description);
+  assert.equal(dynamicSelection.inputSchema.properties.max_eta_seconds.maximum, 60);
+  assert.equal(dynamicSelection.outputSchema.properties.selection_policy.properties.max_eta_seconds.maximum, 60);
+  assert.match(dynamicSelection.description, /60-second ceiling is absolute/);
   assert.deepEqual(normalizedInputSchema(dynamicCapabilities.inputSchema), normalizedInputSchema(staticCapabilities.inputSchema));
   assert.deepEqual(normalizedInputSchema(dynamicQuote.inputSchema), normalizedInputSchema(staticQuote.inputSchema));
   assert.deepEqual(dynamicQuote.inputSchema.properties.from_chain.enum, ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos", "unichain", "ink"]);
