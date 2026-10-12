@@ -386,7 +386,7 @@ function callerWalletHandoff(bundle,verification){
 
 function localExecutionGate(handoff){
   if(!handoff||handoff.proof_carrying_action?.version!==PROOF_CARRYING_ACTION_VERSION||handoff.proof_carrying_action?.local_verification_required!==true)throw new Error("assetfare_plan_proof_carrying_handoff_invalid");
-  return {version:"assetfare-local-execution-gate-1.0.0",required:true,verification_location:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.21.0",verdict_schema:handoff.proof_carrying_action.local_verdict_schema,remote_semantic_verification_is_not_signing_authority:true,required_pre_sign_status:"verified_for_signing",next_action:"run_local_verifier_then_fresh_wallet_simulation",assetfare_server_signing:false,assetfare_server_submission:false};
+  return {version:"assetfare-local-execution-gate-1.0.0",required:true,verification_location:"caller_process_only",package:"assetfare-mcp",minimum_package_version:"1.21.1",verdict_schema:handoff.proof_carrying_action.local_verdict_schema,remote_semantic_verification_is_not_signing_authority:true,required_pre_sign_status:"verified_for_signing",next_action:"run_local_verifier_then_fresh_wallet_simulation",assetfare_server_signing:false,assetfare_server_submission:false};
 }
 
 function localVerificationVerdict(handoff,{callerPolicyAuthorized=false,simulationSuccess=false,requestBindingSha256=null,executionWindowSha256=null}={}){
