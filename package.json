@@ -79,7 +79,7 @@
     "@a2a-js/sdk": "1.1.0",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@noble/hashes": "1.8.0",
-    "@solana/web3.js": "1.99.0",
+    "@solana/web3.js": "3.0.2",
     "bs58": "6.0.0",
     "express": "5.1.0",
     "zod": "3.25.76"
