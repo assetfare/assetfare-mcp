@@ -24,7 +24,7 @@ const server=createServer({},"v2"),[clientTransport,serverTransport]=InMemoryTra
 try{
   await server.connect(serverTransport);await client.connect(clientTransport);
   const args={session_token:token,session_id:sessionId,verification_context:evmContext};
-  mode="evm";const valid=parse(await call(client,"assetfare_v2_session_get",args));assert.equal(valid.semantic_verification,true);assert.equal(valid.action_verification.verified,true);assert.equal(valid.caller_wallet_handoff.wallet_standard,"EIP-1193");assert.doesNotMatch(JSON.stringify(valid),new RegExp(token));
+  mode="evm";const valid=parse(await call(client,"assetfare_v2_session_get",args));assert.equal(valid.semantic_verification,true);assert.equal(valid.action_verification.verified,true);assert.equal(valid.caller_wallet_handoff.wallet_standard,"EIP-1193");assert.equal(valid.caller_wallet_handoff.proof_carrying_action.local_verification_required,true);assert.equal(valid.local_execution_gate.required_pre_sign_status,"verified_for_signing");assert.doesNotMatch(JSON.stringify(valid),new RegExp(token));
   const beforeMissing=calls,missing=await call(client,"assetfare_v2_session_get",{session_token:token,session_id:sessionId});assert.equal(missing.isError,true);assert.match(missing.content[0].text,/Required at verification_context/);assert.equal(calls,beforeMissing);
   mode="missing-receipt";const noReceipt=await call(client,"assetfare_v2_session_get",args);assert.equal(noReceipt.isError,true);assert.match(parse(noReceipt).error,/bundle_receipt_invalid|receipt_version/);
   mode="hostile-evm";const evmHostile=await call(client,"assetfare_v2_session_get",args);assert.equal(evmHostile.isError,true);assert.match(parse(evmHostile).error,/evm_cctp_target/);
