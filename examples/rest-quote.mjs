@@ -12,6 +12,8 @@ if (!Number.isFinite(amountUsd) || amountUsd < 1) {
   throw new Error("amount must be a finite USD number of at least 1");
 }
 
+// Some routes (Robinhood Chain in particular) take 15 to 30 s to quote; the
+// MCP server and route-eval allow 45 s for the same call.
 const response = await fetch(endpoint, {
   method: "POST",
   headers: {
@@ -25,7 +27,7 @@ const response = await fetch(endpoint, {
     to_token: toToken,
     amount_usd: amountUsd,
   }),
-  signal: AbortSignal.timeout(15_000),
+  signal: AbortSignal.timeout(45_000),
 });
 
 const body = await response.json();
