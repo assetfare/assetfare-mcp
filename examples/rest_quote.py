@@ -30,6 +30,8 @@ payload = json.dumps(
     },
     separators=(",", ":"),
 ).encode()
+# Some routes (Robinhood Chain in particular) take 15 to 30 s to quote; the
+# MCP server and route-eval allow 45 s for the same call.
 request = urllib.request.Request(
     "https://api.assetfare.dev/v2/quote",
     data=payload,
@@ -39,5 +41,5 @@ request = urllib.request.Request(
     },
     method="POST",
 )
-with urllib.request.urlopen(request, timeout=15) as response:
+with urllib.request.urlopen(request, timeout=45) as response:
     print(json.dumps(json.load(response), indent=2, sort_keys=True))
