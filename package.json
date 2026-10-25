@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.21.5",
+  "version": "1.21.6",
   "description": "Non-custodial quotes and caller-signed plans for 65 curated route products: 3 core, 50 conditional, and 12 strategic/scarce. The server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -71,6 +71,9 @@
     "node": ">=20"
   },
   "overrides": {
+    "fast-uri": "3.1.9",
+    "ip-address": "10.7.5",
+    "stream-json": "3.7.0",
     "jayson": {
       "uuid": "11.1.1"
     }
