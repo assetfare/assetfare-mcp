@@ -82,7 +82,7 @@
     "@solana/web3.js": "1.99.0",
     "bs58": "6.0.0",
     "express": "5.1.0",
-    "zod": "3.25.76"
+    "zod": "4.6.7"
   },
   "scripts": {
     "start": "node src/server.js",
