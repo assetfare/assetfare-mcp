@@ -5,17 +5,14 @@ This integration exposes two read-only AgentKit actions:
 - `assetfare_get_capabilities`
 - `assetfare_quote_route`
 
-It uses AssetFare REST/OpenAPI v2 across 100 available routes: 44 have a
-verified threshold and 56 have no current price recommendation. It never accepts a private key and never authenticates a wallet, creates
+It uses AssetFare REST/OpenAPI v2 across 65 curated public route products:
+3 core, 50 conditional, and 12 strategic/scarce. It never accepts a private key and never authenticates a wallet, creates
 a session, prepares an action, signs, submits, funds, swaps, or bridges.
-Quote amounts must be finite and at least USD 1. At or above a numeric
-`advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is
-availability-only and not a cheapest-price claim.
+Quote amounts must be finite and at least USD 1. Confirm every fresh quote.
 This provider imposes no maximum, while live availability still applies.
 Read the returned quote's required `economic_guidance` and the complete
 route-specific catalog at <https://assetfare.dev/route-economics.json>.
-`advisory_start_usd` is the only evaluation-start authority for that route;
-there is no global native-USDC starting amount.
+Route inclusion is a weekly reviewed whole-product decision, not an amount gate.
 
 ## Verified direct path on every quote
 

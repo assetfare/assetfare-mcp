@@ -53,7 +53,7 @@ export class AssetFareService {
 
   @Tool({
     name: "assetfare_quote_route",
-    description: "Request one fresh quote on AssetFare's 100 available routes. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
+    description: "Request one fresh quote on AssetFare's 65 curated public route products. Confirm every fresh quote. This tool never authenticates, prepares, signs, submits, funds, swaps, or bridges.",
   })
   async quoteRoute(parameters: AssetFareQuoteParameters) {
     const quoteRaw = await this.request("/v2/quote", {

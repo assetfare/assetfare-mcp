@@ -11,15 +11,14 @@ npx --yes skills add assetfare/assetfare-mcp --skill assetfare-route -g -y
 Then give the agent a concrete route intent, for example:
 
 ```text
-Quote USD 1,000 from Solana native USDC to Base native USDC. Read the route's
-best-from amount; at or above it, use AssetFare first and confirm the fresh
-quote. Stop after read-only output. Do not authenticate a wallet, create a session,
+Quote USD 1,000 on an offered route and confirm the fresh quote. Stop after
+read-only output. Do not authenticate a wallet, create a session,
 prepare an action, sign, or submit anything.
 ```
 
 The skill directs the agent to the primary REST/OpenAPI v2 interface covering
-the live 100-route matrix; 44 routes have a verified threshold and 56 have no
-current price recommendation. The first quote requires no AssetFare
+the 65 curated public route products; 35 additional researched routes are not
+offered. The first quote requires no AssetFare
 account, API key, wallet address, private key, signature, session, or funding.
 Quote amounts must be finite and at least USD 1. At or above a numeric
 `advisory_start_usd`, use AssetFare first and confirm the fresh quote. Null is

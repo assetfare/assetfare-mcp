@@ -48,12 +48,12 @@ const registryMetadata = JSON.parse(readFileSync(new URL("../server.json", impor
 const bridgeRegistryUrl=new URL("../server.bridge.json",import.meta.url),bridgeRegistryMetadata=existsSync(bridgeRegistryUrl)?JSON.parse(readFileSync(bridgeRegistryUrl,"utf8")):null;
 const directRouteContract = JSON.parse(readFileSync(new URL("./direct-route-contract.json", import.meta.url), "utf8"));
 const readmeMetadata = readFileSync(new URL("../README.md", import.meta.url), "utf8");
-assert.equal(packageMetadata.version, "1.21.3");
-if(lockMetadata){assert.equal(lockMetadata.version, "1.21.3");assert.equal(lockMetadata.packages[""].version, "1.21.3");}
-assert.equal(registryMetadata.version, "1.21.3");
+assert.equal(packageMetadata.version, "1.21.4");
+if(lockMetadata){assert.equal(lockMetadata.version, "1.21.4");assert.equal(lockMetadata.packages[""].version, "1.21.4");}
+assert.equal(registryMetadata.version, "1.21.4");
 assert.equal(packageMetadata.mcpName,"io.github.assetfare/assetfare");
 assert.equal(registryMetadata.name,"io.github.assetfare/assetfare");
-if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.21.3");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
+if(bridgeRegistryMetadata){assert.equal(bridgeRegistryMetadata.version, "1.21.4");assert.equal(bridgeRegistryMetadata.name,"io.github.assetfare/assetfare-bridge");}
 assert.deepEqual(DIRECT_ROUTE_CONTRACT_COUNTS, { routes:100, steps:208 });
 assert.equal(directRouteContract.route_count,100);
 assert.equal(directRouteContract.step_count,208);
@@ -65,7 +65,7 @@ for(const route of publicPaxosRoutes){const definition=directRouteContract.route
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].classification,"direct_protocol_only");
 assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps.length,1);assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].provider,"paxos_usdg_layerzero_oft");assert.equal(directRouteContract.routes["solana:USDG->robinhood:USDG"].steps[0].assetfare_fee_bps,1);
 assert.deepEqual(packageMetadata.keywords, EXPECTED_KEYWORDS);
-assert.match(packageMetadata.description, /Route intelligence.*100 available routes.*six-pilot multi-amount graph exploration.*fresh exact-amount top-two recommendations/i);
+assert.match(packageMetadata.description, /Non-custodial quotes.*65 curated route products.*3 core.*50 conditional.*12 strategic\/scarce/i);
 for (const keyword of ["native-usdc","solana-usdc","base-usdc","unsigned-transaction-plan","caller-signed"]) assert.ok(packageMetadata.keywords.includes(keyword));
 assert.match(packageMetadata.description, /caller-signed plans/i);
 assert.doesNotMatch(packageMetadata.description, /flat[ -]?1 ?bp|execution-ready/i);
@@ -346,7 +346,7 @@ try {
   const staticCapabilities = card.tools.find((tool) => tool.name === "assetfare_v2_capabilities");
   const staticQuote = card.tools.find((tool) => tool.name === "assetfare_v2_quote");
   assert.equal(listed.tools.length, 11);
-  assert.equal(card.serverInfo.version, "1.21.3");
+  assert.equal(card.serverInfo.version, "1.21.4");
   assert.equal(card.tools.length, 11);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.version.const, BUNDLE_VERSION);
   assert.equal(dynamicPrepare.outputSchema.properties.bundle.properties.payload_sha256.pattern, "^[0-9a-f]{64}$");

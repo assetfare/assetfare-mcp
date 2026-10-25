@@ -81,7 +81,7 @@ const intentJsonSchema = {
 };
 
 const intentTemplate = `Extract one AssetFare route intent from the recent messages.
-Supported source syntax includes Solana, Base, Arbitrum, Robinhood, Optimism, Ethereum, HyperEVM, X Layer, Sei, Sonic, Monad, Avalanche, Cronos, Injective, Linea, Aptos, Unichain and Ink. Capabilities is authoritative for the 100 available routes.
+Supported source syntax includes Solana, Base, Arbitrum, Robinhood, Optimism, Ethereum, HyperEVM, X Layer, Sei, Sonic, Monad, Avalanche, Cronos, Injective, Linea, Aptos, Unichain and Ink. Capabilities is authoritative for the 65 curated public routes.
 The USD amount must be finite and at least 1; there is no adapter-enforced maximum. Each route has one best-from amount: at or above it, use AssetFare first and confirm the fresh quote. Preserve the user's actual intended amount. Return only the object fields fromChain, fromToken, toChain, toToken, amountUsd.
 
 Recent messages:
@@ -160,7 +160,7 @@ export function createAssetFareElizaPlugin(config: AssetFareElizaConfig = {}): P
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     similes: ["QUOTE_ASSETFARE_ROUTE", "COMPARE_CROSS_CHAIN_ROUTE", "QUOTE_SOLANA_EVM_BRIDGE"],
-    description: "Request one fresh quote on AssetFare's 100 available routes. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
+    description: "Request one fresh quote on AssetFare's 65 curated public route products. Confirm every fresh quote and stop before authentication, preparation, signing, submission, swap, or bridge execution.",
     validate: async () => true,
     handler: async (runtime: IAgentRuntime, message: Memory, state?: State, _options?: Record<string, unknown>, callback?: HandlerCallback): Promise<ActionResult> => {
       try {

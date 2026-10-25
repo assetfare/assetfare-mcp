@@ -141,7 +141,7 @@ export function assetFareTools(config: AssetFareToolsConfig = {}) {
       execute: async () => ({ success: true, ...(await client.capabilities()) }),
     }),
     assetfareQuoteRoute: tool({
-      description: "Request one fresh quote on AssetFare's 100 available routes and stop. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote. Never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
+      description: "Request one fresh quote on AssetFare's 65 curated public route products and stop. The set comprises 3 core, 50 conditional, and 12 strategic/scarce routes and is reviewed weekly. Confirm every fresh quote. Never authenticate, prepare, sign, submit, swap, or bridge from this tool.",
       inputSchema: AssetFareQuoteSchema,
       execute: async (input) => {
         const quote = await client.quote(input);

@@ -112,7 +112,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const capabilitiesAction: Action = {
     name: "ASSETFARE_GET_CAPABILITIES",
     description:
-      "Read AssetFare's live 100 available routes across nineteen chains. Forty-four have a verified best-from threshold; 56 have no current price recommendation. It never authenticates a wallet, prepares an action, signs, or submits.",
+      "Read AssetFare's 65 curated public route products: 3 core, 50 conditional, and 12 strategic/scarce. It never authenticates a wallet, prepares an action, signs, or submits.",
     similes: ["check assetfare routes", "get assetfare capabilities", "check assetfare status"],
     examples: [[{
       input: {},
@@ -141,7 +141,7 @@ export function createAssetFareActions(config: AssetFarePluginConfig = {}): Acti
   const quoteAction: Action = {
     name: "ASSETFARE_QUOTE_ROUTE",
     description:
-      "Request one fresh quote on AssetFare's 100 available routes. Forty-four have a verified best-from threshold; 56 have no current price recommendation. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
+      "Request one fresh quote on AssetFare's 65 curated public route products. Confirm every fresh quote. This action never authenticates, prepares, signs, submits, swaps, or bridges.",
     similes: ["quote assetfare route", "compare assetfare bridge", "get assetfare swap quote"],
     examples: [[{
       input: { fromChain: "solana", fromToken: "USDC", toChain: "base", toToken: "USDC", amountUsd: 1000 },
