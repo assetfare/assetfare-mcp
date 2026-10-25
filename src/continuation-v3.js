@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const CONTINUATION_V3_VERSION = "assetfare-quote-bound-continuation-v3";
 export const APPROVAL_V3_VERSION = "assetfare-quote-bound-approval-v3";

@@ -1,6 +1,6 @@
 {
   "name": "assetfare-mcp",
-  "version": "1.21.4",
+  "version": "1.21.5",
   "description": "Non-custodial quotes and caller-signed plans for 65 curated route products: 3 core, 50 conditional, and 12 strategic/scarce. The server never signs or submits.",
   "type": "module",
   "main": "src/server.js",
@@ -80,9 +80,10 @@
     "@modelcontextprotocol/sdk": "1.32.1",
     "@noble/hashes": "1.8.0",
     "@solana/web3.js": "1.99.0",
+    "body-parser": "2.4.0",
     "bs58": "6.0.0",
-    "express": "5.1.0",
-    "zod": "3.25.76"
+    "express": "5.3.0",
+    "zod": "4.6.7"
   },
   "scripts": {
     "start": "node src/server.js",

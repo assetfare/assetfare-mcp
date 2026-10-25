@@ -8,14 +8,14 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { agentCardHandler, jsonRpcHandler, UserBuilder } from "@a2a-js/sdk/server/express";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { AGENT_CARD_PATH, createAssetFareA2A } from "./a2a.js";
 import { approvalDraft, approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema, reapprovalV3Schema, validateContinuationV3 } from "./continuation-v3.js";
 import { DIRECT_ROUTE_CONTRACT_COUNTS, isTargetActiveRoute, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
 import { isMain } from "./is-main.js";
 
-const VERSION = "1.21.4";
+const VERSION = "1.21.5";
 const API_BASE = (process.env.ASSETFARE_API_BASE_URL || "https://api.assetfare.dev").replace(/\/$/, "");
 // The legacy v1 API and the active-route v2 API run on separate local services
 // in production. Reuse the already-required A2A/v2 base as the safe fallback,

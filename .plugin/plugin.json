@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "1.21.4",
+  "version": "1.21.5",
   "description": "Route intelligence for AI agents: multi-amount candidate exploration and fresh exact-request top-two recommendations on pilot corridors. The server never signs or submits transactions.",
   "author": {
     "name": "AssetFare",

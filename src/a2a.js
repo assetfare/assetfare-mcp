@@ -14,7 +14,7 @@ import {
   DefaultRequestHandler,
   InMemoryTaskStore,
 } from "@a2a-js/sdk/server";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { approvalV3Schema, continuationV3CapabilitySchema, continuationV3Schema, reapprovalV3Schema, validateContinuationV3 } from "./continuation-v3.js";
 import { isTargetActiveRoute, validateDirectRouteSummary } from "./direct-route-summary.js";
 import { validateExpandedEconomicPolicy, validatePreExpansionEconomicPolicy } from "./economic-guidance-policy.js";
